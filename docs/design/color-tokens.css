@@ -1,0 +1,24 @@
+:root {
+  --crm-navy-950: #0d1117;
+  --crm-slate-800: #1e293b;
+  --crm-primary: #2563eb;
+  --crm-teal: #14b8a6;
+  --crm-amber: #f59e0b;
+  --crm-danger: #ef4444;
+  --crm-surface: #f8fafc;
+  --crm-success: #22c55e;
+  --crm-info: #3b82f6;
+  --crm-purple: #8b5cf6;
+  --stage-awareness: #2563eb;
+  --stage-interest: #14b8a6;
+  --stage-consideration: #f59e0b;
+  --stage-decision: #8b5cf6;
+  --stage-onboarding: #22c55e;
+  --stage-loyalty: #06b6d4;
+  --stage-advocacy: #ef4444;
+  --radius-card: 8px;
+  --radius-control: 6px;
+  --space-unit: 8px;
+  --motion-fast: 150ms;
+  --motion-normal: 200ms;
+}
