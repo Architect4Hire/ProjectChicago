@@ -9,7 +9,7 @@ Project memory, written as a SCRUB prompt — Scope, Constraints, Restrictions, 
 - The reusable Claude Code engineering toolkit lives in `.claude/`.
 - In bounds: existing bounded services, each service's HTTP host, `.Core` project and `.Functions` project; the YARP gateway; Contracts and Shared libraries; Aspire AppHost/ServiceDefaults; Microsoft SQL databases; Service Bus resources; and the React client.
 - Out of bounds unless explicitly approved: inventing a new bounded service, sharing a service database, introducing a second message broker, server-side React/Next.js, bypassing PCDS with a competing design system, or replacing architectural seams for convenience.
-- The initial bounded-context catalog is intentionally not invented in this toolkit. When the project defines service names and ownership, document them here and in an architecture decision record.
+- The initial bounded-context catalog is confirmed in **ADR-0015**: six services (CRM, Identity, Audit, Notification, Search, Workflow), each with one HTTP host, one `.Core`, one `.Functions` project, and one dedicated SQL database. Service ownership and integration topology are documented there and below.
 
 ## Constraints
 
@@ -112,7 +112,7 @@ ProjectChicago.<Service>.Core # service implementation; references Shared/Contra
 - Project Chicago uses **ASP.NET Core Identity** as the application identity system.
 - Do not replace ASP.NET Core Identity with Entra ID, Auth0, another OIDC product, or a custom password/token store unless an explicit architecture decision changes the baseline.
 - ASP.NET Core Identity owns user credentials, password hashing, users, roles/claims, reset/confirmation tokens, lockout and related account-security mechanics through supported framework APIs. Do not reimplement those mechanics in CRM domain code.
-- The bounded service/database that will own the Identity store is intentionally **not selected yet** because the bounded-service catalog is not defined. Do not invent an Identity service as a side effect of another feature.
+- The **Identity Service** (ADR-0015) owns the ASP.NET Core Identity store and all user credential/account/role/claims state. Do not invent alternative identity stores or embed identity logic in other services.
 - Browser authentication traffic goes through YARP to the eventual owning HTTP service. React never connects to an Identity database or Function endpoint directly.
 - Cookie vs token transport, refresh/session strategy, MFA/passkey adoption, external providers and account-recovery policy require explicit security decisions; do not silently choose them while implementing an unrelated feature.
 - Resource/action authorization remains service-owned even when the gateway applies edge-wide authenticated-user requirements.
@@ -207,22 +207,32 @@ Use read-only agents after implementation:
 
 ## Confirmed architecture decisions
 
-1. The bounded-service catalog is intentionally undefined. Claude must not invent service names or boundaries.
-2. Every future bounded service uses one HTTP host, one `.Core`, and one `.Functions` project.
+1. **ADR-0015**: The initial bounded-service catalog comprises six services: **CRM** (Clients/Projects/Tasks), **Identity** (ASP.NET Core Identity), **Audit** (append-only audit trail), **Notification** (event-driven notifications), **Search** (denormalized read-model), **Workflow** (automation rules). Clients, Projects, and Tasks remain permanently in the CRM service boundary unless a superseding ADR changes this. Do not invent additional services or move core entities without an ADR.
+2. Every bounded service uses one HTTP host, one `.Core`, and one `.Functions` project.
 3. Each publishing service uses a timer-triggered Function to drain its transactional outbox.
 4. Each Service Bus subscription is consumed from the owning service's `.Functions` project.
 5. Azure Functions production hosting is **Flex Consumption**. Function deployment guidance must not depend on unsupported hosting features such as deployment slots.
 6. YARP is the **only gateway / browser-facing backend edge** for the solution. React never calls service or Function endpoints directly.
 7. Each bounded service owns exactly one Microsoft SQL database. Local Aspire may use one SQL Server resource with one database resource per service while preserving ownership isolation.
 8. PCDS is copied into Project Chicago and consumed from the local source in the React application. Skills must inspect and reuse/extend that local design system rather than recreating it.
-9. Application identity uses **ASP.NET Core Identity**. Identity-store bounded-context ownership and auth transport/session details remain open until the service/security design is defined.
+9. Application identity uses **ASP.NET Core Identity** in the **Identity Service** (ADR-0015). Auth transport (cookie/token), session/refresh strategy, MFA/passkey adoption, and external-provider policy remain open — ADR-0018.
+10. **ADR-0016**: Audit Service ingests all business mutations as integration events through Service Bus (never direct database writes). Audit owns its database exclusively, maintains append-only AuditEvents table, enforces idempotency through inbox pattern, redacts sensitive fields before persistence, captures before/after values and correlation/trace metadata, and documents retention policy and purge governance before production.
+11. **ADR-0017**: Single shared topic `ProjectChicago.Events` with per-service subscriptions (Audit initially). CRM and Identity publish via timer-triggered outbox relay Functions. Audit consumes via Service Bus trigger with no filtering. All entity names, connection strings, and timing parameters are configuration-driven (never hardcoded). Dead-letter queue and retry metrics are observable. Future services (Notification, Search, Workflow) extend by adding subscriptions without topology changes.
+12. **ADR-0021**: OpenTelemetry is the instrumentation standard (traces, metrics, logs) for all APIs, services, and Azure Functions. Azure Monitor/Application Insights is production SPOG. W3C Trace Context propagates across gateway, APIs, SQL, HTTP, Service Bus, Functions. Correlation/causation metadata links async work (outbox → relay → Service Bus → consumer) back to originating requests. Logs are structured, auto-correlated to traces. Business identifiers (Client/Project/Task IDs) are safe; PII/payloads forbidden. Aspire Dashboard provides local observability parity.
 
 ## Still intentionally open
 
-- The CRM bounded-service catalog and concrete database names.
-- The production Microsoft SQL hosting flavor (for example Azure SQL Database vs another SQL Server deployment).
-- Service Bus topic/subscription naming and filtering topology.
-- Whether Audit, Redis/caching and a reporting/read-model service are baseline bounded contexts/resources.
-- The API edge style inside each service (controllers are the current preserved default; changing that requires a deliberate decision).
-- Identity-store ownership plus cookie/token/session/MFA/external-provider policy.
-- IaC/deployment ownership and tooling beyond the confirmed Flex Consumption target.
+- The production Microsoft SQL hosting flavor (for example Azure SQL Database vs another SQL Server deployment) — ADR-0019.
+- Browser authentication transport (cookie, JWT token, or other) and session/refresh/MFA/external-provider policy — ADR-0018.
+- The API endpoint style inside each service (controllers are the preserved default; changing that requires an ADR).
+- Redis/caching layer (whether to add, where, and scoping) — future ADR if needed.
+- IaC/deployment ownership and tooling beyond the confirmed Flex Consumption target — ADR-0020.
+
+**Decided by ADR-0015, ADR-0016, ADR-0017, and ADR-0021 and no longer open:**
+- Initial bounded-service catalog (CRM, Identity, Audit, Notification, Search, Workflow confirmed)
+- Service ownership of Clients, Projects, Tasks (permanently CRM unless superseded)
+- Audit as a baseline bounded context (confirmed as append-only trail)
+- Notification and Search as baseline services (confirmed)
+- **ADR-0016**: Audit ingestion through Service Bus (not direct database writes); append-only architecture; event-driven consistency; required audit fields; redaction rules; idempotency through inbox pattern; correlation/trace linkage; retention policy placeholder; purge governance
+- **ADR-0017**: Single shared Service Bus topic `ProjectChicago.Events`; per-service subscriptions; CRM/Identity publish via timer relay; Audit consumes via trigger; configuration-driven (no hardcoded topology); dead-letter and retry observability; extensible for future services
+- **ADR-0021**: OpenTelemetry instrumentation standard; Azure Monitor/Application Insights SPOG; W3C Trace Context propagation; correlation/causation metadata; log-trace auto-correlation; business-safe identifiers; Aspire local development parity; end-to-end traceability from browser through all services, databases, and async functions

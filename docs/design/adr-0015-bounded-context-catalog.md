@@ -263,6 +263,7 @@ Each service:
 5. **Audit is append-only** — No UPDATE/DELETE on audit records in normal application workflows
 6. **Identity is authoritative** — User details resolved through Identity API, not cached/duplicated in other services
 7. **Correlation IDs flow through** — Every request/event carries TraceId, CorrelationId, CausationId from cradle to grave
+8. **CRM owns Clients, Projects, and Tasks permanently** — These three core entities remain in the CRM service boundary unless a superseding ADR explicitly authorizes a boundary change. No other service may claim ownership of these entities.
 
 ---
 

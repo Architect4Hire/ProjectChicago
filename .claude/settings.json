@@ -22,5 +22,10 @@
         ]
       }
     ]
+  },
+  "permissions": {
+    "allow": [
+      "Bash(Select-String -Path \"c:\\\\architect4hire\\\\projectchicago\\\\docs\\\\prompts\\\\project-chicago-scrub-microprompts.md\" -Pattern \"^## Prompt|^Covers:|^Requirements:\")"
+    ]
   }
 }

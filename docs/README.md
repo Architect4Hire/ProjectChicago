@@ -25,6 +25,12 @@ This folder is the navigational center for Project Chicago. It is organized like
 | [Ongoing Architecture Plan](design/ongoing-architecture-plan.md) | Decisions still open, planned validation work and architectural evolution |
 | [Requirements Traceability](design/requirements-traceability.md) | Requirement families mapped to design artifacts, ADRs and implementation prompts |
 
+## Requirements Traceability Matrix
+
+| Document | Purpose |
+|---|---|
+| [Requirements-to-Prompt Matrix](matrix/requirements-traceability-matrix.md) | Complete mapping of all 298 requirement IDs to the 164 SCRUB implementation prompts (P000–P163); shows architecture, implementation, and verification prompts for each requirement family |
+
 ## Architecture Decision Records
 
 The [ADR index](adr/README.md) separates **accepted constraints** already established by Project Chicago from **proposed decisions** that the SCRUB sequence intentionally asks a human to approve.
