@@ -1,4 +1,6 @@
-# Project Chicago — SCRUB Microstep Implementation Prompts
+# Project Chicago — SCRUB Microstep Implementation Prompts (Linked Requirements)
+
+
 
 > Replacement prompt library for the obsolete Lifecycle CRM / Angular prompt set currently in the repository.
 
@@ -9,11 +11,17 @@ These prompts implement the Project Chicago requirements for **Clients → Proje
 The sequence is deliberately granular:
 
 - **one prompt = one primary change**
-- every prompt names the requirement IDs it advances
+- every prompt names the requirement IDs it advances, summarizes the applicable requirement intent in a few sentences, and links to the canonical requirement text
 - every implementation prompt is independently verifiable
 - adjacent work is explicitly forbidden
 - architecture/security decisions that are still open in `CLAUDE.md` are resolved through explicit approval gates rather than being invented as side effects
 - each prompt ends after its verification; do not let Claude continue into the next prompt
+
+## Compact requirement callout contract
+
+Each micro-prompt includes only four requirement elements: traceability IDs, direct links to the canonical requirement sections, a short requirement-intent summary, and an explicit source-of-truth rule. Full requirement prose is intentionally **not** duplicated in this file.
+
+Claude must open the linked requirement before changing code. If the linked requirement and the prompt disagree, the requirement wins and the implementation step stops for documentation correction.
 
 ## Architecture this sequence preserves
 
@@ -73,7 +81,7 @@ The current repository intentionally leaves the service catalog open. The requir
 Before changing code, Claude must:
 
 1. Read root `CLAUDE.md`.
-2. Locate and read the requirements markdown containing the requirement IDs referenced by the prompt.
+2. Read the prompt's concise `REQUIREMENTS` callout and follow its links to the canonical requirements document. The canonical requirement text is the source of truth.
 3. Read the matching `.claude/rules/*.md`.
 4. Use the matching `.claude/skills/*/SKILL.md` when one exists.
 5. Inspect existing code before deciding that an artifact is missing.
@@ -104,7 +112,11 @@ A prompt may **not** implement the next architectural layer merely because it is
 ### SCRUB skeleton
 
 ```text
-REQUIREMENTS: <traceability only; not a SCRUB element>
+REQUIREMENTS:
+  TRACEABILITY: <requirement IDs>
+  REQUIREMENT LINKS: <relative links to canonical requirements>
+  REQUIREMENT INTENT: <2–4 concise sentences summarizing the applicable behavior>
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding; stop on drift.
 
 SCOPE:        one concrete action and its exact boundary
 CONSTRAINT:   architecture, stack, rules, invariants, and test expectations
@@ -120,7 +132,11 @@ BEHAVIOR:     inspect -> change one thing -> verify -> report -> STOP
 ## Prompt 000 — Inventory the repository without changing it
 
 ```text
-REQUIREMENTS: Requirements governance; all requirement families
+REQUIREMENTS:
+  TRACEABILITY: Requirements governance; all requirement families
+  REQUIREMENT LINKS: [Requirements governance](../requirements/lightweight-crm-product-and-system-requirements.md#48-requirements-governance); [Project Chicago requirements](../requirements/lightweight-crm-product-and-system-requirements.md)
+  REQUIREMENT INTENT: The canonical requirements are the product/system source of truth and must remain lightweight, secure, auditable, traceable, observable, testable, and operationally diagnosable. Do not invent missing business behavior or silently resolve an open requirement.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Inspect the repository and produce a current-state inventory only.
 
@@ -136,7 +152,11 @@ BEHAVIOR: Report the repository tree, current project state, unresolved decision
 ## Prompt 001 — Bind the requirements source and build an ID index
 
 ```text
-REQUIREMENTS: All requirement IDs
+REQUIREMENTS:
+  TRACEABILITY: All requirement IDs
+  REQUIREMENT LINKS: [Project Chicago requirements](../requirements/lightweight-crm-product-and-system-requirements.md)
+  REQUIREMENT INTENT: The canonical requirements are the product/system source of truth and must remain lightweight, secure, auditable, traceable, observable, testable, and operationally diagnosable. Do not invent missing business behavior or silently resolve an open requirement.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Locate the authoritative Project Chicago requirements markdown and build a read-only index of its requirement IDs grouped by domain.
 
@@ -152,7 +172,11 @@ BEHAVIOR: Report the exact requirements-file path, duplicate/missing IDs if any,
 ## Prompt 002 — Propose the bounded-context catalog
 
 ```text
-REQUIREMENTS: PR-001..006; DATA-030..034; SEC-001..016; AUDIT-001..008
+REQUIREMENTS:
+  TRACEABILITY: PR-001..006; DATA-030..034; SEC-001..016; AUDIT-001..008
+  REQUIREMENT LINKS: [PR-001..006](../requirements/lightweight-crm-product-and-system-requirements.md#pr-001); [DATA-030..034](../requirements/lightweight-crm-product-and-system-requirements.md#data-030); [SEC-001..016](../requirements/lightweight-crm-product-and-system-requirements.md#sec-001); [AUDIT-001..008](../requirements/lightweight-crm-product-and-system-requirements.md#audit-001)
+  REQUIREMENT INTENT: Keep Project Chicago lightweight and Client-centric while making traceability, auditability, security, and observability default system behaviors. Use Microsoft SQL Server/Azure SQL, one database per bounded service, no cross-service database queries, and controlled schema migrations. Also satisfy the remaining linked cross-cutting constraints that apply to this atomic step.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Produce an architecture recommendation for the initial bounded-context catalog only.
 
@@ -168,7 +192,11 @@ BEHAVIOR: Return one recommended catalog, responsibilities, database ownership, 
 ## Prompt 003 — Record the approved bounded-context ADR
 
 ```text
-REQUIREMENTS: PR-001..006; DATA-031..034
+REQUIREMENTS:
+  TRACEABILITY: PR-001..006; DATA-031..034
+  REQUIREMENT LINKS: [PR-001..006](../requirements/lightweight-crm-product-and-system-requirements.md#pr-001); [DATA-031..034](../requirements/lightweight-crm-product-and-system-requirements.md#data-031)
+  REQUIREMENT INTENT: Keep Project Chicago lightweight and Client-centric while making traceability, auditability, security, and observability default system behaviors. Use SQL Server/Azure SQL with service-owned databases, enforced relationships, UTC timestamps, safe public IDs, optimistic concurrency, and archival over routine hard deletion.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: After the user has approved Prompt 002's catalog, create one ADR recording that exact bounded-context decision.
 
@@ -184,7 +212,11 @@ BEHAVIOR: Create the ADR only. Verify the file is valid markdown and contains th
 ## Prompt 004 — Update CLAUDE.md with the approved service catalog
 
 ```text
-REQUIREMENTS: Requirements governance; DATA-031..034
+REQUIREMENTS:
+  TRACEABILITY: Requirements governance; DATA-031..034
+  REQUIREMENT LINKS: [Requirements governance](../requirements/lightweight-crm-product-and-system-requirements.md#48-requirements-governance); [DATA-031..034](../requirements/lightweight-crm-product-and-system-requirements.md#data-031)
+  REQUIREMENT INTENT: The requirements document is the functional source of truth; implement only referenced behavior and stop rather than inventing missing decisions. Use SQL Server/Azure SQL with service-owned databases, enforced relationships, UTC timestamps, safe public IDs, optimistic concurrency, and archival over routine hard deletion.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Update only the bounded-service catalog/open-decision portions of CLAUDE.md to reflect the ADR approved and recorded in Prompt 003.
 
@@ -200,7 +232,11 @@ BEHAVIOR: Verify the service catalog is no longer listed as open, the three-proj
 ## Prompt 005 — Propose the browser authentication/session decision
 
 ```text
-REQUIREMENTS: SEC-001..025
+REQUIREMENTS:
+  TRACEABILITY: SEC-001..025
+  REQUIREMENT LINKS: [SEC-001..025](../requirements/lightweight-crm-product-and-system-requirements.md#sec-001)
+  REQUIREMENT INTENT: Use ASP.NET Core Identity and server-side role/policy authorization with least privilege; protect APIs and never expose passwords, tokens, secrets, or sensitive internals.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Produce the security decision for browser authentication/session transport only.
 
@@ -216,7 +252,11 @@ BEHAVIOR: Recommend one transport/session strategy with concrete security invari
 ## Prompt 006 — Record the approved authentication ADR
 
 ```text
-REQUIREMENTS: SEC-001..025
+REQUIREMENTS:
+  TRACEABILITY: SEC-001..025
+  REQUIREMENT LINKS: [SEC-001..025](../requirements/lightweight-crm-product-and-system-requirements.md#sec-001)
+  REQUIREMENT INTENT: Use ASP.NET Core Identity and server-side role/policy authorization with least privilege; protect APIs and never expose passwords, tokens, secrets, or sensitive internals.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Create one ADR containing only the authentication/session decision approved after Prompt 005.
 
@@ -232,7 +272,11 @@ BEHAVIOR: Verify the ADR contains no unresolved placeholder for the approved tra
 ## Prompt 007 — Record the audit architecture and retention decision
 
 ```text
-REQUIREMENTS: AUDIT-001..008; DATA-020..023; PRIV-001..005
+REQUIREMENTS:
+  TRACEABILITY: AUDIT-001..008; DATA-020..023; PRIV-001..005
+  REQUIREMENT LINKS: [AUDIT-001..008](../requirements/lightweight-crm-product-and-system-requirements.md#audit-001); [DATA-020..023](../requirements/lightweight-crm-product-and-system-requirements.md#data-020); [PRIV-001..005](../requirements/lightweight-crm-product-and-system-requirements.md#priv-001)
+  REQUIREMENT INTENT: Every Client/Project/Task mutation produces append-only audit evidence with entity/action/time/actor/source, trace/correlation, and applicable before/after values; secrets are redacted. Normal workflows archive rather than destructively delete records; history remains available and permanent purge is privileged and retention/privacy governed. Collect only necessary CRM data, minimize sensitive duplication and PII in telemetry, enforce authorization, and document retention before production.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Create an ADR for full business auditability using the approved Audit bounded context.
 
@@ -248,7 +292,11 @@ BEHAVIOR: Verify the ADR explicitly separates operational telemetry from durable
 ## Prompt 008 — Propose Service Bus topology
 
 ```text
-REQUIREMENTS: ASYNC-001..008; OUTBOX-001..006; TRACE-003..007
+REQUIREMENTS:
+  TRACEABILITY: ASYNC-001..008; OUTBOX-001..006; TRACE-003..007
+  REQUIREMENT LINKS: [ASYNC-001..008](../requirements/lightweight-crm-product-and-system-requirements.md#async-001); [OUTBOX-001..006](../requirements/lightweight-crm-product-and-system-requirements.md#outbox-001); [TRACE-003..007](../requirements/lightweight-crm-product-and-system-requirements.md#trace-003)
+  REQUIREMENT INTENT: Durable async work uses Azure Service Bus and Service Bus-triggered Functions with trace correlation, duplicate tolerance/idempotency, bounded retry behavior, and dead-letter visibility. When a transaction changes state and publishes an event, state and outbox commit together; a timer Function relays pending messages idempotently and exposes backlog/failure metrics. Propagate W3C distributed trace context across gateway, APIs, SQL, Service Bus, and Functions so an operation can be followed cradle to grave.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Propose the initial Azure Service Bus topology needed by Crm, Identity and Audit only.
 
@@ -264,7 +312,11 @@ BEHAVIOR: Return topic/queue/subscription recommendation, filters if any, publis
 ## Prompt 009 — Record the approved Service Bus topology ADR
 
 ```text
-REQUIREMENTS: ASYNC-001..008; OUTBOX-001..006
+REQUIREMENTS:
+  TRACEABILITY: ASYNC-001..008; OUTBOX-001..006
+  REQUIREMENT LINKS: [ASYNC-001..008](../requirements/lightweight-crm-product-and-system-requirements.md#async-001); [OUTBOX-001..006](../requirements/lightweight-crm-product-and-system-requirements.md#outbox-001)
+  REQUIREMENT INTENT: Durable async work uses Azure Service Bus and Service Bus-triggered Functions with trace correlation, duplicate tolerance/idempotency, bounded retry behavior, and dead-letter visibility. When a transaction changes state and publishes an event, state and outbox commit together; a timer Function relays pending messages idempotently and exposes backlog/failure metrics.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Create one ADR containing the topology approved after Prompt 008.
 
@@ -280,7 +332,11 @@ BEHAVIOR: Verify every publishing/consuming bounded context can be mapped to an 
 ## Prompt 010 — Record the observability architecture ADR
 
 ```text
-REQUIREMENTS: TRACE-001..007; OTEL-001..006; OBS-001..005; LOG-001..006; OPS-001..004
+REQUIREMENTS:
+  TRACEABILITY: TRACE-001..007; OTEL-001..006; OBS-001..005; LOG-001..006; OPS-001..004
+  REQUIREMENT LINKS: [TRACE-001..007](../requirements/lightweight-crm-product-and-system-requirements.md#trace-001); [OTEL-001..006](../requirements/lightweight-crm-product-and-system-requirements.md#otel-001); [OBS-001..005](../requirements/lightweight-crm-product-and-system-requirements.md#obs-001); [LOG-001..006](../requirements/lightweight-crm-product-and-system-requirements.md#log-001); [OPS-001..004](../requirements/lightweight-crm-product-and-system-requirements.md#ops-001)
+  REQUIREMENT INTENT: Every inbound request participates in a trace propagated through gateway, services, SQL, HTTP, Service Bus, Functions, and downstream work with safe diagnostic metadata. Every API/service/Function uses OpenTelemetry for traces, metrics, and log correlation, including dependency instrumentation and meaningful business spans where needed. Also satisfy the remaining linked cross-cutting constraints that apply to this atomic step.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Create the observability ADR establishing OpenTelemetry as the instrumentation standard and Azure Monitor/Application Insights as the production single pane of glass.
 
@@ -296,7 +352,11 @@ BEHAVIOR: Verify the ADR can answer how an operator traces Browser -> YARP -> AP
 ## Prompt 011 — Create the requirements-to-prompt traceability matrix
 
 ```text
-REQUIREMENTS: Requirements governance; all requirement families
+REQUIREMENTS:
+  TRACEABILITY: Requirements governance; all requirement families
+  REQUIREMENT LINKS: [Requirements governance](../requirements/lightweight-crm-product-and-system-requirements.md#48-requirements-governance); [Project Chicago requirements](../requirements/lightweight-crm-product-and-system-requirements.md)
+  REQUIREMENT INTENT: The canonical requirements are the product/system source of truth and must remain lightweight, secure, auditable, traceable, observable, testable, and operationally diagnosable. Do not invent missing business behavior or silently resolve an open requirement.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Create a markdown traceability matrix mapping every requirement ID in the authoritative requirements file to at least one prompt number in this sequence.
 
@@ -316,7 +376,11 @@ BEHAVIOR: Verify every requirement ID appears at least once or is explicitly mar
 ## Prompt 012 — Create the .NET solution file
 
 ```text
-REQUIREMENTS: DEPLOY-001; TEST-001..007
+REQUIREMENTS:
+  TRACEABILITY: DEPLOY-001; TEST-001..007
+  REQUIREMENT LINKS: [DEPLOY-001](../requirements/lightweight-crm-product-and-system-requirements.md#deploy-001); [TEST-001..007](../requirements/lightweight-crm-product-and-system-requirements.md#test-001)
+  REQUIREMENT INTENT: Support environment-specific configuration, externalized secrets, Flex Consumption Functions, and consistent deployment/telemetry metadata. Automated tests cover business rules, authorization, APIs, SQL-compatible persistence, message consumers, audit generation, and representative distributed tracing.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Create the Project Chicago solution file only if one does not already exist.
 
@@ -332,7 +396,11 @@ BEHAVIOR: Verify with `dotnet sln <solution> list` and `git diff --check`. Repor
 ## Prompt 013 — Create repository-wide build defaults
 
 ```text
-REQUIREMENTS: TEST-001..007; DEPLOY-001
+REQUIREMENTS:
+  TRACEABILITY: TEST-001..007; DEPLOY-001
+  REQUIREMENT LINKS: [TEST-001..007](../requirements/lightweight-crm-product-and-system-requirements.md#test-001); [DEPLOY-001](../requirements/lightweight-crm-product-and-system-requirements.md#deploy-001)
+  REQUIREMENT INTENT: Automated tests cover business rules, authorization, APIs, SQL-compatible persistence, message consumers, audit generation, and representative distributed tracing. Support environment-specific configuration, externalized secrets, Flex Consumption Functions, and consistent deployment/telemetry metadata.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Create or minimally update Directory.Build.props with repository-wide .NET build defaults only.
 
@@ -348,7 +416,11 @@ BEHAVIOR: Run a syntax/build evaluation appropriate for an otherwise-empty solut
 ## Prompt 014 — Create central package management
 
 ```text
-REQUIREMENTS: DEPLOY-001; TEST-001..007
+REQUIREMENTS:
+  TRACEABILITY: DEPLOY-001; TEST-001..007
+  REQUIREMENT LINKS: [DEPLOY-001](../requirements/lightweight-crm-product-and-system-requirements.md#deploy-001); [TEST-001..007](../requirements/lightweight-crm-product-and-system-requirements.md#test-001)
+  REQUIREMENT INTENT: Support environment-specific configuration, externalized secrets, Flex Consumption Functions, and consistent deployment/telemetry metadata. Automated tests cover business rules, authorization, APIs, SQL-compatible persistence, message consumers, audit generation, and representative distributed tracing.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Create or minimally update Directory.Packages.props to establish central package management only.
 
@@ -364,7 +436,11 @@ BEHAVIOR: Verify XML parses and `dotnet restore` does not fail solely because of
 ## Prompt 015 — Create ProjectChicago.AppHost
 
 ```text
-REQUIREMENTS: DEPLOY-001; OPS-001..004
+REQUIREMENTS:
+  TRACEABILITY: DEPLOY-001; OPS-001..004
+  REQUIREMENT LINKS: [DEPLOY-001](../requirements/lightweight-crm-product-and-system-requirements.md#deploy-001); [OPS-001..004](../requirements/lightweight-crm-product-and-system-requirements.md#ops-001)
+  REQUIREMENT INTENT: Support environment-specific configuration, externalized secrets, Flex Consumption Functions, and consistent deployment/telemetry metadata. Operators can determine service health and detect rising errors/latency, SQL or Service Bus failures, Function failures, auth anomalies, dead letters, and outbox backlog.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Create the Aspire AppHost project only.
 
@@ -380,7 +456,11 @@ BEHAVIOR: Add the project to the solution and run `dotnet build` for AppHost. Re
 ## Prompt 016 — Create ProjectChicago.ServiceDefaults
 
 ```text
-REQUIREMENTS: OTEL-001..006; OPS-001..004
+REQUIREMENTS:
+  TRACEABILITY: OTEL-001..006; OPS-001..004
+  REQUIREMENT LINKS: [OTEL-001..006](../requirements/lightweight-crm-product-and-system-requirements.md#otel-001); [OPS-001..004](../requirements/lightweight-crm-product-and-system-requirements.md#ops-001)
+  REQUIREMENT INTENT: Every API/service/Function uses OpenTelemetry for traces, metrics, and log correlation, including dependency instrumentation and meaningful business spans where needed. Operators can determine service health and detect rising errors/latency, SQL or Service Bus failures, Function failures, auth anomalies, dead letters, and outbox backlog.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Create the Aspire ServiceDefaults project only.
 
@@ -396,7 +476,11 @@ BEHAVIOR: Add to solution, build ServiceDefaults, report generated default healt
 ## Prompt 017 — Create ProjectChicago.Contracts
 
 ```text
-REQUIREMENTS: ASYNC-001..008; OUTBOX-001..006
+REQUIREMENTS:
+  TRACEABILITY: ASYNC-001..008; OUTBOX-001..006
+  REQUIREMENT LINKS: [ASYNC-001..008](../requirements/lightweight-crm-product-and-system-requirements.md#async-001); [OUTBOX-001..006](../requirements/lightweight-crm-product-and-system-requirements.md#outbox-001)
+  REQUIREMENT INTENT: Durable async work uses Azure Service Bus and Service Bus-triggered Functions with trace correlation, duplicate tolerance/idempotency, bounded retry behavior, and dead-letter visibility. When a transaction changes state and publishes an event, state and outbox commit together; a timer Function relays pending messages idempotently and exposes backlog/failure metrics.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Create the Contracts class library only.
 
@@ -412,7 +496,11 @@ BEHAVIOR: Add to solution and build. Verify it has no project reference to Share
 ## Prompt 018 — Create ProjectChicago.Shared
 
 ```text
-REQUIREMENTS: TRACE-001..007; OTEL-001..006; OUTBOX-001..006; ERROR-001..005
+REQUIREMENTS:
+  TRACEABILITY: TRACE-001..007; OTEL-001..006; OUTBOX-001..006; ERROR-001..005
+  REQUIREMENT LINKS: [TRACE-001..007](../requirements/lightweight-crm-product-and-system-requirements.md#trace-001); [OTEL-001..006](../requirements/lightweight-crm-product-and-system-requirements.md#otel-001); [OUTBOX-001..006](../requirements/lightweight-crm-product-and-system-requirements.md#outbox-001); [ERROR-001..005](../requirements/lightweight-crm-product-and-system-requirements.md#error-001)
+  REQUIREMENT INTENT: Every inbound request participates in a trace propagated through gateway, services, SQL, HTTP, Service Bus, Functions, and downstream work with safe diagnostic metadata. Every API/service/Function uses OpenTelemetry for traces, metrics, and log correlation, including dependency instrumentation and meaningful business spans where needed. Also satisfy the remaining linked cross-cutting constraints that apply to this atomic step.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Create the Shared class library only and add the approved reference to Contracts if required by the architecture.
 
@@ -428,7 +516,11 @@ BEHAVIOR: Add to solution, build, and verify the project reference graph is acyc
 ## Prompt 019 — Create ProjectChicago.Gateway
 
 ```text
-REQUIREMENTS: SEC-020..025; TRACE-001..007; API-001..007
+REQUIREMENTS:
+  TRACEABILITY: SEC-020..025; TRACE-001..007; API-001..007
+  REQUIREMENT LINKS: [SEC-020..025](../requirements/lightweight-crm-product-and-system-requirements.md#sec-020); [TRACE-001..007](../requirements/lightweight-crm-product-and-system-requirements.md#trace-001); [API-001..007](../requirements/lightweight-crm-product-and-system-requirements.md#api-001)
+  REQUIREMENT INTENT: Public API access goes through the Project Chicago gateway over HTTPS with validated inputs and safe logging that excludes credentials, tokens, secrets, and unnecessary PII. Every inbound request participates in a trace propagated through gateway, services, SQL, HTTP, Service Bus, Functions, and downstream work with safe diagnostic metadata. Use consistent REST routes, conventional HTTP verbs/status codes, bounded pagination, OpenAPI documentation, and versionable public contracts.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Create the YARP gateway project only.
 
@@ -444,7 +536,11 @@ BEHAVIOR: Add to solution and build. Verify no SQL/Service Bus package reference
 ## Prompt 020 — Create the React 19 Vite application
 
 ```text
-REQUIREMENTS: UX-001..006; ACCESS-001..005; DESIGN-001..004
+REQUIREMENTS:
+  TRACEABILITY: UX-001..006; ACCESS-001..005; DESIGN-001..004
+  REQUIREMENT LINKS: [UX-001..006](../requirements/lightweight-crm-product-and-system-requirements.md#ux-001); [ACCESS-001..005](../requirements/lightweight-crm-product-and-system-requirements.md#access-001); [DESIGN-001..004](../requirements/lightweight-crm-product-and-system-requirements.md#design-001)
+  REQUIREMENT INTENT: The UI prioritizes simple workflows with clear validation/save/failure/loading/empty/unauthorized states, explicit destructive intent, and responsive desktop/tablet behavior. Frontend behavior targets WCAG 2.2 AA with keyboard access, labels, associated validation messages, and non-color-only state. Frontend features use local PCDS components and shared typography/spacing/color/border/elevation/state/layout tokens instead of recreating them.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Create the client-side React 19 + TypeScript + Vite application under `src/web` only.
 
@@ -460,7 +556,11 @@ BEHAVIOR: Run the generated web build and report package versions. STOP.
 ## Prompt 021 — Install Tailwind CSS v4 into the React app
 
 ```text
-REQUIREMENTS: DESIGN-001..004; UX-001..006
+REQUIREMENTS:
+  TRACEABILITY: DESIGN-001..004; UX-001..006
+  REQUIREMENT LINKS: [DESIGN-001..004](../requirements/lightweight-crm-product-and-system-requirements.md#design-001); [UX-001..006](../requirements/lightweight-crm-product-and-system-requirements.md#ux-001)
+  REQUIREMENT INTENT: Frontend features use local PCDS components and shared typography/spacing/color/border/elevation/state/layout tokens instead of recreating them. The UI prioritizes simple workflows with clear validation/save/failure/loading/empty/unauthorized states, explicit destructive intent, and responsive desktop/tablet behavior.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Add Tailwind CSS v4 using the Vite integration only.
 
@@ -476,7 +576,11 @@ BEHAVIOR: Run web build and verify Tailwind is processed. STOP.
 ## Prompt 022 — Copy PCDS into the local design-system source
 
 ```text
-REQUIREMENTS: DESIGN-001..004; ACCESS-001..005
+REQUIREMENTS:
+  TRACEABILITY: DESIGN-001..004; ACCESS-001..005
+  REQUIREMENT LINKS: [DESIGN-001..004](../requirements/lightweight-crm-product-and-system-requirements.md#design-001); [ACCESS-001..005](../requirements/lightweight-crm-product-and-system-requirements.md#access-001)
+  REQUIREMENT INTENT: Frontend features use local PCDS components and shared typography/spacing/color/border/elevation/state/layout tokens instead of recreating them. Frontend behavior targets WCAG 2.2 AA with keyboard access, labels, associated validation messages, and non-color-only state.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Copy the approved PCDS source into Project Chicago's local `src/web/src/design-system` location (or the location explicitly established by the repo) only.
 
@@ -492,7 +596,11 @@ BEHAVIOR: Run the web build and any PCDS tests/lint included in the copied sourc
 ## Prompt 023 — Wire ServiceDefaults into the Gateway
 
 ```text
-REQUIREMENTS: OTEL-001..006; OPS-001..004
+REQUIREMENTS:
+  TRACEABILITY: OTEL-001..006; OPS-001..004
+  REQUIREMENT LINKS: [OTEL-001..006](../requirements/lightweight-crm-product-and-system-requirements.md#otel-001); [OPS-001..004](../requirements/lightweight-crm-product-and-system-requirements.md#ops-001)
+  REQUIREMENT INTENT: Every API/service/Function uses OpenTelemetry for traces, metrics, and log correlation, including dependency instrumentation and meaningful business spans where needed. Operators can determine service health and detect rising errors/latency, SQL or Service Bus failures, Function failures, auth anomalies, dead letters, and outbox backlog.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Add the ServiceDefaults project reference and standard service-default registration to Gateway only.
 
@@ -508,7 +616,11 @@ BEHAVIOR: Build Gateway and verify default health endpoints/telemetry registrati
 ## Prompt 024 — Add Azure Monitor OpenTelemetry export to ServiceDefaults
 
 ```text
-REQUIREMENTS: OTEL-001..006; OBS-001..005
+REQUIREMENTS:
+  TRACEABILITY: OTEL-001..006; OBS-001..005
+  REQUIREMENT LINKS: [OTEL-001..006](../requirements/lightweight-crm-product-and-system-requirements.md#otel-001); [OBS-001..005](../requirements/lightweight-crm-product-and-system-requirements.md#obs-001)
+  REQUIREMENT INTENT: Every API/service/Function uses OpenTelemetry for traces, metrics, and log correlation, including dependency instrumentation and meaningful business spans where needed. Azure Monitor/Application Insights provides centralized investigation and dashboards for request/dependency/Function/Service Bus/SQL health, errors, latency, and trace/entity filtering.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Add the production OpenTelemetry exporter configuration to ServiceDefaults only, using Azure Monitor/Application Insights according to the approved observability ADR.
 
@@ -524,7 +636,11 @@ BEHAVIOR: Add focused configuration tests if feasible and build ServiceDefaults 
 ## Prompt 025 — Add SQL and Service Bus tracing instrumentation to ServiceDefaults
 
 ```text
-REQUIREMENTS: TRACE-003..007; OTEL-003..006
+REQUIREMENTS:
+  TRACEABILITY: TRACE-003..007; OTEL-003..006
+  REQUIREMENT LINKS: [TRACE-003..007](../requirements/lightweight-crm-product-and-system-requirements.md#trace-003); [OTEL-003..006](../requirements/lightweight-crm-product-and-system-requirements.md#otel-003)
+  REQUIREMENT INTENT: Propagate W3C distributed trace context across gateway, APIs, SQL, Service Bus, and Functions so an operation can be followed cradle to grave. Instrument APIs, services, Functions, SQL, HTTP, and Service Bus with OpenTelemetry for traces, metrics, and correlated structured logs.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Extend ServiceDefaults with approved OpenTelemetry instrumentation needed for SQL client/EF and Azure Service Bus dependencies only.
 
@@ -540,7 +656,11 @@ BEHAVIOR: Build ServiceDefaults and a consuming host. Verify instrumentation is 
 ## Prompt 026 — Create the shared correlation context abstraction
 
 ```text
-REQUIREMENTS: TRACE-001..007; LOG-003; AUDIT-002
+REQUIREMENTS:
+  TRACEABILITY: TRACE-001..007; LOG-003; AUDIT-002
+  REQUIREMENT LINKS: [TRACE-001..007](../requirements/lightweight-crm-product-and-system-requirements.md#trace-001); [LOG-003](../requirements/lightweight-crm-product-and-system-requirements.md#log-003); [AUDIT-002](../requirements/lightweight-crm-product-and-system-requirements.md#audit-002)
+  REQUIREMENT INTENT: Every inbound request participates in a trace propagated through gateway, services, SQL, HTTP, Service Bus, Functions, and downstream work with safe diagnostic metadata. Use structured trace-correlated logs without sensitive payload leakage or duplicate exception logging at every layer. Every business mutation must create append-only audit evidence describing what changed, when, who caused it, and applicable before/after values while preserving trace correlation and redacting secrets.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Create the Shared correlation/request context abstraction and immutable value type(s) only.
 
@@ -556,7 +676,11 @@ BEHAVIOR: Add unit tests for valid generation/propagation semantics and build Sh
 ## Prompt 026A — Add the HTTP request/actor context adapter
 
 ```text
-REQUIREMENTS: TRACE-001..007; SEC-010..013; AUDIT-002; LOG-003
+REQUIREMENTS:
+  TRACEABILITY: TRACE-001..007; SEC-010..013; AUDIT-002; LOG-003
+  REQUIREMENT LINKS: [TRACE-001..007](../requirements/lightweight-crm-product-and-system-requirements.md#trace-001); [SEC-010..013](../requirements/lightweight-crm-product-and-system-requirements.md#sec-010); [AUDIT-002](../requirements/lightweight-crm-product-and-system-requirements.md#audit-002); [LOG-003](../requirements/lightweight-crm-product-and-system-requirements.md#log-003)
+  REQUIREMENT INTENT: Every inbound request participates in a trace propagated through gateway, services, SQL, HTTP, Service Bus, Functions, and downstream work with safe diagnostic metadata. Use ASP.NET Core Identity and server-side role/policy authorization with least privilege; protect APIs and never expose passwords, tokens, secrets, or sensitive internals. Also satisfy the remaining linked cross-cutting constraints that apply to this atomic step.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Add the HTTP-host adapter that maps validated ASP.NET Core authentication/Activity state into the shared correlation/actor context abstraction only.
 
@@ -572,7 +696,11 @@ BEHAVIOR: Add focused tests for authenticated, anonymous and malformed/untrusted
 ## Prompt 027 — Add gateway correlation normalization middleware
 
 ```text
-REQUIREMENTS: TRACE-001..007; LOG-003; SEC-020..025
+REQUIREMENTS:
+  TRACEABILITY: TRACE-001..007; LOG-003; SEC-020..025
+  REQUIREMENT LINKS: [TRACE-001..007](../requirements/lightweight-crm-product-and-system-requirements.md#trace-001); [LOG-003](../requirements/lightweight-crm-product-and-system-requirements.md#log-003); [SEC-020..025](../requirements/lightweight-crm-product-and-system-requirements.md#sec-020)
+  REQUIREMENT INTENT: Every inbound request participates in a trace propagated through gateway, services, SQL, HTTP, Service Bus, Functions, and downstream work with safe diagnostic metadata. Use structured trace-correlated logs without sensitive payload leakage or duplicate exception logging at every layer. Public API access goes through the Project Chicago gateway over HTTPS with validated inputs and safe logging that excludes credentials, tokens, secrets, and unnecessary PII.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Add gateway middleware that accepts/creates the approved correlation identifier, participates in W3C trace context, and returns the safe correlation reference to callers.
 
@@ -588,7 +716,11 @@ BEHAVIOR: Add gateway tests for new ID, valid incoming ID, invalid/oversized ID 
 ## Prompt 028 — Create the shared ProblemDetails/error contract
 
 ```text
-REQUIREMENTS: ERROR-001..005; API-004
+REQUIREMENTS:
+  TRACEABILITY: ERROR-001..005; API-004
+  REQUIREMENT LINKS: [ERROR-001..005](../requirements/lightweight-crm-product-and-system-requirements.md#error-001); [API-004](../requirements/lightweight-crm-product-and-system-requirements.md#api-004)
+  REQUIREMENT INTENT: Return safe errors that distinguish validation/auth/authz/not-found/concurrency/internal failures and provide a trace/support reference without exposing internals. Expose consistent REST-oriented, documented, versionable APIs using conventional HTTP verbs/status codes and bounded pagination for collections.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Create the shared public error/ProblemDetails extension contract only.
 
@@ -604,7 +736,11 @@ BEHAVIOR: Add serialization/unit tests in Shared. Verify no stack trace/database
 ## Prompt 029 — Create the integration-event envelope contract
 
 ```text
-REQUIREMENTS: ASYNC-004; TRACE-003..007; OUTBOX-005; AUDIT-006..007
+REQUIREMENTS:
+  TRACEABILITY: ASYNC-004; TRACE-003..007; OUTBOX-005; AUDIT-006..007
+  REQUIREMENT LINKS: [ASYNC-004](../requirements/lightweight-crm-product-and-system-requirements.md#async-004); [TRACE-003..007](../requirements/lightweight-crm-product-and-system-requirements.md#trace-003); [OUTBOX-005](../requirements/lightweight-crm-product-and-system-requirements.md#outbox-005); [AUDIT-006..007](../requirements/lightweight-crm-product-and-system-requirements.md#audit-006)
+  REQUIREMENT INTENT: Use Azure Service Bus and Azure Functions for durable async work with idempotent/duplicate-tolerant consumers, bounded retries, and dead-letter visibility. Propagate W3C distributed trace context across gateway, APIs, SQL, Service Bus, and Functions so an operation can be followed cradle to grave. Also satisfy the remaining linked cross-cutting constraints that apply to this atomic step.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Create the versioned integration-event envelope primitives in Contracts only.
 
@@ -620,7 +756,11 @@ BEHAVIOR: Add contract/unit tests for required metadata and deterministic identi
 ## Prompt 029A — Create the approved business-audit integration event contract
 
 ```text
-REQUIREMENTS: AUDIT-001..008; ASYNC-001..008; OUTBOX-001..006; PRIV-001..005
+REQUIREMENTS:
+  TRACEABILITY: AUDIT-001..008; ASYNC-001..008; OUTBOX-001..006; PRIV-001..005
+  REQUIREMENT LINKS: [AUDIT-001..008](../requirements/lightweight-crm-product-and-system-requirements.md#audit-001); [ASYNC-001..008](../requirements/lightweight-crm-product-and-system-requirements.md#async-001); [OUTBOX-001..006](../requirements/lightweight-crm-product-and-system-requirements.md#outbox-001); [PRIV-001..005](../requirements/lightweight-crm-product-and-system-requirements.md#priv-001)
+  REQUIREMENT INTENT: Every Client/Project/Task mutation produces append-only audit evidence with entity/action/time/actor/source, trace/correlation, and applicable before/after values; secrets are redacted. Durable async work uses Azure Service Bus and Service Bus-triggered Functions with trace correlation, duplicate tolerance/idempotency, bounded retry behavior, and dead-letter visibility. Also satisfy the remaining linked cross-cutting constraints that apply to this atomic step.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Create only the cross-service audit event contract defined by the approved Audit ADR.
 
@@ -636,7 +776,11 @@ BEHAVIOR: Add contract tests for required metadata, versioning and serialization
 ## Prompt 030 — Create shared OutboxMessage persistence model/configuration
 
 ```text
-REQUIREMENTS: OUTBOX-001..006; DATA-006
+REQUIREMENTS:
+  TRACEABILITY: OUTBOX-001..006; DATA-006
+  REQUIREMENT LINKS: [OUTBOX-001..006](../requirements/lightweight-crm-product-and-system-requirements.md#outbox-001); [DATA-006](../requirements/lightweight-crm-product-and-system-requirements.md#data-006)
+  REQUIREMENT INTENT: When a transaction changes state and publishes an event, state and outbox commit together; a timer Function relays pending messages idempotently and exposes backlog/failure metrics. Use SQL Server/Azure SQL with service-owned databases, enforced relationships, UTC timestamps, safe public IDs, optimistic concurrency, and archival over routine hard deletion.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Create Shared's SQL Server-compatible OutboxMessage persistence model and EF configuration only.
 
@@ -652,7 +796,11 @@ BEHAVIOR: Add EF model metadata/unit tests where practical and build Shared. Ver
 ## Prompt 031 — Create shared InboxMessage persistence model/configuration
 
 ```text
-REQUIREMENTS: ASYNC-005..008; AUDIT-004; DATA-006
+REQUIREMENTS:
+  TRACEABILITY: ASYNC-005..008; AUDIT-004; DATA-006
+  REQUIREMENT LINKS: [ASYNC-005..008](../requirements/lightweight-crm-product-and-system-requirements.md#async-005); [AUDIT-004](../requirements/lightweight-crm-product-and-system-requirements.md#audit-004); [DATA-006](../requirements/lightweight-crm-product-and-system-requirements.md#data-006)
+  REQUIREMENT INTENT: Use Azure Service Bus and Azure Functions for durable async work with idempotent/duplicate-tolerant consumers, bounded retries, and dead-letter visibility. Every business mutation must create append-only audit evidence describing what changed, when, who caused it, and applicable before/after values while preserving trace correlation and redacting secrets. Use SQL Server/Azure SQL with service-owned databases, enforced relationships, UTC timestamps, safe public IDs, optimistic concurrency, and archival over routine hard deletion.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Create Shared's SQL Server-compatible InboxMessage persistence model and EF configuration only.
 
@@ -668,7 +816,11 @@ BEHAVIOR: Add model/config tests and build Shared. Verify uniqueness/idempotency
 ## Prompt 032 — Create the shared event serializer
 
 ```text
-REQUIREMENTS: ASYNC-004; OUTBOX-005; TRACE-003..007
+REQUIREMENTS:
+  TRACEABILITY: ASYNC-004; OUTBOX-005; TRACE-003..007
+  REQUIREMENT LINKS: [ASYNC-004](../requirements/lightweight-crm-product-and-system-requirements.md#async-004); [OUTBOX-005](../requirements/lightweight-crm-product-and-system-requirements.md#outbox-005); [TRACE-003..007](../requirements/lightweight-crm-product-and-system-requirements.md#trace-003)
+  REQUIREMENT INTENT: Use Azure Service Bus and Azure Functions for durable async work with idempotent/duplicate-tolerant consumers, bounded retries, and dead-letter visibility. Commit state and integration events atomically through a transactional outbox, then relay them with a timer-triggered Function and observable retry/backlog behavior. Propagate W3C distributed trace context across gateway, APIs, SQL, Service Bus, and Functions so an operation can be followed cradle to grave.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Create the Shared integration-event envelope serializer/deserializer only.
 
@@ -684,7 +836,11 @@ BEHAVIOR: Add round-trip, unknown-version and malformed-payload unit tests. Run 
 ## Prompt 033 — Create the shared Service Bus publisher abstraction
 
 ```text
-REQUIREMENTS: ASYNC-001..008; OUTBOX-003..006
+REQUIREMENTS:
+  TRACEABILITY: ASYNC-001..008; OUTBOX-003..006
+  REQUIREMENT LINKS: [ASYNC-001..008](../requirements/lightweight-crm-product-and-system-requirements.md#async-001); [OUTBOX-003..006](../requirements/lightweight-crm-product-and-system-requirements.md#outbox-003)
+  REQUIREMENT INTENT: Durable async work uses Azure Service Bus and Service Bus-triggered Functions with trace correlation, duplicate tolerance/idempotency, bounded retry behavior, and dead-letter visibility. Commit state and integration events atomically through a transactional outbox, then relay them with a timer-triggered Function and observable retry/backlog behavior.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Create the Shared Service Bus publisher abstraction and Azure Service Bus SDK implementation only.
 
@@ -700,7 +856,11 @@ BEHAVIOR: Add unit tests around message metadata using an abstraction/fake bound
 ## Prompt 034 — Create the reusable outbox relay mechanism
 
 ```text
-REQUIREMENTS: OUTBOX-003..006; ASYNC-005..008; OBS-005
+REQUIREMENTS:
+  TRACEABILITY: OUTBOX-003..006; ASYNC-005..008; OBS-005
+  REQUIREMENT LINKS: [OUTBOX-003..006](../requirements/lightweight-crm-product-and-system-requirements.md#outbox-003); [ASYNC-005..008](../requirements/lightweight-crm-product-and-system-requirements.md#async-005); [OBS-005](../requirements/lightweight-crm-product-and-system-requirements.md#obs-005)
+  REQUIREMENT INTENT: Commit state and integration events atomically through a transactional outbox, then relay them with a timer-triggered Function and observable retry/backlog behavior. Use Azure Service Bus and Azure Functions for durable async work with idempotent/duplicate-tolerant consumers, bounded retries, and dead-letter visibility. Centralize operational visibility in Azure Monitor/Application Insights for requests, dependencies, Functions, Service Bus, SQL, failures, and trace-based investigation.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Create Shared's reusable IOutboxRelay and relay implementation only.
 
@@ -716,7 +876,11 @@ BEHAVIOR: Add focused tests: empty batch, successful send marks dispatched, fail
 ## Prompt 035 — Add local SQL Server resource to AppHost
 
 ```text
-REQUIREMENTS: DATA-030..034; DEPLOY-001
+REQUIREMENTS:
+  TRACEABILITY: DATA-030..034; DEPLOY-001
+  REQUIREMENT LINKS: [DATA-030..034](../requirements/lightweight-crm-product-and-system-requirements.md#data-030); [DEPLOY-001](../requirements/lightweight-crm-product-and-system-requirements.md#deploy-001)
+  REQUIREMENT INTENT: Use Microsoft SQL Server/Azure SQL, one database per bounded service, no cross-service database queries, and controlled schema migrations. Support environment-specific configuration, externalized secrets, Flex Consumption Functions, and consistent deployment/telemetry metadata.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Add one local Aspire SQL Server resource only.
 
@@ -732,7 +896,11 @@ BEHAVIOR: Build AppHost and inspect the application model/resource list to prove
 ## Prompt 036 — Add local Azure Service Bus resource to AppHost
 
 ```text
-REQUIREMENTS: ASYNC-001..008; DEPLOY-001
+REQUIREMENTS:
+  TRACEABILITY: ASYNC-001..008; DEPLOY-001
+  REQUIREMENT LINKS: [ASYNC-001..008](../requirements/lightweight-crm-product-and-system-requirements.md#async-001); [DEPLOY-001](../requirements/lightweight-crm-product-and-system-requirements.md#deploy-001)
+  REQUIREMENT INTENT: Durable async work uses Azure Service Bus and Service Bus-triggered Functions with trace correlation, duplicate tolerance/idempotency, bounded retry behavior, and dead-letter visibility. Support environment-specific configuration, externalized secrets, Flex Consumption Functions, and consistent deployment/telemetry metadata.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Add the local Azure Service Bus emulator/resource to AppHost only according to the approved topology ADR.
 
@@ -748,7 +916,11 @@ BEHAVIOR: Build AppHost and inspect the resource model. Verify configured entiti
 ## Prompt 037 — Register Gateway in AppHost
 
 ```text
-REQUIREMENTS: SEC-020..025; TRACE-001..007
+REQUIREMENTS:
+  TRACEABILITY: SEC-020..025; TRACE-001..007
+  REQUIREMENT LINKS: [SEC-020..025](../requirements/lightweight-crm-product-and-system-requirements.md#sec-020); [TRACE-001..007](../requirements/lightweight-crm-product-and-system-requirements.md#trace-001)
+  REQUIREMENT INTENT: Public API access goes through the Project Chicago gateway over HTTPS with validated inputs and safe logging that excludes credentials, tokens, secrets, and unnecessary PII. Every inbound request participates in a trace propagated through gateway, services, SQL, HTTP, Service Bus, Functions, and downstream work with safe diagnostic metadata.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Register ProjectChicago.Gateway as an AppHost project resource only.
 
@@ -764,7 +936,11 @@ BEHAVIOR: Build AppHost and verify Gateway appears as a project resource. STOP.
 ## Prompt 038 — Register the React app in AppHost
 
 ```text
-REQUIREMENTS: UX-001..006; DEPLOY-001
+REQUIREMENTS:
+  TRACEABILITY: UX-001..006; DEPLOY-001
+  REQUIREMENT LINKS: [UX-001..006](../requirements/lightweight-crm-product-and-system-requirements.md#ux-001); [DEPLOY-001](../requirements/lightweight-crm-product-and-system-requirements.md#deploy-001)
+  REQUIREMENT INTENT: The UI prioritizes simple workflows with clear validation/save/failure/loading/empty/unauthorized states, explicit destructive intent, and responsive desktop/tablet behavior. Support environment-specific configuration, externalized secrets, Flex Consumption Functions, and consistent deployment/telemetry metadata.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Register the existing React/Vite application as the AppHost web resource only.
 
@@ -784,7 +960,11 @@ BEHAVIOR: Run the smallest AppHost model/build verification and web build. STOP.
 ## Prompt 039 — Create the Crm HTTP host
 
 ```text
-REQUIREMENTS: CLIENT-001..032; PROJECT-001..031; TASK-001..022
+REQUIREMENTS:
+  TRACEABILITY: CLIENT-001..032; PROJECT-001..031; TASK-001..022
+  REQUIREMENT LINKS: [CLIENT-001..032](../requirements/lightweight-crm-product-and-system-requirements.md#client-001); [PROJECT-001..031](../requirements/lightweight-crm-product-and-system-requirements.md#project-001); [TASK-001..022](../requirements/lightweight-crm-product-and-system-requirements.md#task-001)
+  REQUIREMENT INTENT: Clients are the CRM anchor and must support the required data, lifecycle/archive behavior, searchable paginated lists, detail views, ownership, and auditable changes. Projects belong to one Client and must support the required metadata, statuses, filtering/search/detail behavior, completion rules, and non-destructive archival. Tasks belong to one Project and must support assignment, priority, status/completion/reopen behavior, overdue detection, and filterable task views.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Create `ProjectChicago.Crm` ASP.NET Core Web API host only, assuming the approved bounded-context ADR uses `Crm`.
 
@@ -800,7 +980,11 @@ BEHAVIOR: Add to solution and build. STOP.
 ## Prompt 040 — Create the Crm.Core project
 
 ```text
-REQUIREMENTS: DATA-001..008; CLIENT/PROJECT/TASK requirements
+REQUIREMENTS:
+  TRACEABILITY: DATA-001..008; CLIENT/PROJECT/TASK requirements
+  REQUIREMENT LINKS: [DATA-001..008](../requirements/lightweight-crm-product-and-system-requirements.md#data-001); [Client requirements](../requirements/lightweight-crm-product-and-system-requirements.md#4-client-requirements), [Project requirements](../requirements/lightweight-crm-product-and-system-requirements.md#8-project-requirements), [Task requirements](../requirements/lightweight-crm-product-and-system-requirements.md#12-task-requirements)
+  REQUIREMENT INTENT: Enforce Client→Project→Task relationships, validate before mutation, store UTC, use safe public IDs, and prevent silent concurrent overwrites.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Create `ProjectChicago.Crm.Core` class library only.
 
@@ -816,7 +1000,11 @@ BEHAVIOR: Add to solution and build. STOP.
 ## Prompt 041 — Create the Crm.Functions project
 
 ```text
-REQUIREMENTS: ASYNC-001..008; OUTBOX-003..006
+REQUIREMENTS:
+  TRACEABILITY: ASYNC-001..008; OUTBOX-003..006
+  REQUIREMENT LINKS: [ASYNC-001..008](../requirements/lightweight-crm-product-and-system-requirements.md#async-001); [OUTBOX-003..006](../requirements/lightweight-crm-product-and-system-requirements.md#outbox-003)
+  REQUIREMENT INTENT: Durable async work uses Azure Service Bus and Service Bus-triggered Functions with trace correlation, duplicate tolerance/idempotency, bounded retry behavior, and dead-letter visibility. Commit state and integration events atomically through a transactional outbox, then relay them with a timer-triggered Function and observable retry/backlog behavior.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Create `ProjectChicago.Crm.Functions` as a .NET isolated Azure Functions project only.
 
@@ -832,7 +1020,11 @@ BEHAVIOR: Add to solution and build. STOP.
 ## Prompt 042 — Wire Crm project references
 
 ```text
-REQUIREMENTS: DATA-031..034; architecture constraints
+REQUIREMENTS:
+  TRACEABILITY: DATA-031..034; architecture constraints
+  REQUIREMENT LINKS: [DATA-031..034](../requirements/lightweight-crm-product-and-system-requirements.md#data-031); [Project Chicago requirements](../requirements/lightweight-crm-product-and-system-requirements.md) and [CLAUDE.md](../../CLAUDE.md)
+  REQUIREMENT INTENT: Use SQL Server/Azure SQL with service-owned databases, enforced relationships, UTC timestamps, safe public IDs, optimistic concurrency, and archival over routine hard deletion. Preserve the service, layer, persistence, gateway, and Function boundaries defined by the requirements, ADRs, and CLAUDE.md.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Add only the approved project references for Crm: Crm.Core -> Shared/Contracts as needed; Crm host -> Crm.Core + ServiceDefaults; Crm.Functions -> Crm.Core + Shared/Contracts + ServiceDefaults as appropriate.
 
@@ -848,7 +1040,11 @@ BEHAVIOR: Build all three projects and print the reference graph. Verify no Crm 
 ## Prompt 043 — Create Crm.Core unit-test project
 
 ```text
-REQUIREMENTS: TEST-001..007
+REQUIREMENTS:
+  TRACEABILITY: TEST-001..007
+  REQUIREMENT LINKS: [TEST-001..007](../requirements/lightweight-crm-product-and-system-requirements.md#test-001)
+  REQUIREMENT INTENT: Automated tests cover business rules, authorization, APIs, SQL-compatible persistence, message consumers, audit generation, and representative distributed tracing.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Create `ProjectChicago.Crm.Core.Tests` only and reference Crm.Core.
 
@@ -864,7 +1060,11 @@ BEHAVIOR: Add to solution and build the test project. STOP.
 ## Prompt 044 — Create Crm API test project
 
 ```text
-REQUIREMENTS: TEST-003; SEC-010..013
+REQUIREMENTS:
+  TRACEABILITY: TEST-003; SEC-010..013
+  REQUIREMENT LINKS: [TEST-003](../requirements/lightweight-crm-product-and-system-requirements.md#test-003); [SEC-010..013](../requirements/lightweight-crm-product-and-system-requirements.md#sec-010)
+  REQUIREMENT INTENT: Automate business, authorization, API, SQL, messaging, audit, tracing, Function, and UI behavior at the boundary that can actually prove it. Use ASP.NET Core Identity and server-side role/policy authorization with least privilege; protect APIs and never expose passwords, tokens, secrets, or sensitive internals.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Create `ProjectChicago.Crm.Api.Tests` only and reference the Crm host.
 
@@ -880,7 +1080,11 @@ BEHAVIOR: Add to solution and build. STOP.
 ## Prompt 045 — Create Crm Functions test project
 
 ```text
-REQUIREMENTS: TEST-005; TEST-007
+REQUIREMENTS:
+  TRACEABILITY: TEST-005; TEST-007
+  REQUIREMENT LINKS: [TEST-005](../requirements/lightweight-crm-product-and-system-requirements.md#test-005); [TEST-007](../requirements/lightweight-crm-product-and-system-requirements.md#test-007)
+  REQUIREMENT INTENT: Automate business, authorization, API, SQL, messaging, audit, tracing, Function, and UI behavior at the boundary that can actually prove it.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Create `ProjectChicago.Crm.Functions.Tests` only and reference Crm.Functions.
 
@@ -896,7 +1100,11 @@ BEHAVIOR: Add to solution and build. STOP.
 ## Prompt 046 — Add EF Core SQL Server packages to Crm.Core
 
 ```text
-REQUIREMENTS: DATA-030..034; TEST-004
+REQUIREMENTS:
+  TRACEABILITY: DATA-030..034; TEST-004
+  REQUIREMENT LINKS: [DATA-030..034](../requirements/lightweight-crm-product-and-system-requirements.md#data-030); [TEST-004](../requirements/lightweight-crm-product-and-system-requirements.md#test-004)
+  REQUIREMENT INTENT: Use Microsoft SQL Server/Azure SQL, one database per bounded service, no cross-service database queries, and controlled schema migrations. Automate business, authorization, API, SQL, messaging, audit, tracing, Function, and UI behavior at the boundary that can actually prove it.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Add only the EF Core SQL Server and required design/migration packages to Crm.Core using central package management.
 
@@ -912,7 +1120,11 @@ BEHAVIOR: Restore and build Crm.Core. Verify no Npgsql/PostgreSQL package appear
 ## Prompt 047 — Create CrmDbContext with shared outbox/inbox sets
 
 ```text
-REQUIREMENTS: DATA-001..008; OUTBOX-001..006; ASYNC-005
+REQUIREMENTS:
+  TRACEABILITY: DATA-001..008; OUTBOX-001..006; ASYNC-005
+  REQUIREMENT LINKS: [DATA-001..008](../requirements/lightweight-crm-product-and-system-requirements.md#data-001); [OUTBOX-001..006](../requirements/lightweight-crm-product-and-system-requirements.md#outbox-001); [ASYNC-005](../requirements/lightweight-crm-product-and-system-requirements.md#async-005)
+  REQUIREMENT INTENT: Enforce Client→Project→Task relationships, validate before mutation, store UTC, use safe public IDs, and prevent silent concurrent overwrites. When a transaction changes state and publishes an event, state and outbox commit together; a timer Function relays pending messages idempotently and exposes backlog/failure metrics. Use Azure Service Bus and Azure Functions for durable async work with idempotent/duplicate-tolerant consumers, bounded retries, and dead-letter visibility.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Create the empty service-owned `CrmDbContext` and register Shared OutboxMessage/InboxMessage sets/configuration only.
 
@@ -928,7 +1140,11 @@ BEHAVIOR: Add focused model tests proving only Outbox/Inbox tables are currently
 ## Prompt 048 — Register the Crm database resource in AppHost
 
 ```text
-REQUIREMENTS: DATA-031..034; DEPLOY-001
+REQUIREMENTS:
+  TRACEABILITY: DATA-031..034; DEPLOY-001
+  REQUIREMENT LINKS: [DATA-031..034](../requirements/lightweight-crm-product-and-system-requirements.md#data-031); [DEPLOY-001](../requirements/lightweight-crm-product-and-system-requirements.md#deploy-001)
+  REQUIREMENT INTENT: Use SQL Server/Azure SQL with service-owned databases, enforced relationships, UTC timestamps, safe public IDs, optimistic concurrency, and archival over routine hard deletion. Support environment-specific configuration, externalized secrets, Flex Consumption Functions, and consistent deployment/telemetry metadata.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Add one `crmdb` (or ADR-approved equivalent) database under the existing Aspire SQL Server resource only.
 
@@ -944,7 +1160,11 @@ BEHAVIOR: Build AppHost and inspect the resource model. STOP.
 ## Prompt 049 — Wire Crm host to ServiceDefaults and CrmDb
 
 ```text
-REQUIREMENTS: OTEL-001..006; DATA-030..034; OPS-001
+REQUIREMENTS:
+  TRACEABILITY: OTEL-001..006; DATA-030..034; OPS-001
+  REQUIREMENT LINKS: [OTEL-001..006](../requirements/lightweight-crm-product-and-system-requirements.md#otel-001); [DATA-030..034](../requirements/lightweight-crm-product-and-system-requirements.md#data-030); [OPS-001](../requirements/lightweight-crm-product-and-system-requirements.md#ops-001)
+  REQUIREMENT INTENT: Every API/service/Function uses OpenTelemetry for traces, metrics, and log correlation, including dependency instrumentation and meaningful business spans where needed. Use Microsoft SQL Server/Azure SQL, one database per bounded service, no cross-service database queries, and controlled schema migrations. Expose health and telemetry that detect errors, latency, dependency failures, authentication anomalies, dead letters, and outbox backlog.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Configure the Crm HTTP host composition root to use ServiceDefaults and the Aspire SQL Server EF Core integration for CrmDb only.
 
@@ -960,7 +1180,11 @@ BEHAVIOR: Build Crm host and add a minimal host-start integration test if needed
 ## Prompt 050 — Register Crm host in AppHost
 
 ```text
-REQUIREMENTS: DEPLOY-001; OPS-001..004
+REQUIREMENTS:
+  TRACEABILITY: DEPLOY-001; OPS-001..004
+  REQUIREMENT LINKS: [DEPLOY-001](../requirements/lightweight-crm-product-and-system-requirements.md#deploy-001); [OPS-001..004](../requirements/lightweight-crm-product-and-system-requirements.md#ops-001)
+  REQUIREMENT INTENT: Support environment-specific configuration, externalized secrets, Flex Consumption Functions, and consistent deployment/telemetry metadata. Operators can determine service health and detect rising errors/latency, SQL or Service Bus failures, Function failures, auth anomalies, dead letters, and outbox backlog.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Register the Crm HTTP host in AppHost and reference/wait for CrmDb only.
 
@@ -976,7 +1200,11 @@ BEHAVIOR: Build AppHost and verify Crm -> CrmDb dependency only. STOP.
 ## Prompt 051 — Wire Crm.Functions to CrmDb and Service Bus
 
 ```text
-REQUIREMENTS: ASYNC-001..008; OUTBOX-003..006; OTEL-001..006
+REQUIREMENTS:
+  TRACEABILITY: ASYNC-001..008; OUTBOX-003..006; OTEL-001..006
+  REQUIREMENT LINKS: [ASYNC-001..008](../requirements/lightweight-crm-product-and-system-requirements.md#async-001); [OUTBOX-003..006](../requirements/lightweight-crm-product-and-system-requirements.md#outbox-003); [OTEL-001..006](../requirements/lightweight-crm-product-and-system-requirements.md#otel-001)
+  REQUIREMENT INTENT: Durable async work uses Azure Service Bus and Service Bus-triggered Functions with trace correlation, duplicate tolerance/idempotency, bounded retry behavior, and dead-letter visibility. Commit state and integration events atomically through a transactional outbox, then relay them with a timer-triggered Function and observable retry/backlog behavior. Every API/service/Function uses OpenTelemetry for traces, metrics, and log correlation, including dependency instrumentation and meaningful business spans where needed.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Configure Crm.Functions composition and AppHost wiring for ServiceDefaults/OpenTelemetry, CrmDb and the approved Service Bus resource only.
 
@@ -992,7 +1220,11 @@ BEHAVIOR: Build Crm.Functions and AppHost; inspect resource references to prove 
 ## Prompt 052 — Add the Crm outbox timer trigger
 
 ```text
-REQUIREMENTS: OUTBOX-003..006; ASYNC-001..008
+REQUIREMENTS:
+  TRACEABILITY: OUTBOX-003..006; ASYNC-001..008
+  REQUIREMENT LINKS: [OUTBOX-003..006](../requirements/lightweight-crm-product-and-system-requirements.md#outbox-003); [ASYNC-001..008](../requirements/lightweight-crm-product-and-system-requirements.md#async-001)
+  REQUIREMENT INTENT: Commit state and integration events atomically through a transactional outbox, then relay them with a timer-triggered Function and observable retry/backlog behavior. Durable async work uses Azure Service Bus and Service Bus-triggered Functions with trace correlation, duplicate tolerance/idempotency, bounded retry behavior, and dead-letter visibility.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Add one timer-triggered Function to Crm.Functions that delegates to the shared IOutboxRelay.
 
@@ -1008,7 +1240,11 @@ BEHAVIOR: Add Function adapter tests proving exactly one relay call, cancellatio
 ## Prompt 053 — Add stable Crm gateway route prefix
 
 ```text
-REQUIREMENTS: API-001..007; SEC-020..025
+REQUIREMENTS:
+  TRACEABILITY: API-001..007; SEC-020..025
+  REQUIREMENT LINKS: [API-001..007](../requirements/lightweight-crm-product-and-system-requirements.md#api-001); [SEC-020..025](../requirements/lightweight-crm-product-and-system-requirements.md#sec-020)
+  REQUIREMENT INTENT: Use consistent REST routes, conventional HTTP verbs/status codes, bounded pagination, OpenAPI documentation, and versionable public contracts. Public API access goes through the Project Chicago gateway over HTTPS with validated inputs and safe logging that excludes credentials, tokens, secrets, and unnecessary PII.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Add one stable YARP route/cluster mapping for the approved public CRM API prefix to the Crm host.
 
@@ -1024,7 +1260,11 @@ BEHAVIOR: Add gateway routing test and build Gateway. Verify no hardcoded host/p
 ## Prompt 053A — Add Crm global exception handling and request context registration
 
 ```text
-REQUIREMENTS: ERROR-001..005; TRACE-001..007; LOG-001..006
+REQUIREMENTS:
+  TRACEABILITY: ERROR-001..005; TRACE-001..007; LOG-001..006
+  REQUIREMENT LINKS: [ERROR-001..005](../requirements/lightweight-crm-product-and-system-requirements.md#error-001); [TRACE-001..007](../requirements/lightweight-crm-product-and-system-requirements.md#trace-001); [LOG-001..006](../requirements/lightweight-crm-product-and-system-requirements.md#log-001)
+  REQUIREMENT INTENT: Return safe errors that distinguish validation/auth/authz/not-found/concurrency/internal failures and provide a trace/support reference without exposing internals. Every inbound request participates in a trace propagated through gateway, services, SQL, HTTP, Service Bus, Functions, and downstream work with safe diagnostic metadata. Use structured trace-correlated logs without sensitive payload leakage or duplicate exception logging at every layer.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Register the shared ProblemDetails/exception handling and HTTP request/actor context adapter in the Crm HTTP host only.
 
@@ -1040,7 +1280,11 @@ BEHAVIOR: Add host integration tests for expected error mappings, unexpected 500
 ## Prompt 054 — Create the Client entity
 
 ```text
-REQUIREMENTS: CLIENT-001..015; DATA-006..008
+REQUIREMENTS:
+  TRACEABILITY: CLIENT-001..015; DATA-006..008
+  REQUIREMENT LINKS: [CLIENT-001..015](../requirements/lightweight-crm-product-and-system-requirements.md#client-001); [DATA-006..008](../requirements/lightweight-crm-product-and-system-requirements.md#data-006)
+  REQUIREMENT INTENT: Clients are the CRM anchor and must support the required data, lifecycle/archive behavior, searchable paginated lists, detail views, ownership, and auditable changes. Use SQL Server/Azure SQL with service-owned databases, enforced relationships, UTC timestamps, safe public IDs, optimistic concurrency, and archival over routine hard deletion.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Create the Crm Client data/domain entity and its invariant unit tests only.
 
@@ -1056,7 +1300,11 @@ BEHAVIOR: Run focused entity tests for required invariants/status values/UTC sem
 ## Prompt 055 — Configure Client EF persistence
 
 ```text
-REQUIREMENTS: CLIENT-002..004; DATA-004..008
+REQUIREMENTS:
+  TRACEABILITY: CLIENT-002..004; DATA-004..008
+  REQUIREMENT LINKS: [CLIENT-002..004](../requirements/lightweight-crm-product-and-system-requirements.md#client-002); [DATA-004..008](../requirements/lightweight-crm-product-and-system-requirements.md#data-004)
+  REQUIREMENT INTENT: Clients are the CRM anchor and must support the required data, lifecycle/archive behavior, searchable paginated lists, detail views, ownership, and auditable changes. Use SQL Server/Azure SQL with service-owned databases, enforced relationships, UTC timestamps, safe public IDs, optimistic concurrency, and archival over routine hard deletion.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Add EF Core SQL Server configuration for Client only.
 
@@ -1072,7 +1320,11 @@ BEHAVIOR: Add model metadata tests and build Crm.Core. STOP.
 ## Prompt 056 — Add Client DbSet to CrmDbContext
 
 ```text
-REQUIREMENTS: CLIENT-001..015; DATA-004
+REQUIREMENTS:
+  TRACEABILITY: CLIENT-001..015; DATA-004
+  REQUIREMENT LINKS: [CLIENT-001..015](../requirements/lightweight-crm-product-and-system-requirements.md#client-001); [DATA-004](../requirements/lightweight-crm-product-and-system-requirements.md#data-004)
+  REQUIREMENT INTENT: Clients are the CRM anchor and must support the required data, lifecycle/archive behavior, searchable paginated lists, detail views, ownership, and auditable changes. Use SQL Server/Azure SQL with service-owned databases, enforced relationships, UTC timestamps, safe public IDs, optimistic concurrency, and archival over routine hard deletion.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Add the Client DbSet and apply its EF configuration to CrmDbContext only.
 
@@ -1088,7 +1340,11 @@ BEHAVIOR: Run the CrmDbContext model test proving Client + Outbox + Inbox mappin
 ## Prompt 057 — Create the Project entity
 
 ```text
-REQUIREMENTS: PROJECT-001..014; DATA-001..008
+REQUIREMENTS:
+  TRACEABILITY: PROJECT-001..014; DATA-001..008
+  REQUIREMENT LINKS: [PROJECT-001..014](../requirements/lightweight-crm-product-and-system-requirements.md#project-001); [DATA-001..008](../requirements/lightweight-crm-product-and-system-requirements.md#data-001)
+  REQUIREMENT INTENT: Projects belong to one Client and must support the required metadata, statuses, filtering/search/detail behavior, completion rules, and non-destructive archival. Enforce Client→Project→Task relationships, validate before mutation, store UTC, use safe public IDs, and prevent silent concurrent overwrites.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Create the Crm Project entity and invariant tests only.
 
@@ -1104,7 +1360,11 @@ BEHAVIOR: Run focused Project invariant/status/date tests and STOP.
 ## Prompt 058 — Configure Project EF persistence
 
 ```text
-REQUIREMENTS: PROJECT-001..023; DATA-002..005
+REQUIREMENTS:
+  TRACEABILITY: PROJECT-001..023; DATA-002..005
+  REQUIREMENT LINKS: [PROJECT-001..023](../requirements/lightweight-crm-product-and-system-requirements.md#project-001); [DATA-002..005](../requirements/lightweight-crm-product-and-system-requirements.md#data-002)
+  REQUIREMENT INTENT: Projects belong to one Client and must support the required metadata, statuses, filtering/search/detail behavior, completion rules, and non-destructive archival. Use SQL Server/Azure SQL with service-owned databases, enforced relationships, UTC timestamps, safe public IDs, optimistic concurrency, and archival over routine hard deletion.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Add EF Core configuration for Project and its required Client foreign key only.
 
@@ -1120,7 +1380,11 @@ BEHAVIOR: Add model metadata tests proving required FK/index/delete behavior. ST
 ## Prompt 059 — Add Project DbSet to CrmDbContext
 
 ```text
-REQUIREMENTS: PROJECT-001..023; DATA-002
+REQUIREMENTS:
+  TRACEABILITY: PROJECT-001..023; DATA-002
+  REQUIREMENT LINKS: [PROJECT-001..023](../requirements/lightweight-crm-product-and-system-requirements.md#project-001); [DATA-002](../requirements/lightweight-crm-product-and-system-requirements.md#data-002)
+  REQUIREMENT INTENT: Projects belong to one Client and must support the required metadata, statuses, filtering/search/detail behavior, completion rules, and non-destructive archival. Use SQL Server/Azure SQL with service-owned databases, enforced relationships, UTC timestamps, safe public IDs, optimistic concurrency, and archival over routine hard deletion.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Add the Project DbSet/configuration to CrmDbContext only.
 
@@ -1136,7 +1400,11 @@ BEHAVIOR: Run model tests verifying Project cannot exist without Client at the E
 ## Prompt 060 — Create the Task entity
 
 ```text
-REQUIREMENTS: TASK-001..016; DATA-003..008
+REQUIREMENTS:
+  TRACEABILITY: TASK-001..016; DATA-003..008
+  REQUIREMENT LINKS: [TASK-001..016](../requirements/lightweight-crm-product-and-system-requirements.md#task-001); [DATA-003..008](../requirements/lightweight-crm-product-and-system-requirements.md#data-003)
+  REQUIREMENT INTENT: Authorized users can create Tasks for one Project with the required metadata, statuses, priorities, assignment, completion, reopen, and overdue behavior. Use SQL Server/Azure SQL with service-owned databases, enforced relationships, UTC timestamps, safe public IDs, optimistic concurrency, and archival over routine hard deletion.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Create the Crm Task entity and invariant tests only.
 
@@ -1152,7 +1420,11 @@ BEHAVIOR: Run focused Task invariant/status/priority/completion tests and STOP.
 ## Prompt 061 — Configure Task EF persistence
 
 ```text
-REQUIREMENTS: TASK-001..022; DATA-003..005
+REQUIREMENTS:
+  TRACEABILITY: TASK-001..022; DATA-003..005
+  REQUIREMENT LINKS: [TASK-001..022](../requirements/lightweight-crm-product-and-system-requirements.md#task-001); [DATA-003..005](../requirements/lightweight-crm-product-and-system-requirements.md#data-003)
+  REQUIREMENT INTENT: Tasks belong to one Project and must support assignment, priority, status/completion/reopen behavior, overdue detection, and filterable task views. Use SQL Server/Azure SQL with service-owned databases, enforced relationships, UTC timestamps, safe public IDs, optimistic concurrency, and archival over routine hard deletion.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Add EF Core configuration for Task and its required Project foreign key only.
 
@@ -1168,7 +1440,11 @@ BEHAVIOR: Add model metadata tests proving required FK/index/delete behavior. ST
 ## Prompt 062 — Add Task DbSet to CrmDbContext
 
 ```text
-REQUIREMENTS: TASK-001..022; DATA-003
+REQUIREMENTS:
+  TRACEABILITY: TASK-001..022; DATA-003
+  REQUIREMENT LINKS: [TASK-001..022](../requirements/lightweight-crm-product-and-system-requirements.md#task-001); [DATA-003](../requirements/lightweight-crm-product-and-system-requirements.md#data-003)
+  REQUIREMENT INTENT: Tasks belong to one Project and must support assignment, priority, status/completion/reopen behavior, overdue detection, and filterable task views. Use SQL Server/Azure SQL with service-owned databases, enforced relationships, UTC timestamps, safe public IDs, optimistic concurrency, and archival over routine hard deletion.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Add Task DbSet/configuration to CrmDbContext only.
 
@@ -1184,7 +1460,11 @@ BEHAVIOR: Run model tests proving Task -> Project -> Client required relationshi
 ## Prompt 063 — Generate the initial Crm SQL Server migration
 
 ```text
-REQUIREMENTS: DATA-030..034; TEST-004
+REQUIREMENTS:
+  TRACEABILITY: DATA-030..034; TEST-004
+  REQUIREMENT LINKS: [DATA-030..034](../requirements/lightweight-crm-product-and-system-requirements.md#data-030); [TEST-004](../requirements/lightweight-crm-product-and-system-requirements.md#test-004)
+  REQUIREMENT INTENT: Use Microsoft SQL Server/Azure SQL, one database per bounded service, no cross-service database queries, and controlled schema migrations. Automate business, authorization, API, SQL, messaging, audit, tracing, Function, and UI behavior at the boundary that can actually prove it.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Generate one EF Core migration for the current CrmDbContext model.
 
@@ -1200,7 +1480,11 @@ BEHAVIOR: Generate migration, inspect generated operations for tables/FKs/indexe
 ## Prompt 064 — Apply the initial Crm migration locally
 
 ```text
-REQUIREMENTS: DATA-030..034; DEPLOY-001
+REQUIREMENTS:
+  TRACEABILITY: DATA-030..034; DEPLOY-001
+  REQUIREMENT LINKS: [DATA-030..034](../requirements/lightweight-crm-product-and-system-requirements.md#data-030); [DEPLOY-001](../requirements/lightweight-crm-product-and-system-requirements.md#deploy-001)
+  REQUIREMENT INTENT: Use Microsoft SQL Server/Azure SQL, one database per bounded service, no cross-service database queries, and controlled schema migrations. Support environment-specific configuration, externalized secrets, Flex Consumption Functions, and consistent deployment/telemetry metadata.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Apply only the already-reviewed initial Crm migration to the local Aspire-managed CrmDb.
 
@@ -1220,7 +1504,11 @@ BEHAVIOR: Verify applied migration list and query SQL metadata for expected tabl
 ## Prompt 065 — Define Client create API contract
 
 ```text
-REQUIREMENTS: CLIENT-001..004; API-001..007; SEC-012..013
+REQUIREMENTS:
+  TRACEABILITY: CLIENT-001..004; API-001..007; SEC-012..013
+  REQUIREMENT LINKS: [CLIENT-001..004](../requirements/lightweight-crm-product-and-system-requirements.md#client-001); [API-001..007](../requirements/lightweight-crm-product-and-system-requirements.md#api-001); [SEC-012..013](../requirements/lightweight-crm-product-and-system-requirements.md#sec-012)
+  REQUIREMENT INTENT: Authorized users can create Clients with the required CRM/contact/ownership metadata; names are searchable and likely duplicates are detected without silent merging. Use consistent REST routes, conventional HTTP verbs/status codes, bounded pagination, OpenAPI documentation, and versionable public contracts. Use ASP.NET Core Identity and server-side role/policy authorization with least privilege; protect APIs and never expose passwords, tokens, secrets, or sensitive internals.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Define the public POST Client request/response contracts only.
 
@@ -1236,7 +1524,11 @@ BEHAVIOR: Build Crm host and add serialization/contract tests. STOP.
 ## Prompt 066 — Implement Client create repository operation
 
 ```text
-REQUIREMENTS: CLIENT-001..004; DATA-004..005
+REQUIREMENTS:
+  TRACEABILITY: CLIENT-001..004; DATA-004..005
+  REQUIREMENT LINKS: [CLIENT-001..004](../requirements/lightweight-crm-product-and-system-requirements.md#client-001); [DATA-004..005](../requirements/lightweight-crm-product-and-system-requirements.md#data-004)
+  REQUIREMENT INTENT: Authorized users can create Clients with the required CRM/contact/ownership metadata; names are searchable and likely duplicates are detected without silent merging. Use SQL Server/Azure SQL with service-owned databases, enforced relationships, UTC timestamps, safe public IDs, optimistic concurrency, and archival over routine hard deletion.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Add only the repository operation needed to insert a Client and query duplicate-detection candidates by normalized name/email/phone.
 
@@ -1252,7 +1544,11 @@ BEHAVIOR: Add SQL Server integration tests for insert and duplicate candidate qu
 ## Prompt 067 — Implement Client create Data transaction
 
 ```text
-REQUIREMENTS: CLIENT-001..004; AUDIT-001..008; OUTBOX-001..002
+REQUIREMENTS:
+  TRACEABILITY: CLIENT-001..004; AUDIT-001..008; OUTBOX-001..002
+  REQUIREMENT LINKS: [CLIENT-001..004](../requirements/lightweight-crm-product-and-system-requirements.md#client-001); [AUDIT-001..008](../requirements/lightweight-crm-product-and-system-requirements.md#audit-001); [OUTBOX-001..002](../requirements/lightweight-crm-product-and-system-requirements.md#outbox-001)
+  REQUIREMENT INTENT: Authorized users can create Clients with the required CRM/contact/ownership metadata; names are searchable and likely duplicates are detected without silent merging. Every Client/Project/Task mutation produces append-only audit evidence with entity/action/time/actor/source, trace/correlation, and applicable before/after values; secrets are redacted. Commit state and integration events atomically through a transactional outbox, then relay them with a timer-triggered Function and observable retry/backlog behavior.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Implement the Data-layer Client create transaction only.
 
@@ -1268,7 +1564,11 @@ BEHAVIOR: Add SQL integration tests proving state + outbox commit together and b
 ## Prompt 068 — Implement Client create Business behavior
 
 ```text
-REQUIREMENTS: CLIENT-001..004; AUDIT-001..003
+REQUIREMENTS:
+  TRACEABILITY: CLIENT-001..004; AUDIT-001..003
+  REQUIREMENT LINKS: [CLIENT-001..004](../requirements/lightweight-crm-product-and-system-requirements.md#client-001); [AUDIT-001..003](../requirements/lightweight-crm-product-and-system-requirements.md#audit-001)
+  REQUIREMENT INTENT: Authorized users can create Clients with the required CRM/contact/ownership metadata; names are searchable and likely duplicates are detected without silent merging. Every business mutation must create append-only audit evidence describing what changed, when, who caused it, and applicable before/after values while preserving trace correlation and redacting secrets.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Implement Business-layer Client creation rules/model translation only.
 
@@ -1284,7 +1584,11 @@ BEHAVIOR: Add unit tests for initial state, model translation and emitted audit 
 ## Prompt 069 — Implement Client create Facade behavior
 
 ```text
-REQUIREMENTS: CLIENT-001..004; SEC-010..013
+REQUIREMENTS:
+  TRACEABILITY: CLIENT-001..004; SEC-010..013
+  REQUIREMENT LINKS: [CLIENT-001..004](../requirements/lightweight-crm-product-and-system-requirements.md#client-001); [SEC-010..013](../requirements/lightweight-crm-product-and-system-requirements.md#sec-010)
+  REQUIREMENT INTENT: Authorized users can create Clients with the required CRM/contact/ownership metadata; names are searchable and likely duplicates are detected without silent merging. Use ASP.NET Core Identity and server-side role/policy authorization with least privilege; protect APIs and never expose passwords, tokens, secrets, or sensitive internals.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Implement Facade validation, duplicate-warning evaluation and authorization call for Client create only.
 
@@ -1300,7 +1604,11 @@ BEHAVIOR: Add unit tests for valid create, validation failure, duplicate warning
 ## Prompt 070 — Add POST /clients controller action
 
 ```text
-REQUIREMENTS: CLIENT-001..004; API-001..007; SEC-010..013; ERROR-001..005
+REQUIREMENTS:
+  TRACEABILITY: CLIENT-001..004; API-001..007; SEC-010..013; ERROR-001..005
+  REQUIREMENT LINKS: [CLIENT-001..004](../requirements/lightweight-crm-product-and-system-requirements.md#client-001); [API-001..007](../requirements/lightweight-crm-product-and-system-requirements.md#api-001); [SEC-010..013](../requirements/lightweight-crm-product-and-system-requirements.md#sec-010); [ERROR-001..005](../requirements/lightweight-crm-product-and-system-requirements.md#error-001)
+  REQUIREMENT INTENT: Authorized users can create Clients with the required CRM/contact/ownership metadata; names are searchable and likely duplicates are detected without silent merging. Use consistent REST routes, conventional HTTP verbs/status codes, bounded pagination, OpenAPI documentation, and versionable public contracts. Also satisfy the remaining linked cross-cutting constraints that apply to this atomic step.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Add one POST Client controller action only.
 
@@ -1316,7 +1624,11 @@ BEHAVIOR: Add API tests for success, validation, duplicate-policy result, 401 an
 ## Prompt 071 — Define paginated Client list contract
 
 ```text
-REQUIREMENTS: CLIENT-020..024; API-005
+REQUIREMENTS:
+  TRACEABILITY: CLIENT-020..024; API-005
+  REQUIREMENT LINKS: [CLIENT-020..024](../requirements/lightweight-crm-product-and-system-requirements.md#client-020); [API-005](../requirements/lightweight-crm-product-and-system-requirements.md#api-005)
+  REQUIREMENT INTENT: Client collections require server-side pagination plus the specified search, filters, and sorts; unbounded result sets are prohibited. Expose consistent REST-oriented, documented, versionable APIs using conventional HTTP verbs/status codes and bounded pagination for collections.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Define only the gateway-visible Client list/search/filter/sort/pagination request and response contracts.
 
@@ -1332,7 +1644,11 @@ BEHAVIOR: Build and contract-test default/max pagination and enum validation. ST
 ## Prompt 072 — Implement Client list repository query
 
 ```text
-REQUIREMENTS: CLIENT-020..024; PERF-001..004
+REQUIREMENTS:
+  TRACEABILITY: CLIENT-020..024; PERF-001..004
+  REQUIREMENT LINKS: [CLIENT-020..024](../requirements/lightweight-crm-product-and-system-requirements.md#client-020); [PERF-001..004](../requirements/lightweight-crm-product-and-system-requirements.md#perf-001)
+  REQUIREMENT INTENT: Client collections require server-side pagination plus the specified search, filters, and sorts; unbounded result sets are prohibited. Interactive APIs target responsive p95 behavior, bounded collections, efficient indexed searches, and no unnecessary N+1 query patterns.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Implement only the SQL-translatable repository query for Client list/search/filter/sort/pagination.
 
@@ -1348,7 +1664,11 @@ BEHAVIOR: Add SQL integration tests for each filter class, search, sort, page bo
 ## Prompt 073 — Implement Client list Data/Business query
 
 ```text
-REQUIREMENTS: CLIENT-020..024
+REQUIREMENTS:
+  TRACEABILITY: CLIENT-020..024
+  REQUIREMENT LINKS: [CLIENT-020..024](../requirements/lightweight-crm-product-and-system-requirements.md#client-020)
+  REQUIREMENT INTENT: Client collections require server-side pagination plus the specified search, filters, and sorts; unbounded result sets are prohibited.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Add the Client list Data operation and Business translation only.
 
@@ -1364,7 +1684,11 @@ BEHAVIOR: Add unit tests for translation and integration test for returned pagin
 ## Prompt 074 — Implement Client list Facade query
 
 ```text
-REQUIREMENTS: CLIENT-020..024; SEC-010..013
+REQUIREMENTS:
+  TRACEABILITY: CLIENT-020..024; SEC-010..013
+  REQUIREMENT LINKS: [CLIENT-020..024](../requirements/lightweight-crm-product-and-system-requirements.md#client-020); [SEC-010..013](../requirements/lightweight-crm-product-and-system-requirements.md#sec-010)
+  REQUIREMENT INTENT: Client collections require server-side pagination plus the specified search, filters, and sorts; unbounded result sets are prohibited. Use ASP.NET Core Identity and server-side role/policy authorization with least privilege; protect APIs and never expose passwords, tokens, secrets, or sensitive internals.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Implement Client list Facade validation/authorization only.
 
@@ -1380,7 +1704,11 @@ BEHAVIOR: Add unit tests proving invalid paging fails before Business and author
 ## Prompt 075 — Add GET /clients controller action
 
 ```text
-REQUIREMENTS: CLIENT-020..024; API-001..007; SEC-012
+REQUIREMENTS:
+  TRACEABILITY: CLIENT-020..024; API-001..007; SEC-012
+  REQUIREMENT LINKS: [CLIENT-020..024](../requirements/lightweight-crm-product-and-system-requirements.md#client-020); [API-001..007](../requirements/lightweight-crm-product-and-system-requirements.md#api-001); [SEC-012](../requirements/lightweight-crm-product-and-system-requirements.md#sec-012)
+  REQUIREMENT INTENT: Client collections require server-side pagination plus the specified search, filters, and sorts; unbounded result sets are prohibited. Use consistent REST routes, conventional HTTP verbs/status codes, bounded pagination, OpenAPI documentation, and versionable public contracts. Use ASP.NET Core Identity and server-side role/policy authorization with least privilege; protect APIs and never expose passwords, tokens, secrets, or sensitive internals.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Add one GET Client collection action only.
 
@@ -1396,7 +1724,11 @@ BEHAVIOR: Add API tests for default page, search/filter/sort, invalid query, 401
 ## Prompt 076 — Implement Client detail query through Core
 
 ```text
-REQUIREMENTS: CLIENT-030..032; SEARCH-004
+REQUIREMENTS:
+  TRACEABILITY: CLIENT-030..032; SEARCH-004
+  REQUIREMENT LINKS: [CLIENT-030..032](../requirements/lightweight-crm-product-and-system-requirements.md#client-030); [SEARCH-004](../requirements/lightweight-crm-product-and-system-requirements.md#search-004)
+  REQUIREMENT INTENT: Client detail must expose Client/lifecycle/owner information plus related Projects, Tasks, recent activity, and authorized audit history/navigation. Global search must find Clients, Projects, and Tasks, identify result type, and never reveal unauthorized data.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Implement the service-owned Client detail query from Repository -> Data -> Business -> Facade as one read-only seam.
 
@@ -1412,7 +1744,11 @@ BEHAVIOR: Add SQL integration tests for existing/missing/archived/authorization-
 ## Prompt 077 — Add GET /clients/{clientId} controller action
 
 ```text
-REQUIREMENTS: CLIENT-030..032; API-001..007; SEC-012
+REQUIREMENTS:
+  TRACEABILITY: CLIENT-030..032; API-001..007; SEC-012
+  REQUIREMENT LINKS: [CLIENT-030..032](../requirements/lightweight-crm-product-and-system-requirements.md#client-030); [API-001..007](../requirements/lightweight-crm-product-and-system-requirements.md#api-001); [SEC-012](../requirements/lightweight-crm-product-and-system-requirements.md#sec-012)
+  REQUIREMENT INTENT: Client detail must expose Client/lifecycle/owner information plus related Projects, Tasks, recent activity, and authorized audit history/navigation. Use consistent REST routes, conventional HTTP verbs/status codes, bounded pagination, OpenAPI documentation, and versionable public contracts. Use ASP.NET Core Identity and server-side role/policy authorization with least privilege; protect APIs and never expose passwords, tokens, secrets, or sensitive internals.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Add one Client detail controller action only.
 
@@ -1428,7 +1764,11 @@ BEHAVIOR: Add API tests for 200, 404, 401 and 403. STOP.
 ## Prompt 078 — Implement Client lifecycle transition Core behavior
 
 ```text
-REQUIREMENTS: CLIENT-010..015; AUDIT-001..008; DATA-008
+REQUIREMENTS:
+  TRACEABILITY: CLIENT-010..015; AUDIT-001..008; DATA-008
+  REQUIREMENT LINKS: [CLIENT-010..015](../requirements/lightweight-crm-product-and-system-requirements.md#client-010); [AUDIT-001..008](../requirements/lightweight-crm-product-and-system-requirements.md#audit-001); [DATA-008](../requirements/lightweight-crm-product-and-system-requirements.md#data-008)
+  REQUIREMENT INTENT: Each Client has one lifecycle status; lifecycle changes are audited, archived Clients are excluded by default, and archival preserves history. Every Client/Project/Task mutation produces append-only audit evidence with entity/action/time/actor/source, trace/correlation, and applicable before/after values; secrets are redacted. Use SQL Server/Azure SQL with service-owned databases, enforced relationships, UTC timestamps, safe public IDs, optimistic concurrency, and archival over routine hard deletion.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Implement one Client lifecycle-transition use case inside Core.
 
@@ -1444,7 +1784,11 @@ BEHAVIOR: Add unit tests for allowed/rejected transitions and SQL integration te
 ## Prompt 079 — Add Client lifecycle transition API action
 
 ```text
-REQUIREMENTS: CLIENT-010..015; API-001..007; SEC-012..013
+REQUIREMENTS:
+  TRACEABILITY: CLIENT-010..015; API-001..007; SEC-012..013
+  REQUIREMENT LINKS: [CLIENT-010..015](../requirements/lightweight-crm-product-and-system-requirements.md#client-010); [API-001..007](../requirements/lightweight-crm-product-and-system-requirements.md#api-001); [SEC-012..013](../requirements/lightweight-crm-product-and-system-requirements.md#sec-012)
+  REQUIREMENT INTENT: Each Client has one lifecycle status; lifecycle changes are audited, archived Clients are excluded by default, and archival preserves history. Use consistent REST routes, conventional HTTP verbs/status codes, bounded pagination, OpenAPI documentation, and versionable public contracts. Use ASP.NET Core Identity and server-side role/policy authorization with least privilege; protect APIs and never expose passwords, tokens, secrets, or sensitive internals.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Add the single public Client lifecycle transition endpoint and contract only.
 
@@ -1460,7 +1804,11 @@ BEHAVIOR: Add API tests for success, invalid transition, stale version conflict,
 ## Prompt 080 — Implement Client archive/restore Core behavior
 
 ```text
-REQUIREMENTS: CLIENT-013..015; DATA-020..023; AUDIT-001..008
+REQUIREMENTS:
+  TRACEABILITY: CLIENT-013..015; DATA-020..023; AUDIT-001..008
+  REQUIREMENT LINKS: [CLIENT-013..015](../requirements/lightweight-crm-product-and-system-requirements.md#client-013); [DATA-020..023](../requirements/lightweight-crm-product-and-system-requirements.md#data-020); [AUDIT-001..008](../requirements/lightweight-crm-product-and-system-requirements.md#audit-001)
+  REQUIREMENT INTENT: Client archival is non-destructive; archived Clients are excluded from normal active lists and Clients with active Projects cannot be permanently removed. Normal workflows archive rather than destructively delete records; history remains available and permanent purge is privileged and retention/privacy governed. Every Client/Project/Task mutation produces append-only audit evidence with entity/action/time/actor/source, trace/correlation, and applicable before/after values; secrets are redacted.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Implement Client archive and restore as one paired state-management use case in Core.
 
@@ -1476,7 +1824,11 @@ BEHAVIOR: Add unit/integration tests for archive allowed, archive blocked by act
 ## Prompt 081 — Add Client archive/restore API actions
 
 ```text
-REQUIREMENTS: CLIENT-013..015; API-001..007; SEC-012..013
+REQUIREMENTS:
+  TRACEABILITY: CLIENT-013..015; API-001..007; SEC-012..013
+  REQUIREMENT LINKS: [CLIENT-013..015](../requirements/lightweight-crm-product-and-system-requirements.md#client-013); [API-001..007](../requirements/lightweight-crm-product-and-system-requirements.md#api-001); [SEC-012..013](../requirements/lightweight-crm-product-and-system-requirements.md#sec-012)
+  REQUIREMENT INTENT: Client archival is non-destructive; archived Clients are excluded from normal active lists and Clients with active Projects cannot be permanently removed. Use consistent REST routes, conventional HTTP verbs/status codes, bounded pagination, OpenAPI documentation, and versionable public contracts. Use ASP.NET Core Identity and server-side role/policy authorization with least privilege; protect APIs and never expose passwords, tokens, secrets, or sensitive internals.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Add only the public archive and restore transport actions using the already-implemented Facade.
 
@@ -1492,7 +1844,11 @@ BEHAVIOR: Add API tests for authorized success, blocked archive, 404, 401 and 40
 ## Prompt 081A — Implement Client profile update Core behavior
 
 ```text
-REQUIREMENTS: CLIENT-002; AUDIT-001..008; DATA-008; SEC-010..013
+REQUIREMENTS:
+  TRACEABILITY: CLIENT-002; AUDIT-001..008; DATA-008; SEC-010..013
+  REQUIREMENT LINKS: [CLIENT-002](../requirements/lightweight-crm-product-and-system-requirements.md#client-002); [AUDIT-001..008](../requirements/lightweight-crm-product-and-system-requirements.md#audit-001); [DATA-008](../requirements/lightweight-crm-product-and-system-requirements.md#data-008); [SEC-010..013](../requirements/lightweight-crm-product-and-system-requirements.md#sec-010)
+  REQUIREMENT INTENT: Clients are the CRM anchor and must support the required data, lifecycle/archive behavior, searchable paginated lists, detail views, ownership, and auditable changes. Every Client/Project/Task mutation produces append-only audit evidence with entity/action/time/actor/source, trace/correlation, and applicable before/after values; secrets are redacted. Also satisfy the remaining linked cross-cutting constraints that apply to this atomic step.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Implement the ordinary editable Client profile update use case inside Crm.Core only.
 
@@ -1508,7 +1864,11 @@ BEHAVIOR: Add unit tests for editable/non-editable fields and SQL integration te
 ## Prompt 081B — Add Client profile update API action
 
 ```text
-REQUIREMENTS: CLIENT-002; API-001..007; SEC-012..013
+REQUIREMENTS:
+  TRACEABILITY: CLIENT-002; API-001..007; SEC-012..013
+  REQUIREMENT LINKS: [CLIENT-002](../requirements/lightweight-crm-product-and-system-requirements.md#client-002); [API-001..007](../requirements/lightweight-crm-product-and-system-requirements.md#api-001); [SEC-012..013](../requirements/lightweight-crm-product-and-system-requirements.md#sec-012)
+  REQUIREMENT INTENT: Clients are the CRM anchor and must support the required data, lifecycle/archive behavior, searchable paginated lists, detail views, ownership, and auditable changes. Use consistent REST routes, conventional HTTP verbs/status codes, bounded pagination, OpenAPI documentation, and versionable public contracts. Use ASP.NET Core Identity and server-side role/policy authorization with least privilege; protect APIs and never expose passwords, tokens, secrets, or sensitive internals.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Add one Client profile update HTTP contract/action only.
 
@@ -1528,7 +1888,11 @@ BEHAVIOR: Add API tests for success, invalid field, stale version, 401 and 403; 
 ## Prompt 082 — Define Project create API contract
 
 ```text
-REQUIREMENTS: PROJECT-001..003; API-001..007
+REQUIREMENTS:
+  TRACEABILITY: PROJECT-001..003; API-001..007
+  REQUIREMENT LINKS: [PROJECT-001..003](../requirements/lightweight-crm-product-and-system-requirements.md#project-001); [API-001..007](../requirements/lightweight-crm-product-and-system-requirements.md#api-001)
+  REQUIREMENT INTENT: Authorized users can create a Project for exactly one Client using the required Project metadata. Use consistent REST routes, conventional HTTP verbs/status codes, bounded pagination, OpenAPI documentation, and versionable public contracts.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Define only the public Project create request/response contract.
 
@@ -1544,7 +1908,11 @@ BEHAVIOR: Build and add contract tests. STOP.
 ## Prompt 083 — Implement Project create repository/Data
 
 ```text
-REQUIREMENTS: PROJECT-001..003; DATA-002; AUDIT-001..008; OUTBOX-001..002
+REQUIREMENTS:
+  TRACEABILITY: PROJECT-001..003; DATA-002; AUDIT-001..008; OUTBOX-001..002
+  REQUIREMENT LINKS: [PROJECT-001..003](../requirements/lightweight-crm-product-and-system-requirements.md#project-001); [DATA-002](../requirements/lightweight-crm-product-and-system-requirements.md#data-002); [AUDIT-001..008](../requirements/lightweight-crm-product-and-system-requirements.md#audit-001); [OUTBOX-001..002](../requirements/lightweight-crm-product-and-system-requirements.md#outbox-001)
+  REQUIREMENT INTENT: Authorized users can create a Project for exactly one Client using the required Project metadata. Use SQL Server/Azure SQL with service-owned databases, enforced relationships, UTC timestamps, safe public IDs, optimistic concurrency, and archival over routine hard deletion. Also satisfy the remaining linked cross-cutting constraints that apply to this atomic step.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Implement Project repository insert plus Data transaction only.
 
@@ -1560,7 +1928,11 @@ BEHAVIOR: Add SQL integration tests for valid Client, missing Client, and rollba
 ## Prompt 084 — Implement Project create Business/Facade
 
 ```text
-REQUIREMENTS: PROJECT-001..003; SEC-010..013
+REQUIREMENTS:
+  TRACEABILITY: PROJECT-001..003; SEC-010..013
+  REQUIREMENT LINKS: [PROJECT-001..003](../requirements/lightweight-crm-product-and-system-requirements.md#project-001); [SEC-010..013](../requirements/lightweight-crm-product-and-system-requirements.md#sec-010)
+  REQUIREMENT INTENT: Authorized users can create a Project for exactly one Client using the required Project metadata. Use ASP.NET Core Identity and server-side role/policy authorization with least privilege; protect APIs and never expose passwords, tokens, secrets, or sensitive internals.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Implement Project create Business and Facade behavior only.
 
@@ -1576,7 +1948,11 @@ BEHAVIOR: Add unit tests for defaults, validation, authorized/forbidden Client o
 ## Prompt 085 — Add POST Project controller action
 
 ```text
-REQUIREMENTS: PROJECT-001..003; API-001..007; SEC-012..013
+REQUIREMENTS:
+  TRACEABILITY: PROJECT-001..003; API-001..007; SEC-012..013
+  REQUIREMENT LINKS: [PROJECT-001..003](../requirements/lightweight-crm-product-and-system-requirements.md#project-001); [API-001..007](../requirements/lightweight-crm-product-and-system-requirements.md#api-001); [SEC-012..013](../requirements/lightweight-crm-product-and-system-requirements.md#sec-012)
+  REQUIREMENT INTENT: Authorized users can create a Project for exactly one Client using the required Project metadata. Use consistent REST routes, conventional HTTP verbs/status codes, bounded pagination, OpenAPI documentation, and versionable public contracts. Use ASP.NET Core Identity and server-side role/policy authorization with least privilege; protect APIs and never expose passwords, tokens, secrets, or sensitive internals.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Add the single Project create controller action under the stable public route.
 
@@ -1592,7 +1968,11 @@ BEHAVIOR: Add API tests for 201/200 per contract, missing Client, invalid input,
 ## Prompt 086 — Implement Project list/search Core query
 
 ```text
-REQUIREMENTS: PROJECT-020..023; PERF-001..004
+REQUIREMENTS:
+  TRACEABILITY: PROJECT-020..023; PERF-001..004
+  REQUIREMENT LINKS: [PROJECT-020..023](../requirements/lightweight-crm-product-and-system-requirements.md#project-020); [PERF-001..004](../requirements/lightweight-crm-product-and-system-requirements.md#perf-001)
+  REQUIREMENT INTENT: Project collections require the specified views, filters/search, and server-side pagination. Interactive APIs target responsive p95 behavior, bounded collections, efficient indexed searches, and no unnecessary N+1 query patterns.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Implement Project repository/Data/Business/Facade list query as one read-only seam.
 
@@ -1608,7 +1988,11 @@ BEHAVIOR: Add SQL integration tests for filters/search/pagination and unit tests
 ## Prompt 087 — Add GET /projects controller action
 
 ```text
-REQUIREMENTS: PROJECT-020..023; API-005; SEC-012
+REQUIREMENTS:
+  TRACEABILITY: PROJECT-020..023; API-005; SEC-012
+  REQUIREMENT LINKS: [PROJECT-020..023](../requirements/lightweight-crm-product-and-system-requirements.md#project-020); [API-005](../requirements/lightweight-crm-product-and-system-requirements.md#api-005); [SEC-012](../requirements/lightweight-crm-product-and-system-requirements.md#sec-012)
+  REQUIREMENT INTENT: Project collections require the specified views, filters/search, and server-side pagination. Expose consistent REST-oriented, documented, versionable APIs using conventional HTTP verbs/status codes and bounded pagination for collections. Use ASP.NET Core Identity and server-side role/policy authorization with least privilege; protect APIs and never expose passwords, tokens, secrets, or sensitive internals.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Add one Project collection controller action only.
 
@@ -1624,7 +2008,11 @@ BEHAVIOR: Add API tests for key filters, pagination, invalid query, 401/403. STO
 ## Prompt 088 — Implement Project detail Core query
 
 ```text
-REQUIREMENTS: PROJECT-030..031
+REQUIREMENTS:
+  TRACEABILITY: PROJECT-030..031
+  REQUIREMENT LINKS: [PROJECT-030..031](../requirements/lightweight-crm-product-and-system-requirements.md#project-030)
+  REQUIREMENT INTENT: Project detail must show Client, status/owner/priority/dates, open/completed Tasks, recent activity, authorized audit history, and Task-creation navigation.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Implement Project detail query through Repository -> Data -> Business -> Facade only.
 
@@ -1640,7 +2028,11 @@ BEHAVIOR: Add SQL integration tests for projection and authorization-scoped not-
 ## Prompt 089 — Add GET /projects/{projectId} controller action
 
 ```text
-REQUIREMENTS: PROJECT-030..031; API-001..007
+REQUIREMENTS:
+  TRACEABILITY: PROJECT-030..031; API-001..007
+  REQUIREMENT LINKS: [PROJECT-030..031](../requirements/lightweight-crm-product-and-system-requirements.md#project-030); [API-001..007](../requirements/lightweight-crm-product-and-system-requirements.md#api-001)
+  REQUIREMENT INTENT: Project detail must show Client, status/owner/priority/dates, open/completed Tasks, recent activity, authorized audit history, and Task-creation navigation. Use consistent REST routes, conventional HTTP verbs/status codes, bounded pagination, OpenAPI documentation, and versionable public contracts.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Add one Project detail controller action only.
 
@@ -1656,7 +2048,11 @@ BEHAVIOR: Run focused API tests and STOP.
 ## Prompt 090 — Implement Project status transition Core behavior
 
 ```text
-REQUIREMENTS: PROJECT-010..014; AUDIT-001..008; DATA-008
+REQUIREMENTS:
+  TRACEABILITY: PROJECT-010..014; AUDIT-001..008; DATA-008
+  REQUIREMENT LINKS: [PROJECT-010..014](../requirements/lightweight-crm-product-and-system-requirements.md#project-010); [AUDIT-001..008](../requirements/lightweight-crm-product-and-system-requirements.md#audit-001); [DATA-008](../requirements/lightweight-crm-product-and-system-requirements.md#data-008)
+  REQUIREMENT INTENT: Project status changes are auditable; completion records actual completion time and requires acknowledgement when open Tasks remain; archival is non-destructive. Every Client/Project/Task mutation produces append-only audit evidence with entity/action/time/actor/source, trace/correlation, and applicable before/after values; secrets are redacted. Use SQL Server/Azure SQL with service-owned databases, enforced relationships, UTC timestamps, safe public IDs, optimistic concurrency, and archival over routine hard deletion.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Implement Project status transition inside Core only.
 
@@ -1672,7 +2068,11 @@ BEHAVIOR: Add unit tests for allowed/rejected transitions/open-task acknowledgem
 ## Prompt 091 — Add Project status transition API action
 
 ```text
-REQUIREMENTS: PROJECT-010..014; API-001..007; SEC-012..013
+REQUIREMENTS:
+  TRACEABILITY: PROJECT-010..014; API-001..007; SEC-012..013
+  REQUIREMENT LINKS: [PROJECT-010..014](../requirements/lightweight-crm-product-and-system-requirements.md#project-010); [API-001..007](../requirements/lightweight-crm-product-and-system-requirements.md#api-001); [SEC-012..013](../requirements/lightweight-crm-product-and-system-requirements.md#sec-012)
+  REQUIREMENT INTENT: Project status changes are auditable; completion records actual completion time and requires acknowledgement when open Tasks remain; archival is non-destructive. Use consistent REST routes, conventional HTTP verbs/status codes, bounded pagination, OpenAPI documentation, and versionable public contracts. Use ASP.NET Core Identity and server-side role/policy authorization with least privilege; protect APIs and never expose passwords, tokens, secrets, or sensitive internals.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Add the Project status transition transport contract/action only.
 
@@ -1688,7 +2088,11 @@ BEHAVIOR: Add API tests for success, missing acknowledgement, invalid transition
 ## Prompt 092 — Implement Project archive behavior
 
 ```text
-REQUIREMENTS: PROJECT-014; DATA-020..023; AUDIT-001..008
+REQUIREMENTS:
+  TRACEABILITY: PROJECT-014; DATA-020..023; AUDIT-001..008
+  REQUIREMENT LINKS: [PROJECT-014](../requirements/lightweight-crm-product-and-system-requirements.md#project-014); [DATA-020..023](../requirements/lightweight-crm-product-and-system-requirements.md#data-020); [AUDIT-001..008](../requirements/lightweight-crm-product-and-system-requirements.md#audit-001)
+  REQUIREMENT INTENT: Projects belong to one Client and must support the required metadata, statuses, filtering/search/detail behavior, completion rules, and non-destructive archival. Normal workflows archive rather than destructively delete records; history remains available and permanent purge is privileged and retention/privacy governed. Every Client/Project/Task mutation produces append-only audit evidence with entity/action/time/actor/source, trace/correlation, and applicable before/after values; secrets are redacted.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Implement Project archival in Core only.
 
@@ -1704,7 +2108,11 @@ BEHAVIOR: Add tests proving archived Project excluded from default active querie
 ## Prompt 093 — Add Project archive API action
 
 ```text
-REQUIREMENTS: PROJECT-014; API-001..007
+REQUIREMENTS:
+  TRACEABILITY: PROJECT-014; API-001..007
+  REQUIREMENT LINKS: [PROJECT-014](../requirements/lightweight-crm-product-and-system-requirements.md#project-014); [API-001..007](../requirements/lightweight-crm-product-and-system-requirements.md#api-001)
+  REQUIREMENT INTENT: Projects belong to one Client and must support the required metadata, statuses, filtering/search/detail behavior, completion rules, and non-destructive archival. Use consistent REST routes, conventional HTTP verbs/status codes, bounded pagination, OpenAPI documentation, and versionable public contracts.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Add one Project archive controller action only.
 
@@ -1720,7 +2128,11 @@ BEHAVIOR: Run focused API tests and STOP.
 ## Prompt 093A — Implement Project details update Core behavior
 
 ```text
-REQUIREMENTS: PROJECT-002; AUDIT-001..008; DATA-008; SEC-010..013
+REQUIREMENTS:
+  TRACEABILITY: PROJECT-002; AUDIT-001..008; DATA-008; SEC-010..013
+  REQUIREMENT LINKS: [PROJECT-002](../requirements/lightweight-crm-product-and-system-requirements.md#project-002); [AUDIT-001..008](../requirements/lightweight-crm-product-and-system-requirements.md#audit-001); [DATA-008](../requirements/lightweight-crm-product-and-system-requirements.md#data-008); [SEC-010..013](../requirements/lightweight-crm-product-and-system-requirements.md#sec-010)
+  REQUIREMENT INTENT: Projects belong to one Client and must support the required metadata, statuses, filtering/search/detail behavior, completion rules, and non-destructive archival. Every Client/Project/Task mutation produces append-only audit evidence with entity/action/time/actor/source, trace/correlation, and applicable before/after values; secrets are redacted. Also satisfy the remaining linked cross-cutting constraints that apply to this atomic step.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Implement ordinary Project detail editing inside Crm.Core only.
 
@@ -1736,7 +2148,11 @@ BEHAVIOR: Add rule/unit tests and SQL integration tests for concurrency and audi
 ## Prompt 093B — Add Project details update API action
 
 ```text
-REQUIREMENTS: PROJECT-002; API-001..007; SEC-012..013
+REQUIREMENTS:
+  TRACEABILITY: PROJECT-002; API-001..007; SEC-012..013
+  REQUIREMENT LINKS: [PROJECT-002](../requirements/lightweight-crm-product-and-system-requirements.md#project-002); [API-001..007](../requirements/lightweight-crm-product-and-system-requirements.md#api-001); [SEC-012..013](../requirements/lightweight-crm-product-and-system-requirements.md#sec-012)
+  REQUIREMENT INTENT: Projects belong to one Client and must support the required metadata, statuses, filtering/search/detail behavior, completion rules, and non-destructive archival. Use consistent REST routes, conventional HTTP verbs/status codes, bounded pagination, OpenAPI documentation, and versionable public contracts. Use ASP.NET Core Identity and server-side role/policy authorization with least privilege; protect APIs and never expose passwords, tokens, secrets, or sensitive internals.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Add one Project details update HTTP contract/action only.
 
@@ -1756,7 +2172,11 @@ BEHAVIOR: Add API tests for success, invalid dates, stale version, 401/403 and S
 ## Prompt 094 — Define Task create API contract
 
 ```text
-REQUIREMENTS: TASK-001..016; API-001..007
+REQUIREMENTS:
+  TRACEABILITY: TASK-001..016; API-001..007
+  REQUIREMENT LINKS: [TASK-001..016](../requirements/lightweight-crm-product-and-system-requirements.md#task-001); [API-001..007](../requirements/lightweight-crm-product-and-system-requirements.md#api-001)
+  REQUIREMENT INTENT: Authorized users can create Tasks for one Project with the required metadata, statuses, priorities, assignment, completion, reopen, and overdue behavior. Use consistent REST routes, conventional HTTP verbs/status codes, bounded pagination, OpenAPI documentation, and versionable public contracts.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Define only the public Task create request/response contract.
 
@@ -1772,7 +2192,11 @@ BEHAVIOR: Build and contract-test. STOP.
 ## Prompt 095 — Implement Task create repository/Data
 
 ```text
-REQUIREMENTS: TASK-001..016; DATA-003; AUDIT-001..008
+REQUIREMENTS:
+  TRACEABILITY: TASK-001..016; DATA-003; AUDIT-001..008
+  REQUIREMENT LINKS: [TASK-001..016](../requirements/lightweight-crm-product-and-system-requirements.md#task-001); [DATA-003](../requirements/lightweight-crm-product-and-system-requirements.md#data-003); [AUDIT-001..008](../requirements/lightweight-crm-product-and-system-requirements.md#audit-001)
+  REQUIREMENT INTENT: Authorized users can create Tasks for one Project with the required metadata, statuses, priorities, assignment, completion, reopen, and overdue behavior. Use SQL Server/Azure SQL with service-owned databases, enforced relationships, UTC timestamps, safe public IDs, optimistic concurrency, and archival over routine hard deletion. Every Client/Project/Task mutation produces append-only audit evidence with entity/action/time/actor/source, trace/correlation, and applicable before/after values; secrets are redacted.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Implement Task insert repository operation and Data transaction only.
 
@@ -1788,7 +2212,11 @@ BEHAVIOR: Add SQL integration tests for valid/missing Project and rollback/outbo
 ## Prompt 096 — Implement Task create Business/Facade
 
 ```text
-REQUIREMENTS: TASK-001..016; SEC-010..013
+REQUIREMENTS:
+  TRACEABILITY: TASK-001..016; SEC-010..013
+  REQUIREMENT LINKS: [TASK-001..016](../requirements/lightweight-crm-product-and-system-requirements.md#task-001); [SEC-010..013](../requirements/lightweight-crm-product-and-system-requirements.md#sec-010)
+  REQUIREMENT INTENT: Authorized users can create Tasks for one Project with the required metadata, statuses, priorities, assignment, completion, reopen, and overdue behavior. Use ASP.NET Core Identity and server-side role/policy authorization with least privilege; protect APIs and never expose passwords, tokens, secrets, or sensitive internals.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Implement Task create Business and Facade only.
 
@@ -1804,7 +2232,11 @@ BEHAVIOR: Add unit tests for defaults, validation, authorization and no cross-se
 ## Prompt 097 — Add POST Task controller action
 
 ```text
-REQUIREMENTS: TASK-001..016; API-001..007
+REQUIREMENTS:
+  TRACEABILITY: TASK-001..016; API-001..007
+  REQUIREMENT LINKS: [TASK-001..016](../requirements/lightweight-crm-product-and-system-requirements.md#task-001); [API-001..007](../requirements/lightweight-crm-product-and-system-requirements.md#api-001)
+  REQUIREMENT INTENT: Authorized users can create Tasks for one Project with the required metadata, statuses, priorities, assignment, completion, reopen, and overdue behavior. Use consistent REST routes, conventional HTTP verbs/status codes, bounded pagination, OpenAPI documentation, and versionable public contracts.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Add the single Task create controller action only.
 
@@ -1820,7 +2252,11 @@ BEHAVIOR: Add API tests for success, invalid/missing Project, unauthorized and f
 ## Prompt 098 — Implement Task list/filter Core query
 
 ```text
-REQUIREMENTS: TASK-020..022; PERF-001..004
+REQUIREMENTS:
+  TRACEABILITY: TASK-020..022; PERF-001..004
+  REQUIREMENT LINKS: [TASK-020..022](../requirements/lightweight-crm-product-and-system-requirements.md#task-020); [PERF-001..004](../requirements/lightweight-crm-product-and-system-requirements.md#perf-001)
+  REQUIREMENT INTENT: Task collections support My Tasks/project/open/completed/overdue views plus the required filters and sorts. Interactive APIs target responsive p95 behavior, bounded collections, efficient indexed searches, and no unnecessary N+1 query patterns.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Implement Task list query through Repository/Data/Business/Facade only.
 
@@ -1836,7 +2272,11 @@ BEHAVIOR: Add SQL integration tests for each required view/filter and overdue se
 ## Prompt 099 — Add GET /tasks controller action
 
 ```text
-REQUIREMENTS: TASK-020..022; API-005
+REQUIREMENTS:
+  TRACEABILITY: TASK-020..022; API-005
+  REQUIREMENT LINKS: [TASK-020..022](../requirements/lightweight-crm-product-and-system-requirements.md#task-020); [API-005](../requirements/lightweight-crm-product-and-system-requirements.md#api-005)
+  REQUIREMENT INTENT: Task collections support My Tasks/project/open/completed/overdue views plus the required filters and sorts. Expose consistent REST-oriented, documented, versionable APIs using conventional HTTP verbs/status codes and bounded pagination for collections.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Add one Task collection controller action only.
 
@@ -1852,7 +2292,11 @@ BEHAVIOR: Add API tests for My Tasks, overdue, status/priority filters, paginati
 ## Prompt 100 — Implement Task assignment Core behavior
 
 ```text
-REQUIREMENTS: TASK-013..014; AUDIT-001..008
+REQUIREMENTS:
+  TRACEABILITY: TASK-013..014; AUDIT-001..008
+  REQUIREMENT LINKS: [TASK-013..014](../requirements/lightweight-crm-product-and-system-requirements.md#task-013); [AUDIT-001..008](../requirements/lightweight-crm-product-and-system-requirements.md#audit-001)
+  REQUIREMENT INTENT: Tasks can be assigned/reassigned and each assignment change is auditable. Every Client/Project/Task mutation produces append-only audit evidence with entity/action/time/actor/source, trace/correlation, and applicable before/after values; secrets are redacted.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Implement assign/reassign Task use case in Core only.
 
@@ -1868,7 +2312,11 @@ BEHAVIOR: Add unit tests for assign/reassign and SQL tests for audit/outbox/conc
 ## Prompt 101 — Add Task assignment API action
 
 ```text
-REQUIREMENTS: TASK-013..014; API-001..007; SEC-012..013
+REQUIREMENTS:
+  TRACEABILITY: TASK-013..014; API-001..007; SEC-012..013
+  REQUIREMENT LINKS: [TASK-013..014](../requirements/lightweight-crm-product-and-system-requirements.md#task-013); [API-001..007](../requirements/lightweight-crm-product-and-system-requirements.md#api-001); [SEC-012..013](../requirements/lightweight-crm-product-and-system-requirements.md#sec-012)
+  REQUIREMENT INTENT: Tasks can be assigned/reassigned and each assignment change is auditable. Use consistent REST routes, conventional HTTP verbs/status codes, bounded pagination, OpenAPI documentation, and versionable public contracts. Use ASP.NET Core Identity and server-side role/policy authorization with least privilege; protect APIs and never expose passwords, tokens, secrets, or sensitive internals.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Add one Task assign/reassign controller action only.
 
@@ -1884,7 +2332,11 @@ BEHAVIOR: Add API tests for assign, reassign, stale version, 401/403. STOP.
 ## Prompt 102 — Implement Task priority change Core behavior
 
 ```text
-REQUIREMENTS: TASK-015; AUDIT-001..008
+REQUIREMENTS:
+  TRACEABILITY: TASK-015; AUDIT-001..008
+  REQUIREMENT LINKS: [TASK-015](../requirements/lightweight-crm-product-and-system-requirements.md#task-015); [AUDIT-001..008](../requirements/lightweight-crm-product-and-system-requirements.md#audit-001)
+  REQUIREMENT INTENT: Task priority is limited to Low, Normal, High, or Critical. Every Client/Project/Task mutation produces append-only audit evidence with entity/action/time/actor/source, trace/correlation, and applicable before/after values; secrets are redacted.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Implement Task priority change in Core only.
 
@@ -1900,7 +2352,11 @@ BEHAVIOR: Add unit/integration tests for valid priorities, invalid value and con
 ## Prompt 103 — Add Task priority API action
 
 ```text
-REQUIREMENTS: TASK-015; API-001..007
+REQUIREMENTS:
+  TRACEABILITY: TASK-015; API-001..007
+  REQUIREMENT LINKS: [TASK-015](../requirements/lightweight-crm-product-and-system-requirements.md#task-015); [API-001..007](../requirements/lightweight-crm-product-and-system-requirements.md#api-001)
+  REQUIREMENT INTENT: Task priority is limited to Low, Normal, High, or Critical. Use consistent REST routes, conventional HTTP verbs/status codes, bounded pagination, OpenAPI documentation, and versionable public contracts.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Add one Task priority update controller action only.
 
@@ -1916,7 +2372,11 @@ BEHAVIOR: Run focused API tests and STOP.
 ## Prompt 104 — Implement Task status transition Core behavior
 
 ```text
-REQUIREMENTS: TASK-010..016; AUDIT-001..008
+REQUIREMENTS:
+  TRACEABILITY: TASK-010..016; AUDIT-001..008
+  REQUIREMENT LINKS: [TASK-010..016](../requirements/lightweight-crm-product-and-system-requirements.md#task-010); [AUDIT-001..008](../requirements/lightweight-crm-product-and-system-requirements.md#audit-001)
+  REQUIREMENT INTENT: Task workflow includes required statuses, assignment/reassignment, priority changes, completion timestamps, explicit reopen, and overdue semantics with auditable mutations. Every Client/Project/Task mutation produces append-only audit evidence with entity/action/time/actor/source, trace/correlation, and applicable before/after values; secrets are redacted.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Implement Task status transition in Core only.
 
@@ -1932,7 +2392,11 @@ BEHAVIOR: Add state-machine unit tests and SQL atomicity/concurrency tests. STOP
 ## Prompt 105 — Add Task status transition API action
 
 ```text
-REQUIREMENTS: TASK-010..016; API-001..007
+REQUIREMENTS:
+  TRACEABILITY: TASK-010..016; API-001..007
+  REQUIREMENT LINKS: [TASK-010..016](../requirements/lightweight-crm-product-and-system-requirements.md#task-010); [API-001..007](../requirements/lightweight-crm-product-and-system-requirements.md#api-001)
+  REQUIREMENT INTENT: Task workflow includes required statuses, assignment/reassignment, priority changes, completion timestamps, explicit reopen, and overdue semantics with auditable mutations. Use consistent REST routes, conventional HTTP verbs/status codes, bounded pagination, OpenAPI documentation, and versionable public contracts.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Add one Task status transition controller action only.
 
@@ -1948,7 +2412,11 @@ BEHAVIOR: Add API tests for allowed/rejected transitions, completion timestamp e
 ## Prompt 106 — Implement Task reopen Core behavior
 
 ```text
-REQUIREMENTS: TASK-012; AUDIT-001..008
+REQUIREMENTS:
+  TRACEABILITY: TASK-012; AUDIT-001..008
+  REQUIREMENT LINKS: [TASK-012](../requirements/lightweight-crm-product-and-system-requirements.md#task-012); [AUDIT-001..008](../requirements/lightweight-crm-product-and-system-requirements.md#audit-001)
+  REQUIREMENT INTENT: Authorized users can reopen completed Tasks and the reopen action must be audited. Every Client/Project/Task mutation produces append-only audit evidence with entity/action/time/actor/source, trace/correlation, and applicable before/after values; secrets are redacted.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Implement explicit reopen-completed-Task use case in Core only.
 
@@ -1964,7 +2432,11 @@ BEHAVIOR: Add tests for completed->reopened, non-completed rejection, concurrenc
 ## Prompt 107 — Add Task reopen API action
 
 ```text
-REQUIREMENTS: TASK-012; API-001..007
+REQUIREMENTS:
+  TRACEABILITY: TASK-012; API-001..007
+  REQUIREMENT LINKS: [TASK-012](../requirements/lightweight-crm-product-and-system-requirements.md#task-012); [API-001..007](../requirements/lightweight-crm-product-and-system-requirements.md#api-001)
+  REQUIREMENT INTENT: Authorized users can reopen completed Tasks and the reopen action must be audited. Use consistent REST routes, conventional HTTP verbs/status codes, bounded pagination, OpenAPI documentation, and versionable public contracts.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Add one Task reopen controller action only.
 
@@ -1980,7 +2452,11 @@ BEHAVIOR: Run focused API tests and STOP.
 ## Prompt 107A — Implement Task details update Core behavior
 
 ```text
-REQUIREMENTS: TASK-002; AUDIT-001..008; DATA-008; SEC-010..013
+REQUIREMENTS:
+  TRACEABILITY: TASK-002; AUDIT-001..008; DATA-008; SEC-010..013
+  REQUIREMENT LINKS: [TASK-002](../requirements/lightweight-crm-product-and-system-requirements.md#task-002); [AUDIT-001..008](../requirements/lightweight-crm-product-and-system-requirements.md#audit-001); [DATA-008](../requirements/lightweight-crm-product-and-system-requirements.md#data-008); [SEC-010..013](../requirements/lightweight-crm-product-and-system-requirements.md#sec-010)
+  REQUIREMENT INTENT: Tasks belong to one Project and must support assignment, priority, status/completion/reopen behavior, overdue detection, and filterable task views. Every Client/Project/Task mutation produces append-only audit evidence with entity/action/time/actor/source, trace/correlation, and applicable before/after values; secrets are redacted. Also satisfy the remaining linked cross-cutting constraints that apply to this atomic step.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Implement ordinary Task details editing inside Crm.Core only.
 
@@ -1996,7 +2472,11 @@ BEHAVIOR: Add unit tests and SQL integration tests for editable fields, due-date
 ## Prompt 107B — Add Task details update API action
 
 ```text
-REQUIREMENTS: TASK-002; API-001..007; SEC-012..013
+REQUIREMENTS:
+  TRACEABILITY: TASK-002; API-001..007; SEC-012..013
+  REQUIREMENT LINKS: [TASK-002](../requirements/lightweight-crm-product-and-system-requirements.md#task-002); [API-001..007](../requirements/lightweight-crm-product-and-system-requirements.md#api-001); [SEC-012..013](../requirements/lightweight-crm-product-and-system-requirements.md#sec-012)
+  REQUIREMENT INTENT: Tasks belong to one Project and must support assignment, priority, status/completion/reopen behavior, overdue detection, and filterable task views. Use consistent REST routes, conventional HTTP verbs/status codes, bounded pagination, OpenAPI documentation, and versionable public contracts. Use ASP.NET Core Identity and server-side role/policy authorization with least privilege; protect APIs and never expose passwords, tokens, secrets, or sensitive internals.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Add one Task details update HTTP contract/action only.
 
@@ -2016,7 +2496,11 @@ BEHAVIOR: Add API tests for success, invalid dates, stale version, 401/403 and S
 ## Prompt 108 — Create Identity service projects
 
 ```text
-REQUIREMENTS: SEC-001..016
+REQUIREMENTS:
+  TRACEABILITY: SEC-001..016
+  REQUIREMENT LINKS: [SEC-001..016](../requirements/lightweight-crm-product-and-system-requirements.md#sec-001)
+  REQUIREMENT INTENT: Use ASP.NET Core Identity and server-side role/policy authorization with least privilege; protect APIs and never expose passwords, tokens, secrets, or sensitive internals.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Create the approved `ProjectChicago.Identity`, `.Core`, and `.Functions` projects and only their required project references.
 
@@ -2032,7 +2516,11 @@ BEHAVIOR: Add projects to solution, build all three and verify no reference to C
 ## Prompt 109 — Create Identity test projects
 
 ```text
-REQUIREMENTS: TEST-001..007; SEC-001..016
+REQUIREMENTS:
+  TRACEABILITY: TEST-001..007; SEC-001..016
+  REQUIREMENT LINKS: [TEST-001..007](../requirements/lightweight-crm-product-and-system-requirements.md#test-001); [SEC-001..016](../requirements/lightweight-crm-product-and-system-requirements.md#sec-001)
+  REQUIREMENT INTENT: Automated tests cover business rules, authorization, APIs, SQL-compatible persistence, message consumers, audit generation, and representative distributed tracing. Use ASP.NET Core Identity and server-side role/policy authorization with least privilege; protect APIs and never expose passwords, tokens, secrets, or sensitive internals.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Create Identity Core, API and Functions test projects only.
 
@@ -2048,7 +2536,11 @@ BEHAVIOR: Build all test projects and STOP.
 ## Prompt 110 — Create IdentityDbContext and application user
 
 ```text
-REQUIREMENTS: SEC-001..009; DATA-031
+REQUIREMENTS:
+  TRACEABILITY: SEC-001..009; DATA-031
+  REQUIREMENT LINKS: [SEC-001..009](../requirements/lightweight-crm-product-and-system-requirements.md#sec-001); [DATA-031](../requirements/lightweight-crm-product-and-system-requirements.md#data-031)
+  REQUIREMENT INTENT: Authentication/account security uses ASP.NET Core Identity for account and password operations, and authentication events are audited without logging credentials. Use SQL Server/Azure SQL with service-owned databases, enforced relationships, UTC timestamps, safe public IDs, optimistic concurrency, and archival over routine hard deletion.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Create the ASP.NET Core Identity DbContext/application user model and register ASP.NET Core Identity framework services inside Identity.Core/host as appropriate.
 
@@ -2064,7 +2556,11 @@ BEHAVIOR: Add focused model/DI tests proving UserManager/RoleManager stores reso
 ## Prompt 110A — Add Shared Outbox/Inbox mappings to IdentityDbContext
 
 ```text
-REQUIREMENTS: SEC-005; AUDIT-001..008; OUTBOX-001..006; ASYNC-005
+REQUIREMENTS:
+  TRACEABILITY: SEC-005; AUDIT-001..008; OUTBOX-001..006; ASYNC-005
+  REQUIREMENT LINKS: [SEC-005](../requirements/lightweight-crm-product-and-system-requirements.md#sec-005); [AUDIT-001..008](../requirements/lightweight-crm-product-and-system-requirements.md#audit-001); [OUTBOX-001..006](../requirements/lightweight-crm-product-and-system-requirements.md#outbox-001); [ASYNC-005](../requirements/lightweight-crm-product-and-system-requirements.md#async-005)
+  REQUIREMENT INTENT: Use ASP.NET Core Identity and server-side role/policy authorization with least privilege; protect APIs and never expose passwords, tokens, secrets, or sensitive internals. Every Client/Project/Task mutation produces append-only audit evidence with entity/action/time/actor/source, trace/correlation, and applicable before/after values; secrets are redacted. Also satisfy the remaining linked cross-cutting constraints that apply to this atomic step.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Add the Shared OutboxMessage and InboxMessage mappings to IdentityDbContext only.
 
@@ -2080,7 +2576,11 @@ BEHAVIOR: Add model tests proving Identity tables + Outbox/Inbox map in Identity
 ## Prompt 111 — Register IdentityDb in AppHost and wire Identity projects
 
 ```text
-REQUIREMENTS: SEC-001..016; DATA-031..034; OTEL-001..006
+REQUIREMENTS:
+  TRACEABILITY: SEC-001..016; DATA-031..034; OTEL-001..006
+  REQUIREMENT LINKS: [SEC-001..016](../requirements/lightweight-crm-product-and-system-requirements.md#sec-001); [DATA-031..034](../requirements/lightweight-crm-product-and-system-requirements.md#data-031); [OTEL-001..006](../requirements/lightweight-crm-product-and-system-requirements.md#otel-001)
+  REQUIREMENT INTENT: Use ASP.NET Core Identity and server-side role/policy authorization with least privilege; protect APIs and never expose passwords, tokens, secrets, or sensitive internals. Use SQL Server/Azure SQL with service-owned databases, enforced relationships, UTC timestamps, safe public IDs, optimistic concurrency, and archival over routine hard deletion. Every API/service/Function uses OpenTelemetry for traces, metrics, and log correlation, including dependency instrumentation and meaningful business spans where needed.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Add IdentityDb under the existing SQL Server resource, wire Identity host to ServiceDefaults+IdentityDb, wire Identity.Functions only to resources it needs, and register the host/Functions projects in AppHost.
 
@@ -2096,7 +2596,11 @@ BEHAVIOR: Build AppHost and inspect dependency graph. STOP.
 ## Prompt 111A — Add the Identity outbox timer trigger
 
 ```text
-REQUIREMENTS: SEC-005; OUTBOX-003..006; ASYNC-001..008
+REQUIREMENTS:
+  TRACEABILITY: SEC-005; OUTBOX-003..006; ASYNC-001..008
+  REQUIREMENT LINKS: [SEC-005](../requirements/lightweight-crm-product-and-system-requirements.md#sec-005); [OUTBOX-003..006](../requirements/lightweight-crm-product-and-system-requirements.md#outbox-003); [ASYNC-001..008](../requirements/lightweight-crm-product-and-system-requirements.md#async-001)
+  REQUIREMENT INTENT: Use ASP.NET Core Identity and server-side role/policy authorization with least privilege; protect APIs and never expose passwords, tokens, secrets, or sensitive internals. Commit state and integration events atomically through a transactional outbox, then relay them with a timer-triggered Function and observable retry/backlog behavior. Durable async work uses Azure Service Bus and Service Bus-triggered Functions with trace correlation, duplicate tolerance/idempotency, bounded retry behavior, and dead-letter visibility.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Add one timer-triggered Function in Identity.Functions that delegates to the shared IOutboxRelay for IdentityDb.
 
@@ -2112,7 +2616,11 @@ BEHAVIOR: Add Function adapter tests for relay delegation, cancellation and exce
 ## Prompt 112 — Generate and apply initial Identity migration locally
 
 ```text
-REQUIREMENTS: SEC-001..009; DATA-030..034
+REQUIREMENTS:
+  TRACEABILITY: SEC-001..009; DATA-030..034
+  REQUIREMENT LINKS: [SEC-001..009](../requirements/lightweight-crm-product-and-system-requirements.md#sec-001); [DATA-030..034](../requirements/lightweight-crm-product-and-system-requirements.md#data-030)
+  REQUIREMENT INTENT: Authentication/account security uses ASP.NET Core Identity for account and password operations, and authentication events are audited without logging credentials. Use Microsoft SQL Server/Azure SQL, one database per bounded service, no cross-service database queries, and controlled schema migrations.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Generate then apply the initial Identity migration to local IdentityDb as one schema-establishment operation.
 
@@ -2128,7 +2636,11 @@ BEHAVIOR: Verify applied migration and Identity tables in local SQL metadata. ST
 ## Prompt 113 — Seed application roles
 
 ```text
-REQUIREMENTS: SEC-010..016
+REQUIREMENTS:
+  TRACEABILITY: SEC-010..016
+  REQUIREMENT LINKS: [SEC-010..016](../requirements/lightweight-crm-product-and-system-requirements.md#sec-010)
+  REQUIREMENT INTENT: Authorization is server-side with roles/claims/policies and least privilege; protected reads/mutations require explicit authorization and system work uses service identities.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Add deterministic role seeding for Administrator, Manager, Contributor and ReadOnly only.
 
@@ -2144,7 +2656,11 @@ BEHAVIOR: Add integration test proving repeated seed does not duplicate roles. S
 ## Prompt 114 — Implement Identity login/logout/current-user endpoints
 
 ```text
-REQUIREMENTS: SEC-001..009; SEC-020..025
+REQUIREMENTS:
+  TRACEABILITY: SEC-001..009; SEC-020..025
+  REQUIREMENT LINKS: [SEC-001..009](../requirements/lightweight-crm-product-and-system-requirements.md#sec-001); [SEC-020..025](../requirements/lightweight-crm-product-and-system-requirements.md#sec-020)
+  REQUIREMENT INTENT: Authentication/account security uses ASP.NET Core Identity for account and password operations, and authentication events are audited without logging credentials.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Implement the smallest authentication surface required by the approved auth ADR: login, logout and current-user/session inspection.
 
@@ -2160,7 +2676,11 @@ BEHAVIOR: Add API integration tests for successful login, failed login, lockout 
 ## Prompt 114A — Emit auditable authentication/security events through Identity outbox
 
 ```text
-REQUIREMENTS: SEC-005; AUDIT-001..008; OUTBOX-001..006; TRACE-003..007
+REQUIREMENTS:
+  TRACEABILITY: SEC-005; AUDIT-001..008; OUTBOX-001..006; TRACE-003..007
+  REQUIREMENT LINKS: [SEC-005](../requirements/lightweight-crm-product-and-system-requirements.md#sec-005); [AUDIT-001..008](../requirements/lightweight-crm-product-and-system-requirements.md#audit-001); [OUTBOX-001..006](../requirements/lightweight-crm-product-and-system-requirements.md#outbox-001); [TRACE-003..007](../requirements/lightweight-crm-product-and-system-requirements.md#trace-003)
+  REQUIREMENT INTENT: Use ASP.NET Core Identity and server-side role/policy authorization with least privilege; protect APIs and never expose passwords, tokens, secrets, or sensitive internals. Every Client/Project/Task mutation produces append-only audit evidence with entity/action/time/actor/source, trace/correlation, and applicable before/after values; secrets are redacted. Also satisfy the remaining linked cross-cutting constraints that apply to this atomic step.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Add the approved business-audit event generation to successful login, failed login, lockout, logout and other already-implemented authentication security events only.
 
@@ -2176,7 +2696,11 @@ BEHAVIOR: Add tests proving each security event writes exactly one safe audit ou
 ## Prompt 114B — Implement administrator user creation and role assignment
 
 ```text
-REQUIREMENTS: SEC-004; SEC-010..016; primary-user Administrator requirements
+REQUIREMENTS:
+  TRACEABILITY: SEC-004; SEC-010..016; primary-user Administrator requirements
+  REQUIREMENT LINKS: [SEC-004](../requirements/lightweight-crm-product-and-system-requirements.md#sec-004); [SEC-010..016](../requirements/lightweight-crm-product-and-system-requirements.md#sec-010); [Administrator requirements](../requirements/lightweight-crm-product-and-system-requirements.md#31-administrator)
+  REQUIREMENT INTENT: Use ASP.NET Core Identity and server-side role/policy authorization with least privilege; protect APIs and never expose passwords, tokens, secrets, or sensitive internals. Administrators can manage application users, roles, and permissions, with server-side authorization and auditable changes.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Implement the Administrator-only user creation and initial role assignment use case through Identity Controller -> Facade -> Business/Data/Identity framework APIs.
 
@@ -2192,7 +2716,11 @@ BEHAVIOR: Add API tests for authorized create, duplicate user, invalid password 
 ## Prompt 114C — Implement account activation and deactivation
 
 ```text
-REQUIREMENTS: SEC-004; SEC-005; SEC-010..016
+REQUIREMENTS:
+  TRACEABILITY: SEC-004; SEC-005; SEC-010..016
+  REQUIREMENT LINKS: [SEC-004](../requirements/lightweight-crm-product-and-system-requirements.md#sec-004); [SEC-005](../requirements/lightweight-crm-product-and-system-requirements.md#sec-005); [SEC-010..016](../requirements/lightweight-crm-product-and-system-requirements.md#sec-010)
+  REQUIREMENT INTENT: Use ASP.NET Core Identity and server-side role/policy authorization with least privilege; protect APIs and never expose passwords, tokens, secrets, or sensitive internals.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Implement Administrator-only account activation/deactivation only.
 
@@ -2208,7 +2736,11 @@ BEHAVIOR: Add tests for deactivate prevents access, activate restores eligibilit
 ## Prompt 114D — Implement role management for existing users
 
 ```text
-REQUIREMENTS: SEC-010..016; Administrator user-management requirements
+REQUIREMENTS:
+  TRACEABILITY: SEC-010..016; Administrator user-management requirements
+  REQUIREMENT LINKS: [SEC-010..016](../requirements/lightweight-crm-product-and-system-requirements.md#sec-010); [Administrator requirements](../requirements/lightweight-crm-product-and-system-requirements.md#31-administrator)
+  REQUIREMENT INTENT: Authorization is server-side with roles/claims/policies and least privilege; protected reads/mutations require explicit authorization and system work uses service identities. Administrators can manage application users, roles, and permissions, with server-side authorization and auditable changes.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Implement Administrator-only add/remove role operations for existing users only.
 
@@ -2224,7 +2756,11 @@ BEHAVIOR: Add API tests for add/remove, invalid role, protected last-admin rule 
 ## Prompt 114E — Implement authenticated password change
 
 ```text
-REQUIREMENTS: SEC-004; SEC-005
+REQUIREMENTS:
+  TRACEABILITY: SEC-004; SEC-005
+  REQUIREMENT LINKS: [SEC-004](../requirements/lightweight-crm-product-and-system-requirements.md#sec-004); [SEC-005](../requirements/lightweight-crm-product-and-system-requirements.md#sec-005)
+  REQUIREMENT INTENT: Use ASP.NET Core Identity and server-side role/policy authorization with least privilege; protect APIs and never expose passwords, tokens, secrets, or sensitive internals.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Implement the authenticated current-user password change operation only.
 
@@ -2240,7 +2776,11 @@ BEHAVIOR: Add tests for correct current password, wrong current password, passwo
 ## Prompt 114F — Implement approved password reset/recovery flow
 
 ```text
-REQUIREMENTS: SEC-004; SEC-005
+REQUIREMENTS:
+  TRACEABILITY: SEC-004; SEC-005
+  REQUIREMENT LINKS: [SEC-004](../requirements/lightweight-crm-product-and-system-requirements.md#sec-004); [SEC-005](../requirements/lightweight-crm-product-and-system-requirements.md#sec-005)
+  REQUIREMENT INTENT: Use ASP.NET Core Identity and server-side role/policy authorization with least privilege; protect APIs and never expose passwords, tokens, secrets, or sensitive internals.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Implement only the password reset/recovery flow defined by the approved authentication ADR.
 
@@ -2256,7 +2796,11 @@ BEHAVIOR: Add integration tests for valid reset, invalid/expired/reused token, u
 ## Prompt 115 — Add Identity routes through YARP
 
 ```text
-REQUIREMENTS: SEC-020..025; API-001..007
+REQUIREMENTS:
+  TRACEABILITY: SEC-020..025; API-001..007
+  REQUIREMENT LINKS: [SEC-020..025](../requirements/lightweight-crm-product-and-system-requirements.md#sec-020); [API-001..007](../requirements/lightweight-crm-product-and-system-requirements.md#api-001)
+  REQUIREMENT INTENT: Public API access goes through the Project Chicago gateway over HTTPS with validated inputs and safe logging that excludes credentials, tokens, secrets, and unnecessary PII. Use consistent REST routes, conventional HTTP verbs/status codes, bounded pagination, OpenAPI documentation, and versionable public contracts.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Add only the approved public authentication/account route prefix from Gateway to Identity host.
 
@@ -2272,7 +2816,11 @@ BEHAVIOR: Add gateway routing/auth transport test and STOP.
 ## Prompt 116 — Add CRM authorization policies
 
 ```text
-REQUIREMENTS: SEC-010..016
+REQUIREMENTS:
+  TRACEABILITY: SEC-010..016
+  REQUIREMENT LINKS: [SEC-010..016](../requirements/lightweight-crm-product-and-system-requirements.md#sec-010)
+  REQUIREMENT INTENT: Authorization is server-side with roles/claims/policies and least privilege; protected reads/mutations require explicit authorization and system work uses service identities.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Define and register Crm service authorization policies for Administrator, Manager, Contributor and ReadOnly behaviors required by the product roles.
 
@@ -2288,7 +2836,11 @@ BEHAVIOR: Add policy unit/integration tests covering allowed/denied representati
 ## Prompt 117 — Apply authorization policies to CRM endpoints
 
 ```text
-REQUIREMENTS: SEC-010..016; SEARCH-004; DASH-003
+REQUIREMENTS:
+  TRACEABILITY: SEC-010..016; SEARCH-004; DASH-003
+  REQUIREMENT LINKS: [SEC-010..016](../requirements/lightweight-crm-product-and-system-requirements.md#sec-010); [SEARCH-004](../requirements/lightweight-crm-product-and-system-requirements.md#search-004); [DASH-003](../requirements/lightweight-crm-product-and-system-requirements.md#dash-003)
+  REQUIREMENT INTENT: Authorization is server-side with roles/claims/policies and least privilege; protected reads/mutations require explicit authorization and system work uses service identities. Global search must find Clients, Projects, and Tasks, identify result type, and never reveal unauthorized data. The dashboard must show the required CRM summaries only within the current user's authorization scope.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Apply the already-defined authorization policies to existing Client/Project/Task endpoints only.
 
@@ -2304,7 +2856,11 @@ BEHAVIOR: Run full Crm API authorization tests and prove ReadOnly cannot mutate 
 ## Prompt 117A — Add Administrator user-management API coverage
 
 ```text
-REQUIREMENTS: Administrator user-management requirements; SEC-004; SEC-010..016
+REQUIREMENTS:
+  TRACEABILITY: Administrator user-management requirements; SEC-004; SEC-010..016
+  REQUIREMENT LINKS: [Administrator requirements](../requirements/lightweight-crm-product-and-system-requirements.md#31-administrator); [SEC-004](../requirements/lightweight-crm-product-and-system-requirements.md#sec-004); [SEC-010..016](../requirements/lightweight-crm-product-and-system-requirements.md#sec-010)
+  REQUIREMENT INTENT: Administrators can manage application users, roles, and permissions, with server-side authorization and auditable changes. Use ASP.NET Core Identity and server-side role/policy authorization with least privilege; protect APIs and never expose passwords, tokens, secrets, or sensitive internals.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Add/read the minimal Administrator user listing/detail endpoints needed to manage existing application users and roles.
 
@@ -2324,7 +2880,11 @@ BEHAVIOR: Add API tests for list/detail pagination, role display, 401/403 and se
 ## Prompt 118 — Create Audit service projects
 
 ```text
-REQUIREMENTS: AUDIT-001..008
+REQUIREMENTS:
+  TRACEABILITY: AUDIT-001..008
+  REQUIREMENT LINKS: [AUDIT-001..008](../requirements/lightweight-crm-product-and-system-requirements.md#audit-001)
+  REQUIREMENT INTENT: Every Client/Project/Task mutation produces append-only audit evidence with entity/action/time/actor/source, trace/correlation, and applicable before/after values; secrets are redacted.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Create `ProjectChicago.Audit`, `.Core`, `.Functions` and their required project references only.
 
@@ -2340,7 +2900,11 @@ BEHAVIOR: Add to solution, build and verify no reference to Crm.Core/Identity.Co
 ## Prompt 119 — Create Audit test projects
 
 ```text
-REQUIREMENTS: TEST-001..007; AUDIT-001..008
+REQUIREMENTS:
+  TRACEABILITY: TEST-001..007; AUDIT-001..008
+  REQUIREMENT LINKS: [TEST-001..007](../requirements/lightweight-crm-product-and-system-requirements.md#test-001); [AUDIT-001..008](../requirements/lightweight-crm-product-and-system-requirements.md#audit-001)
+  REQUIREMENT INTENT: Automated tests cover business rules, authorization, APIs, SQL-compatible persistence, message consumers, audit generation, and representative distributed tracing. Every Client/Project/Task mutation produces append-only audit evidence with entity/action/time/actor/source, trace/correlation, and applicable before/after values; secrets are redacted.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Create Audit Core, API and Functions test projects only.
 
@@ -2356,7 +2920,11 @@ BEHAVIOR: Build and STOP.
 ## Prompt 120 — Create AuditEntry entity and EF configuration
 
 ```text
-REQUIREMENTS: AUDIT-001..008; PRIV-001..005
+REQUIREMENTS:
+  TRACEABILITY: AUDIT-001..008; PRIV-001..005
+  REQUIREMENT LINKS: [AUDIT-001..008](../requirements/lightweight-crm-product-and-system-requirements.md#audit-001); [PRIV-001..005](../requirements/lightweight-crm-product-and-system-requirements.md#priv-001)
+  REQUIREMENT INTENT: Every Client/Project/Task mutation produces append-only audit evidence with entity/action/time/actor/source, trace/correlation, and applicable before/after values; secrets are redacted. Collect only necessary CRM data, minimize sensitive duplication and PII in telemetry, enforce authorization, and document retention before production.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Create the append-only AuditEntry model and SQL Server EF configuration only.
 
@@ -2372,7 +2940,11 @@ BEHAVIOR: Add model/config tests proving append-only shape, indexes and SQL Serv
 ## Prompt 121 — Create AuditDbContext with Inbox and AuditEntry
 
 ```text
-REQUIREMENTS: AUDIT-001..008; ASYNC-005
+REQUIREMENTS:
+  TRACEABILITY: AUDIT-001..008; ASYNC-005
+  REQUIREMENT LINKS: [AUDIT-001..008](../requirements/lightweight-crm-product-and-system-requirements.md#audit-001); [ASYNC-005](../requirements/lightweight-crm-product-and-system-requirements.md#async-005)
+  REQUIREMENT INTENT: Every Client/Project/Task mutation produces append-only audit evidence with entity/action/time/actor/source, trace/correlation, and applicable before/after values; secrets are redacted. Use Azure Service Bus and Azure Functions for durable async work with idempotent/duplicate-tolerant consumers, bounded retries, and dead-letter visibility.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Create AuditDbContext with AuditEntry plus Shared InboxMessage mapping only.
 
@@ -2388,7 +2960,11 @@ BEHAVIOR: Add model tests and build Audit.Core. STOP.
 ## Prompt 122 — Register AuditDb and wire Audit projects in AppHost
 
 ```text
-REQUIREMENTS: AUDIT-001..008; ASYNC-001..008; OTEL-001..006
+REQUIREMENTS:
+  TRACEABILITY: AUDIT-001..008; ASYNC-001..008; OTEL-001..006
+  REQUIREMENT LINKS: [AUDIT-001..008](../requirements/lightweight-crm-product-and-system-requirements.md#audit-001); [ASYNC-001..008](../requirements/lightweight-crm-product-and-system-requirements.md#async-001); [OTEL-001..006](../requirements/lightweight-crm-product-and-system-requirements.md#otel-001)
+  REQUIREMENT INTENT: Every Client/Project/Task mutation produces append-only audit evidence with entity/action/time/actor/source, trace/correlation, and applicable before/after values; secrets are redacted. Durable async work uses Azure Service Bus and Service Bus-triggered Functions with trace correlation, duplicate tolerance/idempotency, bounded retry behavior, and dead-letter visibility. Every API/service/Function uses OpenTelemetry for traces, metrics, and log correlation, including dependency instrumentation and meaningful business spans where needed.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Add AuditDb under SQL Server; wire Audit host to AuditDb+ServiceDefaults; wire Audit.Functions to AuditDb+Service Bus+ServiceDefaults; register both projects.
 
@@ -2404,7 +2980,11 @@ BEHAVIOR: Build AppHost and inspect resource references. STOP.
 ## Prompt 123 — Generate and apply initial Audit migration locally
 
 ```text
-REQUIREMENTS: AUDIT-001..008; DATA-030..034
+REQUIREMENTS:
+  TRACEABILITY: AUDIT-001..008; DATA-030..034
+  REQUIREMENT LINKS: [AUDIT-001..008](../requirements/lightweight-crm-product-and-system-requirements.md#audit-001); [DATA-030..034](../requirements/lightweight-crm-product-and-system-requirements.md#data-030)
+  REQUIREMENT INTENT: Every Client/Project/Task mutation produces append-only audit evidence with entity/action/time/actor/source, trace/correlation, and applicable before/after values; secrets are redacted. Use Microsoft SQL Server/Azure SQL, one database per bounded service, no cross-service database queries, and controlled schema migrations.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Generate, review and apply the initial AuditDb migration to local AuditDb.
 
@@ -2420,7 +3000,11 @@ BEHAVIOR: Verify applied migration and table/index metadata. STOP.
 ## Prompt 124 — Implement Audit append repository/Data path
 
 ```text
-REQUIREMENTS: AUDIT-001..008; ASYNC-005..008
+REQUIREMENTS:
+  TRACEABILITY: AUDIT-001..008; ASYNC-005..008
+  REQUIREMENT LINKS: [AUDIT-001..008](../requirements/lightweight-crm-product-and-system-requirements.md#audit-001); [ASYNC-005..008](../requirements/lightweight-crm-product-and-system-requirements.md#async-005)
+  REQUIREMENT INTENT: Every Client/Project/Task mutation produces append-only audit evidence with entity/action/time/actor/source, trace/correlation, and applicable before/after values; secrets are redacted. Use Azure Service Bus and Azure Functions for durable async work with idempotent/duplicate-tolerant consumers, bounded retries, and dead-letter visibility.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Implement only the Audit repository and Data transaction that idempotently appends an AuditEntry and marks the Inbox message complete.
 
@@ -2436,7 +3020,11 @@ BEHAVIOR: Add SQL integration tests for first delivery, duplicate, failure rollb
 ## Prompt 125 — Implement Audit Facade/Business ingestion
 
 ```text
-REQUIREMENTS: AUDIT-001..008; PRIV-001..005
+REQUIREMENTS:
+  TRACEABILITY: AUDIT-001..008; PRIV-001..005
+  REQUIREMENT LINKS: [AUDIT-001..008](../requirements/lightweight-crm-product-and-system-requirements.md#audit-001); [PRIV-001..005](../requirements/lightweight-crm-product-and-system-requirements.md#priv-001)
+  REQUIREMENT INTENT: Every Client/Project/Task mutation produces append-only audit evidence with entity/action/time/actor/source, trace/correlation, and applicable before/after values; secrets are redacted. Collect only necessary CRM data, minimize sensitive duplication and PII in telemetry, enforce authorization, and document retention before production.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Implement Audit Core ingestion translation/validation only.
 
@@ -2452,7 +3040,11 @@ BEHAVIOR: Add unit tests for supported event, redaction, malformed/unsupported e
 ## Prompt 126 — Add Audit Service Bus trigger
 
 ```text
-REQUIREMENTS: AUDIT-001..008; ASYNC-001..008; TRACE-003..007
+REQUIREMENTS:
+  TRACEABILITY: AUDIT-001..008; ASYNC-001..008; TRACE-003..007
+  REQUIREMENT LINKS: [AUDIT-001..008](../requirements/lightweight-crm-product-and-system-requirements.md#audit-001); [ASYNC-001..008](../requirements/lightweight-crm-product-and-system-requirements.md#async-001); [TRACE-003..007](../requirements/lightweight-crm-product-and-system-requirements.md#trace-003)
+  REQUIREMENT INTENT: Every Client/Project/Task mutation produces append-only audit evidence with entity/action/time/actor/source, trace/correlation, and applicable before/after values; secrets are redacted. Durable async work uses Azure Service Bus and Service Bus-triggered Functions with trace correlation, duplicate tolerance/idempotency, bounded retry behavior, and dead-letter visibility. Propagate W3C distributed trace context across gateway, APIs, SQL, Service Bus, and Functions so an operation can be followed cradle to grave.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Add the Audit.Functions Service Bus trigger for the approved audit-event subscription only.
 
@@ -2468,7 +3060,11 @@ BEHAVIOR: Add Function tests for valid delegation, invalid contract policy, exce
 ## Prompt 127 — Implement Audit query Core path
 
 ```text
-REQUIREMENTS: AUDIT-001..008; ACTIVITY-001..003
+REQUIREMENTS:
+  TRACEABILITY: AUDIT-001..008; ACTIVITY-001..003
+  REQUIREMENT LINKS: [AUDIT-001..008](../requirements/lightweight-crm-product-and-system-requirements.md#audit-001); [ACTIVITY-001..003](../requirements/lightweight-crm-product-and-system-requirements.md#activity-001)
+  REQUIREMENT INTENT: Every Client/Project/Task mutation produces append-only audit evidence with entity/action/time/actor/source, trace/correlation, and applicable before/after values; secrets are redacted. Recent activity is derived from significant audit events and shown in user-friendly form with underlying audit links where authorized.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Implement read-only Audit query by entity and by Trace/Correlation ID through Audit Repository/Data/Business/Facade.
 
@@ -2484,7 +3080,11 @@ BEHAVIOR: Add SQL integration tests for ordering, pagination, entity filter and 
 ## Prompt 128 — Add Audit query API endpoints and YARP route
 
 ```text
-REQUIREMENTS: AUDIT-001..008; ACTIVITY-001..003; SEC-012
+REQUIREMENTS:
+  TRACEABILITY: AUDIT-001..008; ACTIVITY-001..003; SEC-012
+  REQUIREMENT LINKS: [AUDIT-001..008](../requirements/lightweight-crm-product-and-system-requirements.md#audit-001); [ACTIVITY-001..003](../requirements/lightweight-crm-product-and-system-requirements.md#activity-001); [SEC-012](../requirements/lightweight-crm-product-and-system-requirements.md#sec-012)
+  REQUIREMENT INTENT: Every Client/Project/Task mutation produces append-only audit evidence with entity/action/time/actor/source, trace/correlation, and applicable before/after values; secrets are redacted. Recent activity is derived from significant audit events and shown in user-friendly form with underlying audit links where authorized. Use ASP.NET Core Identity and server-side role/policy authorization with least privilege; protect APIs and never expose passwords, tokens, secrets, or sensitive internals.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Add the minimal read-only Audit API actions and stable Gateway route required for authorized support/audit viewing.
 
@@ -2500,7 +3100,11 @@ BEHAVIOR: Add API/gateway tests for authorized query, pagination, 401, 403 and a
 ## Prompt 128A — Register standard ProblemDetails/exception handling in Identity and Audit hosts
 
 ```text
-REQUIREMENTS: ERROR-001..005; TRACE-001..007; LOG-001..006
+REQUIREMENTS:
+  TRACEABILITY: ERROR-001..005; TRACE-001..007; LOG-001..006
+  REQUIREMENT LINKS: [ERROR-001..005](../requirements/lightweight-crm-product-and-system-requirements.md#error-001); [TRACE-001..007](../requirements/lightweight-crm-product-and-system-requirements.md#trace-001); [LOG-001..006](../requirements/lightweight-crm-product-and-system-requirements.md#log-001)
+  REQUIREMENT INTENT: Return safe errors that distinguish validation/auth/authz/not-found/concurrency/internal failures and provide a trace/support reference without exposing internals. Every inbound request participates in a trace propagated through gateway, services, SQL, HTTP, Service Bus, Functions, and downstream work with safe diagnostic metadata. Use structured trace-correlated logs without sensitive payload leakage or duplicate exception logging at every layer.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Register the shared ProblemDetails/exception handling and request-context plumbing in the Identity and Audit HTTP hosts only.
 
@@ -2516,7 +3120,11 @@ BEHAVIOR: Add host integration tests for error redaction and trace-reference pro
 ## Prompt 128B — Configure OpenAPI for all public service APIs
 
 ```text
-REQUIREMENTS: API-006..007; ERROR-001..005; SEC-012
+REQUIREMENTS:
+  TRACEABILITY: API-006..007; ERROR-001..005; SEC-012
+  REQUIREMENT LINKS: [API-006..007](../requirements/lightweight-crm-product-and-system-requirements.md#api-006); [ERROR-001..005](../requirements/lightweight-crm-product-and-system-requirements.md#error-001); [SEC-012](../requirements/lightweight-crm-product-and-system-requirements.md#sec-012)
+  REQUIREMENT INTENT: Expose consistent REST-oriented, documented, versionable APIs using conventional HTTP verbs/status codes and bounded pagination for collections. Return safe errors that distinguish validation/auth/authz/not-found/concurrency/internal failures and provide a trace/support reference without exposing internals. Use ASP.NET Core Identity and server-side role/policy authorization with least privilege; protect APIs and never expose passwords, tokens, secrets, or sensitive internals.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Configure OpenAPI generation for Crm, Identity and Audit HTTP hosts only.
 
@@ -2536,7 +3144,11 @@ BEHAVIOR: Build each host, generate/inspect each OpenAPI document, run contract 
 ## Prompt 129 — Create the shared typed Gateway API client
 
 ```text
-REQUIREMENTS: API-001..007; ERROR-001..005; TRACE-001..007; SEC-020..025
+REQUIREMENTS:
+  TRACEABILITY: API-001..007; ERROR-001..005; TRACE-001..007; SEC-020..025
+  REQUIREMENT LINKS: [API-001..007](../requirements/lightweight-crm-product-and-system-requirements.md#api-001); [ERROR-001..005](../requirements/lightweight-crm-product-and-system-requirements.md#error-001); [TRACE-001..007](../requirements/lightweight-crm-product-and-system-requirements.md#trace-001); [SEC-020..025](../requirements/lightweight-crm-product-and-system-requirements.md#sec-020)
+  REQUIREMENT INTENT: Use consistent REST routes, conventional HTTP verbs/status codes, bounded pagination, OpenAPI documentation, and versionable public contracts. Return safe errors that distinguish validation/auth/authz/not-found/concurrency/internal failures and provide a trace/support reference without exposing internals. Also satisfy the remaining linked cross-cutting constraints that apply to this atomic step.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Create the React shared typed HTTP client targeting the YARP base URL only.
 
@@ -2552,7 +3164,11 @@ BEHAVIOR: Add unit tests for base URL, 401 vs 403 mapping, ProblemDetails and ca
 ## Prompt 130 — Create React authentication state and protected routing
 
 ```text
-REQUIREMENTS: SEC-001..016; UX-003..005
+REQUIREMENTS:
+  TRACEABILITY: SEC-001..016; UX-003..005
+  REQUIREMENT LINKS: [SEC-001..016](../requirements/lightweight-crm-product-and-system-requirements.md#sec-001); [UX-003..005](../requirements/lightweight-crm-product-and-system-requirements.md#ux-003)
+  REQUIREMENT INTENT: Use ASP.NET Core Identity and server-side role/policy authorization with least privilege; protect APIs and never expose passwords, tokens, secrets, or sensitive internals. Keep workflows simple with deliberate loading, empty, validation, success, failure, conflict, and unauthorized states.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Implement client auth/session state and protected-route behavior using the approved Identity current-user/login/logout contract.
 
@@ -2568,7 +3184,11 @@ BEHAVIOR: Add component/router tests for unauthenticated redirect, authenticated
 ## Prompt 131 — Create the login page with PCDS
 
 ```text
-REQUIREMENTS: SEC-001..009; DESIGN-001..004; ACCESS-001..005
+REQUIREMENTS:
+  TRACEABILITY: SEC-001..009; DESIGN-001..004; ACCESS-001..005
+  REQUIREMENT LINKS: [SEC-001..009](../requirements/lightweight-crm-product-and-system-requirements.md#sec-001); [DESIGN-001..004](../requirements/lightweight-crm-product-and-system-requirements.md#design-001); [ACCESS-001..005](../requirements/lightweight-crm-product-and-system-requirements.md#access-001)
+  REQUIREMENT INTENT: Authentication/account security uses ASP.NET Core Identity for account and password operations, and authentication events are audited without logging credentials. Frontend features use local PCDS components and shared typography/spacing/color/border/elevation/state/layout tokens instead of recreating them. Frontend behavior targets WCAG 2.2 AA with keyboard access, labels, associated validation messages, and non-color-only state.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Create the login page only using copied local PCDS primitives/recipes.
 
@@ -2584,7 +3204,11 @@ BEHAVIOR: Run component tests, accessibility checks available in repo, lint and 
 ## Prompt 132 — Create typed Client API module
 
 ```text
-REQUIREMENTS: CLIENT-001..032; API-001..007
+REQUIREMENTS:
+  TRACEABILITY: CLIENT-001..032; API-001..007
+  REQUIREMENT LINKS: [CLIENT-001..032](../requirements/lightweight-crm-product-and-system-requirements.md#client-001); [API-001..007](../requirements/lightweight-crm-product-and-system-requirements.md#api-001)
+  REQUIREMENT INTENT: Clients are the CRM anchor and must support the required data, lifecycle/archive behavior, searchable paginated lists, detail views, ownership, and auditable changes. Use consistent REST routes, conventional HTTP verbs/status codes, bounded pagination, OpenAPI documentation, and versionable public contracts.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Create the React typed Client API/model module only for existing public Client endpoints.
 
@@ -2600,7 +3224,11 @@ BEHAVIOR: Add API-module tests with mocked Gateway client and run TypeScript bui
 ## Prompt 133 — Create Clients list page
 
 ```text
-REQUIREMENTS: CLIENT-020..024; UX-001..006; ACCESS-001..005
+REQUIREMENTS:
+  TRACEABILITY: CLIENT-020..024; UX-001..006; ACCESS-001..005
+  REQUIREMENT LINKS: [CLIENT-020..024](../requirements/lightweight-crm-product-and-system-requirements.md#client-020); [UX-001..006](../requirements/lightweight-crm-product-and-system-requirements.md#ux-001); [ACCESS-001..005](../requirements/lightweight-crm-product-and-system-requirements.md#access-001)
+  REQUIREMENT INTENT: Client collections require server-side pagination plus the specified search, filters, and sorts; unbounded result sets are prohibited. The UI prioritizes simple workflows with clear validation/save/failure/loading/empty/unauthorized states, explicit destructive intent, and responsive desktop/tablet behavior. Frontend behavior targets WCAG 2.2 AA with keyboard access, labels, associated validation messages, and non-color-only state.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Create the Clients list/search/filter/sort/pagination page only.
 
@@ -2616,7 +3244,11 @@ BEHAVIOR: Add component tests for loading, empty, error, search/filter/paginatio
 ## Prompt 134 — Create Client create form
 
 ```text
-REQUIREMENTS: CLIENT-001..004; UX-003..005; ACCESS-001..005
+REQUIREMENTS:
+  TRACEABILITY: CLIENT-001..004; UX-003..005; ACCESS-001..005
+  REQUIREMENT LINKS: [CLIENT-001..004](../requirements/lightweight-crm-product-and-system-requirements.md#client-001); [UX-003..005](../requirements/lightweight-crm-product-and-system-requirements.md#ux-003); [ACCESS-001..005](../requirements/lightweight-crm-product-and-system-requirements.md#access-001)
+  REQUIREMENT INTENT: Authorized users can create Clients with the required CRM/contact/ownership metadata; names are searchable and likely duplicates are detected without silent merging. Keep workflows simple with deliberate loading, empty, validation, success, failure, conflict, and unauthorized states. Frontend behavior targets WCAG 2.2 AA with keyboard access, labels, associated validation messages, and non-color-only state.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Create the Client create form/page only.
 
@@ -2632,7 +3264,11 @@ BEHAVIOR: Add form tests for required validation display, pending, server error,
 ## Prompt 135 — Create Client detail page
 
 ```text
-REQUIREMENTS: CLIENT-030..032; ACTIVITY-001..003
+REQUIREMENTS:
+  TRACEABILITY: CLIENT-030..032; ACTIVITY-001..003
+  REQUIREMENT LINKS: [CLIENT-030..032](../requirements/lightweight-crm-product-and-system-requirements.md#client-030); [ACTIVITY-001..003](../requirements/lightweight-crm-product-and-system-requirements.md#activity-001)
+  REQUIREMENT INTENT: Client detail must expose Client/lifecycle/owner information plus related Projects, Tasks, recent activity, and authorized audit history/navigation. Recent activity is derived from significant audit events and shown in user-friendly form with underlying audit links where authorized.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Create the Client detail page only.
 
@@ -2648,7 +3284,11 @@ BEHAVIOR: Add loading/empty/error/authorization and data-render tests; lint/buil
 ## Prompt 136 — Add Client lifecycle control
 
 ```text
-REQUIREMENTS: CLIENT-010..015; ACCESS-001..005
+REQUIREMENTS:
+  TRACEABILITY: CLIENT-010..015; ACCESS-001..005
+  REQUIREMENT LINKS: [CLIENT-010..015](../requirements/lightweight-crm-product-and-system-requirements.md#client-010); [ACCESS-001..005](../requirements/lightweight-crm-product-and-system-requirements.md#access-001)
+  REQUIREMENT INTENT: Each Client has one lifecycle status; lifecycle changes are audited, archived Clients are excluded by default, and archival preserves history. Frontend behavior targets WCAG 2.2 AA with keyboard access, labels, associated validation messages, and non-color-only state.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Add only the lifecycle status-change control to Client detail.
 
@@ -2664,7 +3304,11 @@ BEHAVIOR: Add component tests for allowed options, rejected response, conflict, 
 ## Prompt 137 — Add Client archive/restore controls
 
 ```text
-REQUIREMENTS: CLIENT-013..015; UX-004
+REQUIREMENTS:
+  TRACEABILITY: CLIENT-013..015; UX-004
+  REQUIREMENT LINKS: [CLIENT-013..015](../requirements/lightweight-crm-product-and-system-requirements.md#client-013); [UX-004](../requirements/lightweight-crm-product-and-system-requirements.md#ux-004)
+  REQUIREMENT INTENT: Client archival is non-destructive; archived Clients are excluded from normal active lists and Clients with active Projects cannot be permanently removed. Keep workflows simple with deliberate loading, empty, validation, success, failure, conflict, and unauthorized states.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Add only Client archive/restore controls to the detail experience.
 
@@ -2680,7 +3324,11 @@ BEHAVIOR: Add component tests for confirm/cancel/blocked/success/authorization. 
 ## Prompt 137A — Add Client profile edit UI
 
 ```text
-REQUIREMENTS: CLIENT-002; UX-003..005; ACCESS-001..005
+REQUIREMENTS:
+  TRACEABILITY: CLIENT-002; UX-003..005; ACCESS-001..005
+  REQUIREMENT LINKS: [CLIENT-002](../requirements/lightweight-crm-product-and-system-requirements.md#client-002); [UX-003..005](../requirements/lightweight-crm-product-and-system-requirements.md#ux-003); [ACCESS-001..005](../requirements/lightweight-crm-product-and-system-requirements.md#access-001)
+  REQUIREMENT INTENT: Clients are the CRM anchor and must support the required data, lifecycle/archive behavior, searchable paginated lists, detail views, ownership, and auditable changes. Keep workflows simple with deliberate loading, empty, validation, success, failure, conflict, and unauthorized states. Frontend behavior targets WCAG 2.2 AA with keyboard access, labels, associated validation messages, and non-color-only state.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Add only the Client profile edit form/action to the Client detail experience.
 
@@ -2696,7 +3344,11 @@ BEHAVIOR: Add tests for edit success, validation, stale conflict, cancel and key
 ## Prompt 138 — Create typed Project API module
 
 ```text
-REQUIREMENTS: PROJECT-001..031; API-001..007
+REQUIREMENTS:
+  TRACEABILITY: PROJECT-001..031; API-001..007
+  REQUIREMENT LINKS: [PROJECT-001..031](../requirements/lightweight-crm-product-and-system-requirements.md#project-001); [API-001..007](../requirements/lightweight-crm-product-and-system-requirements.md#api-001)
+  REQUIREMENT INTENT: Projects belong to one Client and must support the required metadata, statuses, filtering/search/detail behavior, completion rules, and non-destructive archival. Use consistent REST routes, conventional HTTP verbs/status codes, bounded pagination, OpenAPI documentation, and versionable public contracts.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Create the React typed Project API/model module only.
 
@@ -2712,7 +3364,11 @@ BEHAVIOR: Add API-module tests and TypeScript build. STOP.
 ## Prompt 139 — Create Project list and detail pages
 
 ```text
-REQUIREMENTS: PROJECT-020..031; UX-001..006; ACCESS-001..005
+REQUIREMENTS:
+  TRACEABILITY: PROJECT-020..031; UX-001..006; ACCESS-001..005
+  REQUIREMENT LINKS: [PROJECT-020..031](../requirements/lightweight-crm-product-and-system-requirements.md#project-020); [UX-001..006](../requirements/lightweight-crm-product-and-system-requirements.md#ux-001); [ACCESS-001..005](../requirements/lightweight-crm-product-and-system-requirements.md#access-001)
+  REQUIREMENT INTENT: Projects belong to one Client and must support the required metadata, statuses, filtering/search/detail behavior, completion rules, and non-destructive archival. The UI prioritizes simple workflows with clear validation/save/failure/loading/empty/unauthorized states, explicit destructive intent, and responsive desktop/tablet behavior. Frontend behavior targets WCAG 2.2 AA with keyboard access, labels, associated validation messages, and non-color-only state.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Create Project list and Project detail pages only.
 
@@ -2728,7 +3384,11 @@ BEHAVIOR: Add component tests for list filters, detail loading/error/empty and k
 ## Prompt 140 — Create Project create form
 
 ```text
-REQUIREMENTS: PROJECT-001..003; UX-003..005
+REQUIREMENTS:
+  TRACEABILITY: PROJECT-001..003; UX-003..005
+  REQUIREMENT LINKS: [PROJECT-001..003](../requirements/lightweight-crm-product-and-system-requirements.md#project-001); [UX-003..005](../requirements/lightweight-crm-product-and-system-requirements.md#ux-003)
+  REQUIREMENT INTENT: Authorized users can create a Project for exactly one Client using the required Project metadata. Keep workflows simple with deliberate loading, empty, validation, success, failure, conflict, and unauthorized states.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Create the Project create form only.
 
@@ -2744,7 +3404,11 @@ BEHAVIOR: Add pending/validation/authorization/success component tests. STOP.
 ## Prompt 141 — Add Project status and archive controls
 
 ```text
-REQUIREMENTS: PROJECT-010..014; UX-004
+REQUIREMENTS:
+  TRACEABILITY: PROJECT-010..014; UX-004
+  REQUIREMENT LINKS: [PROJECT-010..014](../requirements/lightweight-crm-product-and-system-requirements.md#project-010); [UX-004](../requirements/lightweight-crm-product-and-system-requirements.md#ux-004)
+  REQUIREMENT INTENT: Project status changes are auditable; completion records actual completion time and requires acknowledgement when open Tasks remain; archival is non-destructive. Keep workflows simple with deliberate loading, empty, validation, success, failure, conflict, and unauthorized states.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Add only Project status-transition and archive controls to Project detail.
 
@@ -2760,7 +3424,11 @@ BEHAVIOR: Add tests for completion acknowledgement, rejected transition, conflic
 ## Prompt 141A — Add Project details edit UI
 
 ```text
-REQUIREMENTS: PROJECT-002; UX-003..005; ACCESS-001..005
+REQUIREMENTS:
+  TRACEABILITY: PROJECT-002; UX-003..005; ACCESS-001..005
+  REQUIREMENT LINKS: [PROJECT-002](../requirements/lightweight-crm-product-and-system-requirements.md#project-002); [UX-003..005](../requirements/lightweight-crm-product-and-system-requirements.md#ux-003); [ACCESS-001..005](../requirements/lightweight-crm-product-and-system-requirements.md#access-001)
+  REQUIREMENT INTENT: Projects belong to one Client and must support the required metadata, statuses, filtering/search/detail behavior, completion rules, and non-destructive archival. Keep workflows simple with deliberate loading, empty, validation, success, failure, conflict, and unauthorized states. Frontend behavior targets WCAG 2.2 AA with keyboard access, labels, associated validation messages, and non-color-only state.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Add only ordinary Project details editing to Project detail.
 
@@ -2776,7 +3444,11 @@ BEHAVIOR: Add tests for edit success, invalid dates, stale conflict, cancel and 
 ## Prompt 142 — Create typed Task API module
 
 ```text
-REQUIREMENTS: TASK-001..022; API-001..007
+REQUIREMENTS:
+  TRACEABILITY: TASK-001..022; API-001..007
+  REQUIREMENT LINKS: [TASK-001..022](../requirements/lightweight-crm-product-and-system-requirements.md#task-001); [API-001..007](../requirements/lightweight-crm-product-and-system-requirements.md#api-001)
+  REQUIREMENT INTENT: Tasks belong to one Project and must support assignment, priority, status/completion/reopen behavior, overdue detection, and filterable task views. Use consistent REST routes, conventional HTTP verbs/status codes, bounded pagination, OpenAPI documentation, and versionable public contracts.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Create the React typed Task API/model module only.
 
@@ -2792,7 +3464,11 @@ BEHAVIOR: Add API-module tests and build. STOP.
 ## Prompt 143 — Create Task list/My Tasks/overdue UI
 
 ```text
-REQUIREMENTS: TASK-020..022; UX-001..006; ACCESS-001..005
+REQUIREMENTS:
+  TRACEABILITY: TASK-020..022; UX-001..006; ACCESS-001..005
+  REQUIREMENT LINKS: [TASK-020..022](../requirements/lightweight-crm-product-and-system-requirements.md#task-020); [UX-001..006](../requirements/lightweight-crm-product-and-system-requirements.md#ux-001); [ACCESS-001..005](../requirements/lightweight-crm-product-and-system-requirements.md#access-001)
+  REQUIREMENT INTENT: Task collections support My Tasks/project/open/completed/overdue views plus the required filters and sorts. The UI prioritizes simple workflows with clear validation/save/failure/loading/empty/unauthorized states, explicit destructive intent, and responsive desktop/tablet behavior. Frontend behavior targets WCAG 2.2 AA with keyboard access, labels, associated validation messages, and non-color-only state.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Create the Task list experience supporting My Tasks, open/completed/overdue and required filters/sorts only.
 
@@ -2808,7 +3484,11 @@ BEHAVIOR: Add component tests for each required view, filter, overdue indication
 ## Prompt 144 — Create Task create form
 
 ```text
-REQUIREMENTS: TASK-001..016; UX-003..005
+REQUIREMENTS:
+  TRACEABILITY: TASK-001..016; UX-003..005
+  REQUIREMENT LINKS: [TASK-001..016](../requirements/lightweight-crm-product-and-system-requirements.md#task-001); [UX-003..005](../requirements/lightweight-crm-product-and-system-requirements.md#ux-003)
+  REQUIREMENT INTENT: Authorized users can create Tasks for one Project with the required metadata, statuses, priorities, assignment, completion, reopen, and overdue behavior. Keep workflows simple with deliberate loading, empty, validation, success, failure, conflict, and unauthorized states.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Create the Task create form only.
 
@@ -2824,7 +3504,11 @@ BEHAVIOR: Add validation/pending/server-error/success tests and build. STOP.
 ## Prompt 145 — Add Task assignment/priority/status/reopen controls
 
 ```text
-REQUIREMENTS: TASK-010..016; UX-003..005
+REQUIREMENTS:
+  TRACEABILITY: TASK-010..016; UX-003..005
+  REQUIREMENT LINKS: [TASK-010..016](../requirements/lightweight-crm-product-and-system-requirements.md#task-010); [UX-003..005](../requirements/lightweight-crm-product-and-system-requirements.md#ux-003)
+  REQUIREMENT INTENT: Task workflow includes required statuses, assignment/reassignment, priority changes, completion timestamps, explicit reopen, and overdue semantics with auditable mutations. Keep workflows simple with deliberate loading, empty, validation, success, failure, conflict, and unauthorized states.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Add the existing Task mutation controls to Task detail/list as one cohesive Task-actions component.
 
@@ -2840,7 +3524,11 @@ BEHAVIOR: Add component tests for assign, priority, status complete, reopen, con
 ## Prompt 145A — Add Task details edit UI
 
 ```text
-REQUIREMENTS: TASK-002; UX-003..005; ACCESS-001..005
+REQUIREMENTS:
+  TRACEABILITY: TASK-002; UX-003..005; ACCESS-001..005
+  REQUIREMENT LINKS: [TASK-002](../requirements/lightweight-crm-product-and-system-requirements.md#task-002); [UX-003..005](../requirements/lightweight-crm-product-and-system-requirements.md#ux-003); [ACCESS-001..005](../requirements/lightweight-crm-product-and-system-requirements.md#access-001)
+  REQUIREMENT INTENT: Tasks belong to one Project and must support assignment, priority, status/completion/reopen behavior, overdue detection, and filterable task views. Keep workflows simple with deliberate loading, empty, validation, success, failure, conflict, and unauthorized states. Frontend behavior targets WCAG 2.2 AA with keyboard access, labels, associated validation messages, and non-color-only state.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Add only ordinary Task details editing to the Task experience.
 
@@ -2856,7 +3544,11 @@ BEHAVIOR: Add tests for edit success, due-date validation, stale conflict, cance
 ## Prompt 145B — Create Administrator user-management UI
 
 ```text
-REQUIREMENTS: Administrator user-management requirements; SEC-004; SEC-010..016; ACCESS-001..005
+REQUIREMENTS:
+  TRACEABILITY: Administrator user-management requirements; SEC-004; SEC-010..016; ACCESS-001..005
+  REQUIREMENT LINKS: [Administrator requirements](../requirements/lightweight-crm-product-and-system-requirements.md#31-administrator); [SEC-004](../requirements/lightweight-crm-product-and-system-requirements.md#sec-004); [SEC-010..016](../requirements/lightweight-crm-product-and-system-requirements.md#sec-010); [ACCESS-001..005](../requirements/lightweight-crm-product-and-system-requirements.md#access-001)
+  REQUIREMENT INTENT: Administrators can manage application users, roles, and permissions, with server-side authorization and auditable changes. Use ASP.NET Core Identity and server-side role/policy authorization with least privilege; protect APIs and never expose passwords, tokens, secrets, or sensitive internals. Frontend behavior targets WCAG 2.2 AA with keyboard access, labels, associated validation messages, and non-color-only state.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Create the Administrator-only user-management page using the existing Identity administration APIs.
 
@@ -2872,7 +3564,11 @@ BEHAVIOR: Add component tests for admin access, create, role change, deactivate/
 ## Prompt 145C — Create password change/recovery UI
 
 ```text
-REQUIREMENTS: SEC-004; ACCESS-001..005; UX-003..005
+REQUIREMENTS:
+  TRACEABILITY: SEC-004; ACCESS-001..005; UX-003..005
+  REQUIREMENT LINKS: [SEC-004](../requirements/lightweight-crm-product-and-system-requirements.md#sec-004); [ACCESS-001..005](../requirements/lightweight-crm-product-and-system-requirements.md#access-001); [UX-003..005](../requirements/lightweight-crm-product-and-system-requirements.md#ux-003)
+  REQUIREMENT INTENT: Use ASP.NET Core Identity and server-side role/policy authorization with least privilege; protect APIs and never expose passwords, tokens, secrets, or sensitive internals. Frontend behavior targets WCAG 2.2 AA with keyboard access, labels, associated validation messages, and non-color-only state. Keep workflows simple with deliberate loading, empty, validation, success, failure, conflict, and unauthorized states.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Create only the password change and approved recovery UI required by the authentication ADR.
 
@@ -2892,7 +3588,11 @@ BEHAVIOR: Add tests for password change success/error, recovery request/complete
 ## Prompt 146 — Implement dashboard Core query
 
 ```text
-REQUIREMENTS: DASH-001..003; PERF-001..004
+REQUIREMENTS:
+  TRACEABILITY: DASH-001..003; PERF-001..004
+  REQUIREMENT LINKS: [DASH-001..003](../requirements/lightweight-crm-product-and-system-requirements.md#dash-001); [PERF-001..004](../requirements/lightweight-crm-product-and-system-requirements.md#perf-001)
+  REQUIREMENT INTENT: The lightweight dashboard summarizes active Clients/Projects, approaching deadlines, open/current-user/overdue/recent Tasks, and recent Client activity within authorization scope. Interactive APIs target responsive p95 behavior, bounded collections, efficient indexed searches, and no unnecessary N+1 query patterns.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Implement the Crm dashboard read query through Repository/Data/Business/Facade only.
 
@@ -2908,7 +3608,11 @@ BEHAVIOR: Add SQL integration tests for each metric and authorization scope. STO
 ## Prompt 147 — Add dashboard API action
 
 ```text
-REQUIREMENTS: DASH-001..003; API-001..007
+REQUIREMENTS:
+  TRACEABILITY: DASH-001..003; API-001..007
+  REQUIREMENT LINKS: [DASH-001..003](../requirements/lightweight-crm-product-and-system-requirements.md#dash-001); [API-001..007](../requirements/lightweight-crm-product-and-system-requirements.md#api-001)
+  REQUIREMENT INTENT: The lightweight dashboard summarizes active Clients/Projects, approaching deadlines, open/current-user/overdue/recent Tasks, and recent Client activity within authorization scope. Use consistent REST routes, conventional HTTP verbs/status codes, bounded pagination, OpenAPI documentation, and versionable public contracts.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Add one dashboard controller action only.
 
@@ -2924,7 +3628,11 @@ BEHAVIOR: Add API tests for authorized summary and 401/403. STOP.
 ## Prompt 148 — Create Dashboard page
 
 ```text
-REQUIREMENTS: DASH-001..003; DESIGN-001..004; ACCESS-001..005
+REQUIREMENTS:
+  TRACEABILITY: DASH-001..003; DESIGN-001..004; ACCESS-001..005
+  REQUIREMENT LINKS: [DASH-001..003](../requirements/lightweight-crm-product-and-system-requirements.md#dash-001); [DESIGN-001..004](../requirements/lightweight-crm-product-and-system-requirements.md#design-001); [ACCESS-001..005](../requirements/lightweight-crm-product-and-system-requirements.md#access-001)
+  REQUIREMENT INTENT: The lightweight dashboard summarizes active Clients/Projects, approaching deadlines, open/current-user/overdue/recent Tasks, and recent Client activity within authorization scope. Frontend features use local PCDS components and shared typography/spacing/color/border/elevation/state/layout tokens instead of recreating them. Frontend behavior targets WCAG 2.2 AA with keyboard access, labels, associated validation messages, and non-color-only state.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Create the lightweight CRM dashboard page only.
 
@@ -2940,7 +3648,11 @@ BEHAVIOR: Add component/accessibility tests and web build. STOP.
 ## Prompt 149 — Implement global search Core query
 
 ```text
-REQUIREMENTS: SEARCH-001..004; PERF-001..004
+REQUIREMENTS:
+  TRACEABILITY: SEARCH-001..004; PERF-001..004
+  REQUIREMENT LINKS: [SEARCH-001..004](../requirements/lightweight-crm-product-and-system-requirements.md#search-001); [PERF-001..004](../requirements/lightweight-crm-product-and-system-requirements.md#perf-001)
+  REQUIREMENT INTENT: Global search locates Clients, Projects, and Tasks, identifies result type, and never exposes data outside the user's authorization scope. Interactive APIs target responsive p95 behavior, bounded collections, efficient indexed searches, and no unnecessary N+1 query patterns.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Implement Crm global search across Clients, Projects and Tasks through Repository/Data/Business/Facade only.
 
@@ -2956,7 +3668,11 @@ BEHAVIOR: Add SQL integration tests for each entity type, mixed results, authori
 ## Prompt 150 — Add global search API action
 
 ```text
-REQUIREMENTS: SEARCH-001..004; API-001..007
+REQUIREMENTS:
+  TRACEABILITY: SEARCH-001..004; API-001..007
+  REQUIREMENT LINKS: [SEARCH-001..004](../requirements/lightweight-crm-product-and-system-requirements.md#search-001); [API-001..007](../requirements/lightweight-crm-product-and-system-requirements.md#api-001)
+  REQUIREMENT INTENT: Global search locates Clients, Projects, and Tasks, identifies result type, and never exposes data outside the user's authorization scope. Use consistent REST routes, conventional HTTP verbs/status codes, bounded pagination, OpenAPI documentation, and versionable public contracts.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Add one global search controller action only.
 
@@ -2972,7 +3688,11 @@ BEHAVIOR: Add API tests for query, mixed result types, authorization, invalid/em
 ## Prompt 151 — Create global search UI
 
 ```text
-REQUIREMENTS: SEARCH-001..004; ACCESS-001..005
+REQUIREMENTS:
+  TRACEABILITY: SEARCH-001..004; ACCESS-001..005
+  REQUIREMENT LINKS: [SEARCH-001..004](../requirements/lightweight-crm-product-and-system-requirements.md#search-001); [ACCESS-001..005](../requirements/lightweight-crm-product-and-system-requirements.md#access-001)
+  REQUIREMENT INTENT: Global search locates Clients, Projects, and Tasks, identifies result type, and never exposes data outside the user's authorization scope. Frontend behavior targets WCAG 2.2 AA with keyboard access, labels, associated validation messages, and non-color-only state.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Create the global search interaction/page only.
 
@@ -2988,7 +3708,11 @@ BEHAVIOR: Add keyboard, result-type, empty/error and navigation tests; lint/buil
 ## Prompt 152 — Create Client activity/audit timeline UI
 
 ```text
-REQUIREMENTS: ACTIVITY-001..003; AUDIT-001..008
+REQUIREMENTS:
+  TRACEABILITY: ACTIVITY-001..003; AUDIT-001..008
+  REQUIREMENT LINKS: [ACTIVITY-001..003](../requirements/lightweight-crm-product-and-system-requirements.md#activity-001); [AUDIT-001..008](../requirements/lightweight-crm-product-and-system-requirements.md#audit-001)
+  REQUIREMENT INTENT: Recent activity is derived from significant audit events and shown in user-friendly form with underlying audit links where authorized. Every Client/Project/Task mutation produces append-only audit evidence with entity/action/time/actor/source, trace/correlation, and applicable before/after values; secrets are redacted.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Create the authorized Client activity timeline UI using the approved Audit API surface.
 
@@ -3004,7 +3728,11 @@ BEHAVIOR: Add tests for ordered activity, redacted fields, authorization and tra
 ## Prompt 153 — Add custom business Activity spans
 
 ```text
-REQUIREMENTS: TRACE-001..007; OTEL-004
+REQUIREMENTS:
+  TRACEABILITY: TRACE-001..007; OTEL-004
+  REQUIREMENT LINKS: [TRACE-001..007](../requirements/lightweight-crm-product-and-system-requirements.md#trace-001); [OTEL-004](../requirements/lightweight-crm-product-and-system-requirements.md#otel-004)
+  REQUIREMENT INTENT: Every inbound request participates in a trace propagated through gateway, services, SQL, HTTP, Service Bus, Functions, and downstream work with safe diagnostic metadata. Instrument APIs, services, Functions, SQL, HTTP, and Service Bus with OpenTelemetry for traces, metrics, and correlated structured logs.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Add custom OpenTelemetry ActivitySource spans around the most important Crm business operations only: Client.Create, Client.UpdateLifecycle, Project.Create, Project.ChangeStatus, Task.Assign, Task.ChangeStatus and Outbox.Publish/relay.
 
@@ -3020,7 +3748,11 @@ BEHAVIOR: Add unit/integration telemetry tests using an in-memory ActivityListen
 ## Prompt 154 — Add required operational metrics
 
 ```text
-REQUIREMENTS: OBS-003..005; OUTBOX-006; OPS-003
+REQUIREMENTS:
+  TRACEABILITY: OBS-003..005; OUTBOX-006; OPS-003
+  REQUIREMENT LINKS: [OBS-003..005](../requirements/lightweight-crm-product-and-system-requirements.md#obs-003); [OUTBOX-006](../requirements/lightweight-crm-product-and-system-requirements.md#outbox-006); [OPS-003](../requirements/lightweight-crm-product-and-system-requirements.md#ops-003)
+  REQUIREMENT INTENT: Centralize operational visibility in Azure Monitor/Application Insights for requests, dependencies, Functions, Service Bus, SQL, failures, and trace-based investigation. Commit state and integration events atomically through a transactional outbox, then relay them with a timer-triggered Function and observable retry/backlog behavior. Expose health and telemetry that detect errors, latency, dependency failures, authentication anomalies, dead letters, and outbox backlog.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Add OpenTelemetry metrics for request/Function outcomes where custom metrics are needed, outbox pending count, oldest pending age, relay publish failures/retries, audit consumer outcomes and Service Bus dead-letter signal integration point.
 
@@ -3036,7 +3768,11 @@ BEHAVIOR: Add metric-instrument tests for names/tags and document dashboard quer
 ## Prompt 155 — Create single-pane operational dashboard definition
 
 ```text
-REQUIREMENTS: OBS-001..005; OPS-001..004
+REQUIREMENTS:
+  TRACEABILITY: OBS-001..005; OPS-001..004
+  REQUIREMENT LINKS: [OBS-001..005](../requirements/lightweight-crm-product-and-system-requirements.md#obs-001); [OPS-001..004](../requirements/lightweight-crm-product-and-system-requirements.md#ops-001)
+  REQUIREMENT INTENT: Azure Monitor/Application Insights provides centralized investigation and dashboards for request/dependency/Function/Service Bus/SQL health, errors, latency, and trace/entity filtering. Operators can determine service health and detect rising errors/latency, SQL or Service Bus failures, Function failures, auth anomalies, dead letters, and outbox backlog.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Create infrastructure/documented dashboard definitions or workbook queries for the approved Azure Monitor/Application Insights single pane of glass.
 
@@ -3052,7 +3788,11 @@ BEHAVIOR: Validate query syntax where tooling permits and document each panel's 
 ## Prompt 155A — Add production secret and managed-identity configuration
 
 ```text
-REQUIREMENTS: SEC-015..016; DEPLOY-002..003; PRIV-001..005
+REQUIREMENTS:
+  TRACEABILITY: SEC-015..016; DEPLOY-002..003; PRIV-001..005
+  REQUIREMENT LINKS: [SEC-015..016](../requirements/lightweight-crm-product-and-system-requirements.md#sec-015); [DEPLOY-002..003](../requirements/lightweight-crm-product-and-system-requirements.md#deploy-002); [PRIV-001..005](../requirements/lightweight-crm-product-and-system-requirements.md#priv-001)
+  REQUIREMENT INTENT: Use ASP.NET Core Identity and server-side role/policy authorization with least privilege; protect APIs and never expose passwords, tokens, secrets, or sensitive internals. Support environment-specific configuration, externalized secrets, Flex Consumption Functions, and consistent deployment/telemetry metadata. Collect only necessary CRM data, minimize sensitive duplication and PII in telemetry, enforce authorization, and document retention before production.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Implement the production configuration/IaC delta for secret management and managed identity using the infrastructure technology already approved by the repository.
 
@@ -3068,7 +3808,11 @@ BEHAVIOR: Run the IaC validation/lint/what-if mechanism available, secret-scan t
 ## Prompt 155B — Add operational alert definitions
 
 ```text
-REQUIREMENTS: OPS-003..004; OBS-003..005; OUTBOX-006
+REQUIREMENTS:
+  TRACEABILITY: OPS-003..004; OBS-003..005; OUTBOX-006
+  REQUIREMENT LINKS: [OPS-003..004](../requirements/lightweight-crm-product-and-system-requirements.md#ops-003); [OBS-003..005](../requirements/lightweight-crm-product-and-system-requirements.md#obs-003); [OUTBOX-006](../requirements/lightweight-crm-product-and-system-requirements.md#outbox-006)
+  REQUIREMENT INTENT: Expose health and telemetry that detect errors, latency, dependency failures, authentication anomalies, dead letters, and outbox backlog. Centralize operational visibility in Azure Monitor/Application Insights for requests, dependencies, Functions, Service Bus, SQL, failures, and trace-based investigation. Commit state and integration events atomically through a transactional outbox, then relay them with a timer-triggered Function and observable retry/backlog behavior.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Add only the production alert definitions supported by the approved observability/IaC approach.
 
@@ -3088,7 +3832,11 @@ BEHAVIOR: Validate alert definitions with the available IaC/query tooling and re
 ## Prompt 156 — Prove one cradle-to-grave Client mutation trace
 
 ```text
-REQUIREMENTS: TRACE-001..007; AUDIT-001..008; OUTBOX-001..006; OBS-001..005
+REQUIREMENTS:
+  TRACEABILITY: TRACE-001..007; AUDIT-001..008; OUTBOX-001..006; OBS-001..005
+  REQUIREMENT LINKS: [TRACE-001..007](../requirements/lightweight-crm-product-and-system-requirements.md#trace-001); [AUDIT-001..008](../requirements/lightweight-crm-product-and-system-requirements.md#audit-001); [OUTBOX-001..006](../requirements/lightweight-crm-product-and-system-requirements.md#outbox-001); [OBS-001..005](../requirements/lightweight-crm-product-and-system-requirements.md#obs-001)
+  REQUIREMENT INTENT: Every inbound request participates in a trace propagated through gateway, services, SQL, HTTP, Service Bus, Functions, and downstream work with safe diagnostic metadata. Every Client/Project/Task mutation produces append-only audit evidence with entity/action/time/actor/source, trace/correlation, and applicable before/after values; secrets are redacted. Also satisfy the remaining linked cross-cutting constraints that apply to this atomic step.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Run one end-to-end Client create through the complete local system and prove its technical and business trace.
 
@@ -3104,7 +3852,11 @@ BEHAVIOR: Provide evidence for one TraceId/CorrelationId across every hop, the m
 ## Prompt 157 — Verify API security controls
 
 ```text
-REQUIREMENTS: SEC-010..025; SEARCH-004; DASH-003
+REQUIREMENTS:
+  TRACEABILITY: SEC-010..025; SEARCH-004; DASH-003
+  REQUIREMENT LINKS: [SEC-010..025](../requirements/lightweight-crm-product-and-system-requirements.md#sec-010); [SEARCH-004](../requirements/lightweight-crm-product-and-system-requirements.md#search-004); [DASH-003](../requirements/lightweight-crm-product-and-system-requirements.md#dash-003)
+  REQUIREMENT INTENT: Use ASP.NET Core Identity and server-side role/policy authorization with least privilege; protect APIs and never expose passwords, tokens, secrets, or sensitive internals. Global search must find Clients, Projects, and Tasks, identify result type, and never reveal unauthorized data. The dashboard must show the required CRM summaries only within the current user's authorization scope.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Run a focused security verification of all current public routes.
 
@@ -3120,7 +3872,11 @@ BEHAVIOR: Produce a route-by-route pass/fail matrix and run the full API test su
 ## Prompt 158 — Verify SQL Server integration and concurrency
 
 ```text
-REQUIREMENTS: DATA-001..008; DATA-030..034; TEST-004
+REQUIREMENTS:
+  TRACEABILITY: DATA-001..008; DATA-030..034; TEST-004
+  REQUIREMENT LINKS: [DATA-001..008](../requirements/lightweight-crm-product-and-system-requirements.md#data-001); [DATA-030..034](../requirements/lightweight-crm-product-and-system-requirements.md#data-030); [TEST-004](../requirements/lightweight-crm-product-and-system-requirements.md#test-004)
+  REQUIREMENT INTENT: Enforce Client→Project→Task relationships, validate before mutation, store UTC, use safe public IDs, and prevent silent concurrent overwrites. Automate business, authorization, API, SQL, messaging, audit, tracing, Function, and UI behavior at the boundary that can actually prove it.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Run the full SQL integration suite against SQL Server-compatible infrastructure.
 
@@ -3136,7 +3892,11 @@ BEHAVIOR: Report exact test counts and any SQL-specific failures. STOP.
 ## Prompt 159 — Verify messaging failure and idempotency matrix
 
 ```text
-REQUIREMENTS: ASYNC-001..008; OUTBOX-001..006; TEST-005
+REQUIREMENTS:
+  TRACEABILITY: ASYNC-001..008; OUTBOX-001..006; TEST-005
+  REQUIREMENT LINKS: [ASYNC-001..008](../requirements/lightweight-crm-product-and-system-requirements.md#async-001); [OUTBOX-001..006](../requirements/lightweight-crm-product-and-system-requirements.md#outbox-001); [TEST-005](../requirements/lightweight-crm-product-and-system-requirements.md#test-005)
+  REQUIREMENT INTENT: Durable async work uses Azure Service Bus and Service Bus-triggered Functions with trace correlation, duplicate tolerance/idempotency, bounded retry behavior, and dead-letter visibility. When a transaction changes state and publishes an event, state and outbox commit together; a timer Function relays pending messages idempotently and exposes backlog/failure metrics. Automate business, authorization, API, SQL, messaging, audit, tracing, Function, and UI behavior at the boundary that can actually prove it.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Run the complete messaging reliability test matrix.
 
@@ -3152,7 +3912,11 @@ BEHAVIOR: Report each matrix row pass/fail and prove no BackgroundService/IHoste
 ## Prompt 160 — Verify accessibility and responsive UI
 
 ```text
-REQUIREMENTS: ACCESS-001..005; UX-001..006; DESIGN-001..004
+REQUIREMENTS:
+  TRACEABILITY: ACCESS-001..005; UX-001..006; DESIGN-001..004
+  REQUIREMENT LINKS: [ACCESS-001..005](../requirements/lightweight-crm-product-and-system-requirements.md#access-001); [UX-001..006](../requirements/lightweight-crm-product-and-system-requirements.md#ux-001); [DESIGN-001..004](../requirements/lightweight-crm-product-and-system-requirements.md#design-001)
+  REQUIREMENT INTENT: Frontend behavior targets WCAG 2.2 AA with keyboard access, labels, associated validation messages, and non-color-only state. The UI prioritizes simple workflows with clear validation/save/failure/loading/empty/unauthorized states, explicit destructive intent, and responsive desktop/tablet behavior. Frontend features use local PCDS components and shared typography/spacing/color/border/elevation/state/layout tokens instead of recreating them.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Run an accessibility/responsive verification pass across login, dashboard, Clients, Projects, Tasks and global search.
 
@@ -3168,7 +3932,11 @@ BEHAVIOR: Run lint, component tests, accessibility checks and production web bui
 ## Prompt 161 — Verify performance guardrails
 
 ```text
-REQUIREMENTS: PERF-001..004; CLIENT-024; PROJECT-023; API-005
+REQUIREMENTS:
+  TRACEABILITY: PERF-001..004; CLIENT-024; PROJECT-023; API-005
+  REQUIREMENT LINKS: [PERF-001..004](../requirements/lightweight-crm-product-and-system-requirements.md#perf-001); [CLIENT-024](../requirements/lightweight-crm-product-and-system-requirements.md#client-024); [PROJECT-023](../requirements/lightweight-crm-product-and-system-requirements.md#project-023); [API-005](../requirements/lightweight-crm-product-and-system-requirements.md#api-005)
+  REQUIREMENT INTENT: Interactive APIs target responsive p95 behavior, bounded collections, efficient indexed searches, and no unnecessary N+1 query patterns. Clients are the CRM anchor and must support the required data, lifecycle/archive behavior, searchable paginated lists, detail views, ownership, and auditable changes. Also satisfy the remaining linked cross-cutting constraints that apply to this atomic step.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Measure representative Client, Project, Task, dashboard and search requests under a modest expected-load test and inspect SQL query behavior.
 
@@ -3184,7 +3952,11 @@ BEHAVIOR: Report measured p50/p95, query counts and any requirement risk without
 ## Prompt 162 — Run architecture guardrail review
 
 ```text
-REQUIREMENTS: All architecture constraints; TEST-001..007
+REQUIREMENTS:
+  TRACEABILITY: All architecture constraints; TEST-001..007
+  REQUIREMENT LINKS: [Project Chicago requirements](../requirements/lightweight-crm-product-and-system-requirements.md) and [CLAUDE.md](../../CLAUDE.md); [TEST-001..007](../requirements/lightweight-crm-product-and-system-requirements.md#test-001)
+  REQUIREMENT INTENT: Preserve all Project Chicago architecture boundaries and prove them with automated tests. This includes service/database ownership, Controller/Function → Facade → Business → Data → Repository → DbContext layering, Functions-based async processing, YARP-only browser access, SQL Server, and PCDS reuse.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Run read-only architecture review across the completed solution.
 
@@ -3200,7 +3972,11 @@ BEHAVIOR: Produce blocking/non-blocking findings with exact file references and 
 ## Prompt 163 — Run full solution release verification
 
 ```text
-REQUIREMENTS: All P0/P1 requirements
+REQUIREMENTS:
+  TRACEABILITY: All P0/P1 requirements
+  REQUIREMENT LINKS: [P0/P1 requirement priorities](../requirements/lightweight-crm-product-and-system-requirements.md#47-requirement-priorities)
+  REQUIREMENT INTENT: Verify every mandatory foundation and required product-experience requirement, including CRM behavior, Identity/authorization, SQL persistence, auditability, tracing/OpenTelemetry, dashboard/search, and UX. A requirement is complete only when implementation and the required automated/runtime evidence exist.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Run the final build/test/start verification without adding features.
 
@@ -3222,7 +3998,11 @@ Use these only after the main sequence is complete. They preserve the same micro
 ## Template A — One new HTTP query
 
 ```text
-REQUIREMENTS: <IDs>
+REQUIREMENTS:
+  TRACEABILITY: <IDs>
+  REQUIREMENT LINKS: [Project Chicago requirements](../requirements/lightweight-crm-product-and-system-requirements.md)
+  REQUIREMENT INTENT: Before using this reusable template, replace the placeholder with the exact requirement IDs and a 2–4 sentence summary of the behavior they require.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Add exactly one read-only HTTP use case to <owning-service>.
 
@@ -3238,7 +4018,11 @@ BEHAVIOR: Define/adjust only the files required for this one query, run focused 
 ## Template B — One new mutation
 
 ```text
-REQUIREMENTS: <IDs>
+REQUIREMENTS:
+  TRACEABILITY: <IDs>
+  REQUIREMENT LINKS: [Project Chicago requirements](../requirements/lightweight-crm-product-and-system-requirements.md)
+  REQUIREMENT INTENT: Before using this reusable template, replace the placeholder with the exact requirement IDs and a 2–4 sentence summary of the behavior they require.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Add exactly one mutation to <owning-service>.
 
@@ -3254,7 +4038,11 @@ BEHAVIOR: Implement only this mutation, add happy/validation/domain/authorizatio
 ## Template C — One Service Bus consumer
 
 ```text
-REQUIREMENTS: <IDs>
+REQUIREMENTS:
+  TRACEABILITY: <IDs>
+  REQUIREMENT LINKS: [Project Chicago requirements](../requirements/lightweight-crm-product-and-system-requirements.md)
+  REQUIREMENT INTENT: Before using this reusable template, replace the placeholder with the exact requirement IDs and a 2–4 sentence summary of the behavior they require.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Add exactly one Service Bus-triggered Function for <event> in <owning-service>.Functions.
 
@@ -3270,7 +4058,11 @@ BEHAVIOR: Implement the trigger + only the required existing Core seam delta, te
 ## Template D — One schema change
 
 ```text
-REQUIREMENTS: <IDs>
+REQUIREMENTS:
+  TRACEABILITY: <IDs>
+  REQUIREMENT LINKS: [Project Chicago requirements](../requirements/lightweight-crm-product-and-system-requirements.md)
+  REQUIREMENT INTENT: Before using this reusable template, replace the placeholder with the exact requirement IDs and a 2–4 sentence summary of the behavior they require.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Make exactly one schema change in <service>Db.
 
@@ -3286,7 +4078,11 @@ BEHAVIOR: Change model/config, generate migration, review generated operations, 
 ## Template E — One React feature delta
 
 ```text
-REQUIREMENTS: <IDs>
+REQUIREMENTS:
+  TRACEABILITY: <IDs>
+  REQUIREMENT LINKS: [Project Chicago requirements](../requirements/lightweight-crm-product-and-system-requirements.md)
+  REQUIREMENT INTENT: Before using this reusable template, replace the placeholder with the exact requirement IDs and a 2–4 sentence summary of the behavior they require.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Implement exactly one user-visible React behavior.
 
@@ -3302,7 +4098,11 @@ BEHAVIOR: Inspect local PCDS first, implement the smallest feature delta, add fo
 ## Template F — One defect
 
 ```text
-REQUIREMENTS: <IDs affected>
+REQUIREMENTS:
+  TRACEABILITY: <IDs affected>
+  REQUIREMENT LINKS: [Project Chicago requirements](../requirements/lightweight-crm-product-and-system-requirements.md)
+  REQUIREMENT INTENT: Before using this reusable template, replace the placeholder with the exact requirement IDs and a 2–4 sentence summary of the behavior they require.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
 SCOPE: Reproduce and fix exactly one defect in <area>.
 
