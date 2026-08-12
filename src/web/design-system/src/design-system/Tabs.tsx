@@ -1,0 +1,7 @@
+import { useId, useState, type KeyboardEvent, type ReactNode } from "react";
+import { cx } from "./cx";
+export function Tabs({ items }: { items: { id: string; label: string; content: ReactNode }[] }) {
+  const [active, setActive] = useState(items[0]?.id); const uid = useId();
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => { const current = items.findIndex(i => i.id === active); if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return; event.preventDefault(); const offset = event.key === "ArrowRight" ? 1 : -1; setActive(items[(current + offset + items.length) % items.length].id); };
+  return <div><div role="tablist" aria-label="Component examples" onKeyDown={onKeyDown} className="flex gap-1 border-b border-gray-200 dark:border-gray-800">{items.map(item => <button key={item.id} id={`${uid}-${item.id}-tab`} role="tab" aria-selected={active === item.id} aria-controls={`${uid}-${item.id}-panel`} tabIndex={active === item.id ? 0 : -1} onClick={() => setActive(item.id)} className={cx("border-b-2 px-3 py-2.5 text-sm font-medium outline-none focus-visible:ring-4 focus-visible:ring-brand-500/15", active === item.id ? "border-brand-500 text-brand-600 dark:text-brand-400" : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400")}>{item.label}</button>)}</div>{items.map(item => <div key={item.id} id={`${uid}-${item.id}-panel`} role="tabpanel" aria-labelledby={`${uid}-${item.id}-tab`} hidden={active !== item.id} className="pt-5">{item.content}</div>)}</div>;
+}

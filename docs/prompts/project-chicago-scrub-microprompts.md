@@ -1,10 +1,6 @@
 # Project Chicago — SCRUB Microstep Implementation Prompts (Linked Requirements)
 
-
-
 > Replacement prompt library for the obsolete Lifecycle CRM / Angular prompt set currently in the repository.
-
-
 
 These prompts implement the Project Chicago requirements for **Clients → Projects → Tasks** while preserving the architecture encoded in the current `CLAUDE.md` and `.claude/` toolkit.
 
@@ -61,10 +57,53 @@ Infrastructure:
 - Azure Functions Flex Consumption in production
 - ASP.NET Core Identity
 - React 19 + TypeScript + Vite + Tailwind CSS v4
-- copied local Project Chicago Design System (PCDS)
+- Project Chicago Design System (PCDS) maintained as a local drop-in source tree at `src/web/design-system/`
 - OpenTelemetry
 - Azure Monitor / Application Insights as the production single pane of glass
 - YARP as the only browser-facing backend edge
+
+
+## PCDS source-location and UX-shell contract
+
+Project Chicago does **not** copy PCDS into the React application's `src/` tree.
+
+The PCDS drop-in is maintained as a sibling source tree at:
+
+```text
+src/web/
+├── design-system/                 # manually dropped PCDS bundle — authoritative
+│   ├── src/
+│   │   ├── design-system/         # recipes, primitives, states, layout primitives
+│   │   ├── layout/                # exact PCDS AppLayout, header, sidebar, backdrop
+│   │   ├── context/               # theme/sidebar providers
+│   │   ├── components/            # shell transitive dependencies
+│   │   ├── icons/
+│   │   └── index.css              # PCDS tokens/global visual contract
+│   ├── public/
+│   │   └── images/                # shell-required assets
+│   └── ...
+│
+├── public/                        # Project Chicago runtime public assets
+├── src/                           # Project Chicago application source
+│   ├── api/
+│   ├── app/
+│   └── features/
+└── ...
+```
+
+The following rules are mandatory for all frontend prompts:
+
+1. `src/web/design-system/` is the **authoritative local PCDS source**. Claude must never recreate, fork, or silently move PCDS into `src/web/src/design-system/`.
+2. The PCDS bundle is supplied manually by the repository owner. If `src/web/design-system/` is missing when a PCDS-dependent prompt runs, **STOP** and report that the drop-in must be supplied; do not fetch or synthesize a replacement.
+3. All authenticated Project Chicago routes render inside the exact PCDS `AppLayout` from `src/web/design-system/src/layout/AppLayout.tsx`.
+4. Project Chicago may replace **navigation data, branding content, and application-specific header actions**, but it must preserve the PCDS shell geometry, responsive behavior, theme behavior, recipes, and primitive composition unless a later approved design-system change explicitly modifies PCDS.
+5. Feature pages render **page content only**. They must not create a second application header, sidebar, main shell, page-width system, global spacing system, or competing layout framework.
+6. Feature pages use PCDS exports/recipes from `src/web/design-system/src/design-system/` for buttons, fields, surfaces, page headers, stack/cluster/grid layout, tabs, loading, empty, and error states whenever an equivalent PCDS primitive exists.
+7. Application code should consume PCDS through stable TypeScript/Vite aliases established by the PCDS integration prompt rather than deep relative imports spread throughout features.
+8. PCDS global styles/tokens remain sourced from `src/web/design-system/src/index.css`. Project Chicago may add feature-specific CSS only when a PCDS recipe/token/primitive cannot express the requirement.
+9. PCDS's bundled public assets are integrated into the React runtime without editing the authoritative PCDS source solely to fix asset paths.
+10. UX tests must prove pages are rendered under the PCDS shell and do not duplicate shell-level elements.
+
 
 ## Recommended bounded-context decision
 
@@ -91,12 +130,12 @@ Before changing code, Claude must:
 9. Make only the primary change.
 10. Run the smallest meaningful verification.
 11. Report:
-    - files changed,
-    - verification command(s),
-    - pass/fail,
-    - requirement IDs advanced,
-    - follow-up prompt number,
-    - and then **STOP**.
+   - files changed,
+   - verification command(s),
+   - pass/fail,
+   - requirement IDs advanced,
+   - follow-up prompt number,
+   - and then **STOP**.
 
 ### Atomicity rule
 
@@ -369,6 +408,7 @@ USAGE: Use the requirements index from Prompt 001 and this prompt document.
 BEHAVIOR: Verify every requirement ID appears at least once or is explicitly marked deferred with rationale. Report uncovered IDs and STOP.
 ```
 
+
 ---
 
 # Part 1 — Solution, shared platform, observability, and edge foundation
@@ -544,13 +584,13 @@ REQUIREMENTS:
 
 SCOPE: Create the client-side React 19 + TypeScript + Vite application under `src/web` only.
 
-CONSTRAINT: Use strict TypeScript. Preserve client-side-only architecture.
+CONSTRAINT: Use strict TypeScript. Preserve client-side-only architecture. Reserve `src/web/design-system/` as the repository-owned PCDS drop-in boundary; Project Chicago application source remains under `src/web/src/`.
 
-RESTRICTION: Do not add feature pages, API calls, auth, Tailwind customization, PCDS components, or internal service URLs.
+RESTRICTION: Do not add feature pages, API calls, auth, Tailwind customization, PCDS components, or internal service URLs. Do not scaffold, overwrite, delete, or move anything under `src/web/design-system/`.
 
 USAGE: Follow .claude/rules/frontend.md and verify current Vite/React scaffolding commands.
 
-BEHAVIOR: Run the generated web build and report package versions. STOP.
+BEHAVIOR: Run the generated web build, report package versions, and verify the React scaffold did not create a second design-system source tree under `src/web/src/design-system/`. STOP.
 ```
 
 ## Prompt 021 — Install Tailwind CSS v4 into the React app
@@ -564,16 +604,16 @@ REQUIREMENTS:
 
 SCOPE: Add Tailwind CSS v4 using the Vite integration only.
 
-CONSTRAINT: Preserve strict React/Vite client architecture and existing package-manager strategy.
+CONSTRAINT: Preserve strict React/Vite client architecture and existing package-manager strategy. The later PCDS integration step will make `src/web/design-system/src/index.css` the authoritative PCDS token/global-style source.
 
-RESTRICTION: Do not create brand tokens, feature styles, or a competing design system.
+RESTRICTION: Do not create brand tokens, feature styles, or a competing design system. Do not copy PCDS styles into `src/web/src/`.
 
 USAGE: Follow frontend.md and current official Tailwind v4 Vite guidance.
 
-BEHAVIOR: Run web build and verify Tailwind is processed. STOP.
+BEHAVIOR: Run web build and verify Tailwind is processed without introducing PCDS replacement tokens or recipes. STOP.
 ```
 
-## Prompt 022 — Copy PCDS into the local design-system source
+## Prompt 022 — Verify and integrate the dropped PCDS source tree
 
 ```text
 REQUIREMENTS:
@@ -582,15 +622,37 @@ REQUIREMENTS:
   REQUIREMENT INTENT: Frontend features use local PCDS components and shared typography/spacing/color/border/elevation/state/layout tokens instead of recreating them. Frontend behavior targets WCAG 2.2 AA with keyboard access, labels, associated validation messages, and non-color-only state.
   SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
-SCOPE: Copy the approved PCDS source into Project Chicago's local `src/web/src/design-system` location (or the location explicitly established by the repo) only.
 
-CONSTRAINT: Treat the copied source as authoritative local code. Preserve its tokens, recipes, primitives, theme mechanism and exports.
+SCOPE: Verify the repository owner has dropped the approved PCDS bundle at `src/web/design-system/`, then wire that existing source tree into the React build as one integration seam.
 
-RESTRICTION: Do not rewrite PCDS, redesign tokens, or create feature pages. Do not use upstream PCDS at runtime.
+CONSTRAINT: Treat `src/web/design-system/` as authoritative and immutable for this step. The expected PCDS closure includes `src/design-system/`, `src/layout/`, `src/context/`, shell-dependent `src/components/`, `src/icons/`, `src/index.css`, and required `public/images/`. Configure stable TypeScript/Vite aliases for PCDS primitives and shell imports; make the React application's global stylesheet consume the PCDS `src/index.css`; and integrate shell-required public assets into the runtime using the smallest non-destructive mechanism.
 
-USAGE: Follow frontend.md and add-component skill. Inspect the source being copied before applying.
+RESTRICTION: If `src/web/design-system/` is missing or incomplete, STOP and report the missing paths — do not download, generate, reconstruct, or copy PCDS from another location. Do not move PCDS under `src/web/src/`. Do not rewrite PCDS recipes, tokens, primitives, layout geometry, or shell behavior. Do not create Project Chicago feature pages.
 
-BEHAVIOR: Run the web build and any PCDS tests/lint included in the copied source. Verify no duplicate design-system directory exists. STOP.
+USAGE: Follow frontend.md and the add-component skill. Inspect `src/web/design-system/src/design-system/index.ts`, `recipes.ts`, `layout/AppLayout.tsx`, `context/ThemeContext.tsx`, `context/SidebarContext.tsx`, and `src/index.css` before changing integration files.
+
+BEHAVIOR: Verify every expected PCDS path exists; wire aliases/styles/assets into the React/Vite/TypeScript build; run the web build and applicable lint/type checks; prove imports can resolve PCDS primitives and `AppLayout`; verify `src/web/src/design-system/` does not exist; report integration files changed and STOP.
+```
+
+
+## Prompt 022A — Adopt the exact PCDS AppLayout as the authenticated application shell
+
+```text
+REQUIREMENTS:
+  TRACEABILITY: DESIGN-001..004; ACCESS-001..005; UX-001..006
+  REQUIREMENT LINKS: [DESIGN-001..004](../requirements/lightweight-crm-product-and-system-requirements.md#design-001); [ACCESS-001..005](../requirements/lightweight-crm-product-and-system-requirements.md#access-001); [UX-001..006](../requirements/lightweight-crm-product-and-system-requirements.md#ux-001)
+  REQUIREMENT INTENT: Project Chicago must use the local PCDS components, tokens, layout primitives, and accessibility behavior rather than recreate them. Authenticated CRM pages must share one consistent responsive application shell and deliberate loading/error/unauthorized states.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
+
+SCOPE: Wire the exact PCDS `AppLayout` from `src/web/design-system/src/layout/AppLayout.tsx` into the Project Chicago authenticated route tree as the single application shell.
+
+CONSTRAINT: Use the PCDS Theme and Sidebar providers required by the shell. Preserve the exact PCDS sidebar/header/content-area geometry, collapse/mobile behavior, backdrop behavior, theme behavior, and `<Outlet />` page-content model. Project Chicago route content must render inside that Outlet.
+
+RESTRICTION: Do not redesign or fork `AppLayout`, `AppHeader`, `AppSidebar`, `Backdrop`, PCDS recipes, or tokens. Do not create a second shell under `src/web/src/`. Do not implement Client, Project, Task, Dashboard, Search, or Administration pages. Do not replace PCDS demo navigation/content in this prompt unless a minimal route is required only to prove the shell mounts.
+
+USAGE: Follow frontend.md and add-component skill. Import the shell through the stable PCDS aliases established by Prompt 022.
+
+BEHAVIOR: Add the minimum app/router/provider composition required to mount the PCDS shell; add a focused router/component test proving authenticated child content renders inside the PCDS `AppLayout` Outlet and that exactly one shell header/sidebar is present; run web tests/type-check/build and STOP.
 ```
 
 ## Prompt 023 — Wire ServiceDefaults into the Gateway
@@ -952,6 +1014,7 @@ USAGE: Follow aspire.md/frontend.md and verify current Aspire JS APIs.
 
 BEHAVIOR: Run the smallest AppHost model/build verification and web build. STOP.
 ```
+
 
 ---
 
@@ -1497,6 +1560,7 @@ USAGE: Use the approved EF command with Aspire-provided connection configuration
 BEHAVIOR: Verify applied migration list and query SQL metadata for expected tables/FKs. STOP.
 ```
 
+
 ---
 
 # Part 3 — Client business requirements
@@ -1881,6 +1945,7 @@ USAGE: Use add-endpoint skill.
 BEHAVIOR: Add API tests for success, invalid field, stale version, 401 and 403; verify OpenAPI operation and STOP.
 ```
 
+
 ---
 
 # Part 4 — Project business requirements
@@ -2164,6 +2229,7 @@ USAGE: Use add-endpoint skill.
 
 BEHAVIOR: Add API tests for success, invalid dates, stale version, 401/403 and STOP.
 ```
+
 
 ---
 
@@ -2488,6 +2554,7 @@ USAGE: Use add-endpoint skill.
 
 BEHAVIOR: Add API tests for success, invalid dates, stale version, 401/403 and STOP.
 ```
+
 
 ---
 
@@ -2873,6 +2940,7 @@ USAGE: Follow identity.md and add-endpoint skill.
 BEHAVIOR: Add API tests for list/detail pagination, role display, 401/403 and sensitive-field absence; STOP.
 ```
 
+
 ---
 
 # Part 7 — Durable Audit bounded service
@@ -3137,9 +3205,15 @@ USAGE: Use current official ASP.NET Core OpenAPI APIs and api-contract-checker.
 BEHAVIOR: Build each host, generate/inspect each OpenAPI document, run contract checks for schema leakage/duplicate operation IDs and STOP.
 ```
 
+
 ---
 
-# Part 8 — React client using local PCDS
+# Part 8 — React client using PCDS from `src/web/design-system/`
+
+
+> **Frontend invariant:** `src/web/design-system/` is the only PCDS source tree. Authenticated CRM feature pages are Outlet content inside its `AppLayout`; they do not own an alternate application shell.
+
+
 
 ## Prompt 129 — Create the shared typed Gateway API client
 
@@ -3172,14 +3246,36 @@ REQUIREMENTS:
 
 SCOPE: Implement client auth/session state and protected-route behavior using the approved Identity current-user/login/logout contract.
 
-CONSTRAINT: Do not store forbidden long-lived credentials in browser storage; use PCDS loading/error patterns.
+CONSTRAINT: Do not store forbidden long-lived credentials in browser storage; use PCDS loading/error patterns. Authenticated routes must continue to render through the PCDS `AppLayout` already wired from `src/web/design-system/`; unauthenticated routes may render outside the authenticated shell.
 
-RESTRICTION: Do not build user administration or CRM pages.
+RESTRICTION: Do not build user administration or CRM pages. Do not replace, clone, or bypass the PCDS shell.
 
 USAGE: Follow frontend.md/identity.md.
 
 BEHAVIOR: Add component/router tests for unauthenticated redirect, authenticated access, logout, 401 handling and 403 distinction. STOP.
 ```
+
+
+## Prompt 130A — Configure Project Chicago navigation inside the PCDS shell
+
+```text
+REQUIREMENTS:
+  TRACEABILITY: UX-001..002; SEC-010..016; DESIGN-001..004
+  REQUIREMENT LINKS: [UX-001..002](../requirements/lightweight-crm-product-and-system-requirements.md#ux-001); [SEC-010..016](../requirements/lightweight-crm-product-and-system-requirements.md#sec-010); [DESIGN-001..004](../requirements/lightweight-crm-product-and-system-requirements.md#design-001)
+  REQUIREMENT INTENT: Users should reach Clients, Projects, assigned Tasks, and other authorized CRM destinations quickly. Navigation affordances may reflect authorization, but backend authorization remains authoritative, and the PCDS shell/design language must remain the shared UI foundation.
+  SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
+
+SCOPE: Replace only the PCDS demo application's navigation/content configuration with Project Chicago navigation while preserving the exact PCDS shell implementation.
+
+CONSTRAINT: Configure navigation for Dashboard, Clients, Projects, Tasks, and Search, plus Administration only for the authorized role/policy context once available. Preserve PCDS sidebar nesting/collapse/mobile behavior, icons/recipes, header geometry, theme behavior, and page Outlet. Application-specific branding/header data may be supplied through the smallest existing extension/composition point.
+
+RESTRICTION: Do not redesign `AppLayout`, invent a new Sidebar/Header component, duplicate shell Tailwind classes, implement destination feature pages, or move PCDS source out of `src/web/design-system/`. Client-side visibility is an affordance only and must not be treated as backend authorization.
+
+USAGE: Use frontend.md, identity.md, add-component skill, and inspect the existing PCDS `AppSidebar`/`AppHeader` before editing configuration/composition.
+
+BEHAVIOR: Add focused navigation tests proving the required destinations exist, unauthorized Administration navigation is hidden where applicable, responsive/collapsed shell behavior remains owned by PCDS, and no second app shell was introduced; run web tests/type-check/build and STOP.
+```
+
 
 ## Prompt 131 — Create the login page with PCDS
 
@@ -3190,7 +3286,7 @@ REQUIREMENTS:
   REQUIREMENT INTENT: Authentication/account security uses ASP.NET Core Identity for account and password operations, and authentication events are audited without logging credentials. Frontend features use local PCDS components and shared typography/spacing/color/border/elevation/state/layout tokens instead of recreating them. Frontend behavior targets WCAG 2.2 AA with keyboard access, labels, associated validation messages, and non-color-only state.
   SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
-SCOPE: Create the login page only using copied local PCDS primitives/recipes.
+SCOPE: Create the login page only using PCDS primitives/recipes from `src/web/design-system/src/design-system/`; the login route may render outside the authenticated `AppLayout` while still using the same PCDS visual system.
 
 CONSTRAINT: Accessible labels, keyboard behavior, pending/error state, no custom credential validation beyond safe client hints.
 
@@ -3232,7 +3328,7 @@ REQUIREMENTS:
 
 SCOPE: Create the Clients list/search/filter/sort/pagination page only.
 
-CONSTRAINT: Use local PCDS table/card/form/loading/empty/error patterns; URL query state where established; accessible filters; archived excluded by default.
+CONSTRAINT: Authenticated feature content must render inside the existing PCDS `AppLayout` from `src/web/design-system/`; the page component supplies Outlet content only and must not recreate header/sidebar/page-shell geometry.  Use PCDS table/card/form/loading/empty/error patterns from `src/web/design-system/`; URL query state where established; accessible filters; archived excluded by default.
 
 RESTRICTION: Do not add create/detail form behavior except navigation.
 
@@ -3252,7 +3348,7 @@ REQUIREMENTS:
 
 SCOPE: Create the Client create form/page only.
 
-CONSTRAINT: Use PCDS Field/Input/Button patterns; render server validation and duplicate warning behavior; successful save navigates to Client detail according to router convention.
+CONSTRAINT: Authenticated feature content must render inside the existing PCDS `AppLayout` from `src/web/design-system/`; the page component supplies Outlet content only and must not recreate header/sidebar/page-shell geometry.  Use PCDS Field/Input/Button patterns from `src/web/design-system/`; render server validation and duplicate warning behavior; successful save navigates to Client detail according to router convention.
 
 RESTRICTION: Do not add edit/lifecycle/archive controls.
 
@@ -3272,7 +3368,7 @@ REQUIREMENTS:
 
 SCOPE: Create the Client detail page only.
 
-CONSTRAINT: Show Client information, lifecycle, owner, active/historical Project summaries, open/recently completed Task summaries and recent activity/audit link when authorized, using existing public APIs.
+CONSTRAINT: Authenticated feature content must render inside the existing PCDS `AppLayout` from `src/web/design-system/`; the page component supplies Outlet content only and must not recreate header/sidebar/page-shell geometry.  Show Client information, lifecycle, owner, active/historical Project summaries, open/recently completed Task summaries and recent activity/audit link when authorized, using existing public APIs.
 
 RESTRICTION: Do not add lifecycle/archive mutations yet.
 
@@ -3292,7 +3388,7 @@ REQUIREMENTS:
 
 SCOPE: Add only the lifecycle status-change control to Client detail.
 
-CONSTRAINT: Use PCDS accessible select/dialog/confirmation patterns as appropriate; display stale-concurrency conflict without overwriting newer data.
+CONSTRAINT: Authenticated feature content must render inside the existing PCDS `AppLayout` from `src/web/design-system/`; the page component supplies Outlet content only and must not recreate header/sidebar/page-shell geometry.  Use PCDS accessible select/dialog/confirmation patterns from `src/web/design-system/` as appropriate; display stale-concurrency conflict without overwriting newer data.
 
 RESTRICTION: Do not add archive controls.
 
@@ -3312,7 +3408,7 @@ REQUIREMENTS:
 
 SCOPE: Add only Client archive/restore controls to the detail experience.
 
-CONSTRAINT: Require explicit confirmation for archive; show active-Project blocking message; restore only when authorized.
+CONSTRAINT: Authenticated feature content must render inside the existing PCDS `AppLayout` from `src/web/design-system/`; the page component supplies Outlet content only and must not recreate header/sidebar/page-shell geometry.  Require explicit confirmation for archive; show active-Project blocking message; restore only when authorized.
 
 RESTRICTION: Do not add permanent delete.
 
@@ -3332,7 +3428,7 @@ REQUIREMENTS:
 
 SCOPE: Add only the Client profile edit form/action to the Client detail experience.
 
-CONSTRAINT: Edit only fields allowed by the public Client update contract; use PCDS; preserve lifecycle/archive as separate controls; surface concurrency conflict without overwriting newer data.
+CONSTRAINT: Authenticated feature content must render inside the existing PCDS `AppLayout` from `src/web/design-system/`; the page component supplies Outlet content only and must not recreate header/sidebar/page-shell geometry.  Edit only fields allowed by the public Client update contract; use PCDS from `src/web/design-system/`; preserve lifecycle/archive as separate controls; surface concurrency conflict without overwriting newer data.
 
 RESTRICTION: Do not combine lifecycle/archive changes or redesign the detail page.
 
@@ -3372,7 +3468,7 @@ REQUIREMENTS:
 
 SCOPE: Create Project list and Project detail pages only.
 
-CONSTRAINT: Use PCDS; support required filters/search/pagination and show Client/status/owner/priority/dates/open/completed Tasks.
+CONSTRAINT: Authenticated feature content must render inside the existing PCDS `AppLayout` from `src/web/design-system/`; the page component supplies Outlet content only and must not recreate header/sidebar/page-shell geometry.  Use PCDS from `src/web/design-system/`; support required filters/search/pagination and show Client/status/owner/priority/dates/open/completed Tasks.
 
 RESTRICTION: Do not add create/status/archive mutations yet.
 
@@ -3392,7 +3488,7 @@ REQUIREMENTS:
 
 SCOPE: Create the Project create form only.
 
-CONSTRAINT: Require/select owning Client from authorized data, use PCDS fields and server error mapping.
+CONSTRAINT: Authenticated feature content must render inside the existing PCDS `AppLayout` from `src/web/design-system/`; the page component supplies Outlet content only and must not recreate header/sidebar/page-shell geometry.  Require/select owning Client from authorized data, use PCDS fields from `src/web/design-system/` and server error mapping.
 
 RESTRICTION: Do not add status/archive controls.
 
@@ -3412,7 +3508,7 @@ REQUIREMENTS:
 
 SCOPE: Add only Project status-transition and archive controls to Project detail.
 
-CONSTRAINT: Explicitly surface open-Task acknowledgement before completion and stale concurrency conflicts.
+CONSTRAINT: Authenticated feature content must render inside the existing PCDS `AppLayout` from `src/web/design-system/`; the page component supplies Outlet content only and must not recreate header/sidebar/page-shell geometry.  Explicitly surface open-Task acknowledgement before completion and stale concurrency conflicts.
 
 RESTRICTION: Do not auto-complete Tasks.
 
@@ -3432,7 +3528,7 @@ REQUIREMENTS:
 
 SCOPE: Add only ordinary Project details editing to Project detail.
 
-CONSTRAINT: Use the dedicated Project update contract and PCDS; do not edit status/completion/archive in the same form; surface concurrency conflicts safely.
+CONSTRAINT: Authenticated feature content must render inside the existing PCDS `AppLayout` from `src/web/design-system/`; the page component supplies Outlet content only and must not recreate header/sidebar/page-shell geometry.  Use the dedicated Project update contract and PCDS from `src/web/design-system/`; do not edit status/completion/archive in the same form; surface concurrency conflicts safely.
 
 RESTRICTION: Do not change Client ownership or redesign Project pages.
 
@@ -3472,7 +3568,7 @@ REQUIREMENTS:
 
 SCOPE: Create the Task list experience supporting My Tasks, open/completed/overdue and required filters/sorts only.
 
-CONSTRAINT: Use PCDS patterns and accessible controls; preserve URL/filter state according to app convention.
+CONSTRAINT: Authenticated feature content must render inside the existing PCDS `AppLayout` from `src/web/design-system/`; the page component supplies Outlet content only and must not recreate header/sidebar/page-shell geometry.  Use PCDS patterns and accessible controls from `src/web/design-system/`; preserve URL/filter state according to app convention.
 
 RESTRICTION: Do not add Task mutations.
 
@@ -3492,7 +3588,7 @@ REQUIREMENTS:
 
 SCOPE: Create the Task create form only.
 
-CONSTRAINT: Use PCDS and existing authorized Project context; support assignee/priority/due date fields per public contract.
+CONSTRAINT: Authenticated feature content must render inside the existing PCDS `AppLayout` from `src/web/design-system/`; the page component supplies Outlet content only and must not recreate header/sidebar/page-shell geometry.  Use PCDS from `src/web/design-system/` and existing authorized Project context; support assignee/priority/due date fields per public contract.
 
 RESTRICTION: Do not add assignment/status/priority update controls.
 
@@ -3512,7 +3608,7 @@ REQUIREMENTS:
 
 SCOPE: Add the existing Task mutation controls to Task detail/list as one cohesive Task-actions component.
 
-CONSTRAINT: Each action uses its dedicated API contract, handles concurrency conflict, enforces role-based affordances, and is keyboard accessible.
+CONSTRAINT: Authenticated feature content must render inside the existing PCDS `AppLayout` from `src/web/design-system/`; the page component supplies Outlet content only and must not recreate header/sidebar/page-shell geometry.  Each action uses its dedicated API contract, handles concurrency conflict, enforces role-based affordances, and is keyboard accessible.
 
 RESTRICTION: Do not invent bulk editing or drag-and-drop Kanban behavior.
 
@@ -3532,7 +3628,7 @@ REQUIREMENTS:
 
 SCOPE: Add only ordinary Task details editing to the Task experience.
 
-CONSTRAINT: Edit title/description/start/due/notes through the dedicated update contract; keep assignee/priority/status/reopen in existing action controls; handle concurrency conflict.
+CONSTRAINT: Authenticated feature content must render inside the existing PCDS `AppLayout` from `src/web/design-system/`; the page component supplies Outlet content only and must not recreate header/sidebar/page-shell geometry.  Edit title/description/start/due/notes through the dedicated update contract; keep assignee/priority/status/reopen in existing action controls; handle concurrency conflict.
 
 RESTRICTION: Do not combine other mutations or invent Kanban/bulk editing.
 
@@ -3552,7 +3648,7 @@ REQUIREMENTS:
 
 SCOPE: Create the Administrator-only user-management page using the existing Identity administration APIs.
 
-CONSTRAINT: Support paginated user list/detail, create user, activate/deactivate and role assignment through existing endpoints; use PCDS and accessible confirmation/error patterns.
+CONSTRAINT: Authenticated feature content must render inside the existing PCDS `AppLayout` from `src/web/design-system/`; the page component supplies Outlet content only and must not recreate header/sidebar/page-shell geometry.  Support paginated user list/detail, create user, activate/deactivate and role assignment through existing endpoints; use PCDS from `src/web/design-system/` and accessible confirmation/error patterns.
 
 RESTRICTION: Do not expose password hashes/tokens, add new Identity behavior, or implement password reset UI unless the approved recovery ADR explicitly allows an admin surface.
 
@@ -3572,7 +3668,7 @@ REQUIREMENTS:
 
 SCOPE: Create only the password change and approved recovery UI required by the authentication ADR.
 
-CONSTRAINT: Use PCDS; never persist password/reset token values; do not reveal whether an unknown account exists if the recovery policy requires non-enumeration.
+CONSTRAINT: Authenticated password-change content must render inside the existing PCDS `AppLayout` from `src/web/design-system/`; unauthenticated recovery/reset routes may render outside the authenticated shell but must still use PCDS primitives, tokens, and states from that same source tree.  Use PCDS from `src/web/design-system/`; never persist password/reset token values; do not reveal whether an unknown account exists if the recovery policy requires non-enumeration.
 
 RESTRICTION: Do not add MFA/passkeys/external login or invent a recovery channel.
 
@@ -3580,6 +3676,7 @@ USAGE: Use add-component skill and existing Identity endpoints.
 
 BEHAVIOR: Add tests for password change success/error, recovery request/complete behavior defined by ADR, pending states and accessibility; STOP.
 ```
+
 
 ---
 
@@ -3636,7 +3733,7 @@ REQUIREMENTS:
 
 SCOPE: Create the lightweight CRM dashboard page only.
 
-CONSTRAINT: Use PCDS KPI/surface/list patterns; render all required summaries with loading/error/empty behavior.
+CONSTRAINT: Authenticated feature content must render inside the existing PCDS `AppLayout` from `src/web/design-system/`; the page component supplies Outlet content only and must not recreate header/sidebar/page-shell geometry.  Use PCDS KPI/surface/list patterns from `src/web/design-system/`; render all required summaries with loading/error/empty behavior.
 
 RESTRICTION: Do not add analytics charts not required by the product.
 
@@ -3696,7 +3793,7 @@ REQUIREMENTS:
 
 SCOPE: Create the global search interaction/page only.
 
-CONSTRAINT: Use PCDS accessible search field/result list; label result entity type; navigate via stable public routes; handle loading/empty/error.
+CONSTRAINT: Authenticated feature content must render inside the existing PCDS `AppLayout` from `src/web/design-system/`; the page component supplies Outlet content only and must not recreate header/sidebar/page-shell geometry.  Use PCDS accessible search field/result list from `src/web/design-system/`; label result entity type; navigate via stable public routes; handle loading/empty/error.
 
 RESTRICTION: Do not add fuzzy search library or service-direct calls.
 
@@ -3716,7 +3813,7 @@ REQUIREMENTS:
 
 SCOPE: Create the authorized Client activity timeline UI using the approved Audit API surface.
 
-CONSTRAINT: Render user-friendly descriptions from audit events while preserving support metadata links such as TraceId/CorrelationId for authorized users.
+CONSTRAINT: Authenticated feature content must render inside the existing PCDS `AppLayout` from `src/web/design-system/`; the page component supplies Outlet content only and must not recreate header/sidebar/page-shell geometry.  Render user-friendly descriptions from audit events while preserving support metadata links such as TraceId/CorrelationId for authorized users.
 
 RESTRICTION: Do not query AuditDb from Crm or expose sensitive before/after values without authorization.
 
@@ -3825,6 +3922,7 @@ USAGE: Use the observability ADR and existing deployment/IaC conventions.
 BEHAVIOR: Validate alert definitions with the available IaC/query tooling and report signal, threshold, evaluation window and action-group placeholder/approved target for each alert; STOP.
 ```
 
+
 ---
 
 # Part 10 — End-to-end proof, security, resilience, and release gates
@@ -3922,7 +4020,7 @@ SCOPE: Run an accessibility/responsive verification pass across login, dashboard
 
 CONSTRAINT: Verify semantic labels, keyboard navigation, visible focus, status announcements, no color-only state, light/dark mode, loading/empty/error/unauthorized states and common desktop/tablet layouts.
 
-RESTRICTION: Do not redesign visual language or bypass PCDS. Make only requirement-backed fixes discovered by the verification.
+RESTRICTION: Do not redesign visual language, bypass PCDS, or move/duplicate `src/web/design-system/`. Make only requirement-backed fixes discovered by the verification.
 
 USAGE: Use frontend rules/add-component patterns plus repository accessibility tooling.
 
@@ -3960,7 +4058,7 @@ REQUIREMENTS:
 
 SCOPE: Run read-only architecture review across the completed solution.
 
-CONSTRAINT: Verify project references, Controller/Function -> Facade -> Business -> Data -> Repository -> DbContext direction, one DB per service, no cross-service Core/DbContext access, no direct Service Bus send from request path, no HTTP-triggered Functions, React -> Gateway only, PCDS reuse and no PostgreSQL artifacts.
+CONSTRAINT: Verify project references, Controller/Function -> Facade -> Business -> Data -> Repository -> DbContext direction, one DB per service, no cross-service Core/DbContext access, no direct Service Bus send from request path, no HTTP-triggered Functions, React -> Gateway only, PCDS reuse only from `src/web/design-system/`, authenticated routes use exactly one PCDS `AppLayout`, no duplicate `src/web/src/design-system/` or alternate shell exists, and no PostgreSQL artifacts.
 
 RESTRICTION: Do not modify code in this prompt.
 
@@ -3988,6 +4086,7 @@ USAGE: Use canonical repository commands and Aspire dashboard.
 
 BEHAVIOR: Produce final release-gate checklist with commands, results, failed/deferred requirement IDs and explicit statement whether the current branch satisfies the requirements baseline. STOP.
 ```
+
 
 ---
 
@@ -4086,13 +4185,13 @@ REQUIREMENTS:
 
 SCOPE: Implement exactly one user-visible React behavior.
 
-CONSTRAINT: Use local copied PCDS, typed Gateway client, strict TypeScript, accessible interaction and existing route/state conventions.
+CONSTRAINT: Use PCDS only from `src/web/design-system/`. Authenticated feature content renders inside the existing PCDS `AppLayout` and supplies page content only; use PCDS recipes/primitives before adding feature-specific styling. Also use the typed Gateway client, strict TypeScript, accessible interaction and existing route/state conventions.
 
-RESTRICTION: No raw internal service URLs, duplicated PCDS recipes/tokens, unrelated page redesign, backend behavior invention, Next.js/SSR or new UI framework.
+RESTRICTION: No raw internal service URLs, duplicated PCDS recipes/tokens, alternate header/sidebar/page shell, moving PCDS under `src/web/src/`, unrelated page redesign, backend behavior invention, Next.js/SSR or new UI framework.
 
 USAGE: Use add-component skill and frontend.md.
 
-BEHAVIOR: Inspect local PCDS first, implement the smallest feature delta, add focused component/accessibility tests, run lint/tests/build and STOP.
+BEHAVIOR: Inspect `src/web/design-system/src/design-system/index.ts`, `recipes.ts`, and `src/layout/AppLayout.tsx` first, implement the smallest feature delta, add focused component/accessibility tests, run lint/tests/build and STOP.
 ```
 
 ## Template F — One defect
