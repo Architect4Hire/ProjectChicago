@@ -2190,6 +2190,133 @@ A P2 feature must not complicate or delay a P0 architectural requirement.
 
 ---
 
+# 43a. Notification Service Requirements
+
+Project Chicago shall provide event-driven notifications to keep users informed of meaningful CRM events.
+
+## NOTIF-001
+
+The system shall evaluate CRM and identity events against configured notification rules.
+
+## NOTIF-002
+
+Initial notification triggers shall include:
+
+- Task assigned to user
+- Task due date approaching (24 hours)
+- Project status changed to Active
+- Project status changed to Completed
+- Project approaching target completion date
+- Client lifecycle changed
+- User account created or activated
+- Recurring activity digest (summary of recent changes)
+
+## NOTIF-003
+
+Notifications shall be sent through initially supported channels:
+
+- In-app inbox (stored in Notification service database)
+- Email (via configured mail provider)
+- Webhook (for external integrations)
+
+## NOTIF-004
+
+Users shall be able to configure notification preferences per event type and channel.
+
+## NOTIF-005
+
+Notification delivery failures shall be retried with bounded attempts and backoff.
+
+## NOTIF-006
+
+Notification history shall be queryable (by user, date range, event type, delivery status).
+
+---
+
+# 43b. Search Service Requirements
+
+Project Chicago shall provide full-text search and advanced filtering across Clients, Projects, and Tasks.
+
+## SEARCH-001
+
+The Search Service shall maintain a denormalized, eventually-consistent read-model of CRM entities.
+
+## SEARCH-002
+
+Search shall support queries on:
+
+- Client name, contact name, email, phone, website, notes
+- Project name, description, owner, status, priority, dates
+- Task title, description, assignee, status, priority, due date
+
+## SEARCH-003
+
+Search results shall return paginated, sortable, and filterable collections.
+
+## SEARCH-004
+
+Search results shall respect user authorization scope (read-only users see their authorized subset).
+
+## SEARCH-005
+
+Search index shall synchronize from CRM events with acceptable latency (eventual consistency model acceptable).
+
+## SEARCH-006
+
+Archived Clients and Projects shall be excluded from default search results unless explicitly included.
+
+---
+
+# 43c. Workflow Automation Requirements
+
+Project Chicago shall support automation rules that react to CRM events and orchestrate actions across service boundaries.
+
+## WORKFLOW-001
+
+The system shall allow administrators to define workflow automation rules.
+
+## WORKFLOW-002
+
+Workflow rules shall be triggered by CRM and Identity events.
+
+## WORKFLOW-003
+
+Initial rule actions shall include:
+
+- Create Task
+- Update Project status
+- Update Client lifecycle status
+- Assign Task
+- Send Notification
+- Publish integration event
+
+## WORKFLOW-004
+
+Rules shall support conditions such as:
+
+- Event type matching
+- Entity property matching (e.g., Project status = "Active")
+- Time-based conditions (e.g., X days since Project created)
+- Actor role or user matching
+
+## WORKFLOW-005
+
+Workflow execution shall be auditable; every action triggered by a rule shall be recorded with the workflow execution ID.
+
+## WORKFLOW-006
+
+Failed workflow actions shall be logged and made observable; the system shall support manual retry or compensation.
+
+## WORKFLOW-007
+
+Workflow rules shall be versionable; template changes shall not affect in-flight executions.
+
+## WORKFLOW-008
+
+Workflow execution history shall be queryable (by rule, date range, status, error logs).
+
+---
+
 # 48. Requirements Governance
 
 These requirements shall act as the functional source of truth used when producing Project Chicago SCRUB prompts.

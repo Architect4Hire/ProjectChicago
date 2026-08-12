@@ -9,7 +9,9 @@ This is a navigation map, not a substitute for the canonical requirement IDs.
 | PROJECT            | Domain Model              | archival/concurrency           | Project prompt phase              |
 | TASK               | Domain Model              | archival/concurrency           | Task prompt phase                 |
 | DASH               | HLD/Product Completeness  | data ownership                 | dashboard prompts                 |
-| SEARCH             | HLD                       | gateway/data ownership         | search prompts                    |
+| SEARCH             | HLD, Search Service       | ADR-0015, event-driven sync    | Search Service prompts            |
+| NOTIF              | HLD, Notification Service | ADR-0015, event-driven rules   | Notification Service prompts      |
+| WORKFLOW           | HLD, Workflow Service     | ADR-0015, rule engine          | Workflow Service prompts          |
 | DATA               | HLD/Domain Model          | ADR-0001, 0014                 | persistence + SQL verification    |
 | SEC                | Security Design           | ADR-0006, 0007, 0018           | Identity/security prompts         |
 | TRACE              | Observability Design      | ADR-0010, 0011                 | shared telemetry + E2E trace      |

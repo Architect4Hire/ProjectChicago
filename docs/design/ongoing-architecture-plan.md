@@ -6,10 +6,10 @@ This is the forward-looking architecture backlog. It does not silently convert o
 
 Before broad scaffolding:
 
-1. Accept/revise ADR-0015 bounded-context catalog.
+1. ✓ Accept ADR-0015 bounded-context catalog (six services: CRM, Identity, Audit, Notification, Search, Workflow)
 2. Accept/revise ADR-0018 browser auth/session transport.
 3. Accept/revise ADR-0016 Audit ownership/retention.
-4. Accept/revise ADR-0017 Service Bus topology.
+4. Accept/revise ADR-0017 Service Bus topology/subscription details.
 5. Update `CLAUDE.md` only after each architecture choice is approved.
 
 ## Phase 1 — Shared platform
@@ -75,7 +75,48 @@ Implement durable Audit only after ADR-0016/0017:
 - privileged queries,
 - activity timeline.
 
-## Phase 6 — User experience
+## Phase 5a — Search Service
+
+Scaffold Search Service for denormalized CRM read-model:
+
+- SearchDb with denormalized Client/Project/Task schema,
+- Service Bus trigger(s) consuming CRM events,
+- Search API (query, autocomplete, advanced filters),
+- full-text search capabilities,
+- eventual-consistency synchronization,
+- integration tests for index staleness/synchronization.
+
+Success condition: global search working through gateway; results reflect CRM state within acceptable latency.
+
+## Phase 5b — Notification Service
+
+Scaffold Notification Service for event-driven notifications:
+
+- NotificationDb with rules, templates, preferences, history,
+- Service Bus trigger(s) consuming CRM and Identity events,
+- Notification rule engine (task assignment, deadline approaching, project milestone, status change, digest),
+- Channel abstraction (in-app, email, webhook stubs),
+- Notification history API,
+- user preference management API,
+- integration tests for rule evaluation and multi-channel delivery.
+
+Success condition: task assignment notification flows from CRM event through Notification to user visibility.
+
+## Phase 5c — Workflow Service
+
+Scaffold Workflow Service for automation orchestration:
+
+- WorkflowDb with rule definitions, execution history, compensation log,
+- Service Bus trigger(s) consuming CRM and Identity events,
+- Workflow rule engine (condition evaluation, action execution),
+- Action library (CreateTask, UpdateProject, PublishEvent, SendNotification, etc.),
+- compensation/rollback support for failed actions,
+- Workflow administration API (define rules, query executions, adjust templates),
+- integration tests for rule evaluation, action execution, and compensation.
+
+Success condition: automation rule (e.g., "when Project completes, create kickoff Task for next phase") executes end-to-end.
+
+## Phase 7 — User experience
 
 Build React features through the local PCDS:
 
@@ -84,10 +125,11 @@ Build React features through the local PCDS:
 - Projects,
 - Tasks,
 - dashboard,
-- search,
-- audit/activity where authorized.
+- search (powered by Search Service),
+- notifications (powered by Notification Service),
+- audit/activity views where authorized.
 
-## Phase 7 — Operational proof
+## Phase 8 — Operational proof
 
 Prove:
 

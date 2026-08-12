@@ -56,29 +56,47 @@ flowchart TB
     User[Internal User] --> Web[React 19 + PCDS]
     Web --> Gateway[YARP Gateway]
 
-    Gateway --> Crm[Crm HTTP Host]
-    Gateway --> Identity[Identity HTTP Host]
-    Gateway --> AuditApi[Audit Read API]
+    Gateway --> Crm[Crm HTTP]
+    Gateway --> Identity[Identity HTTP]
+    Gateway --> Audit[Audit HTTP]
+    Gateway --> Search[Search HTTP]
+    Gateway --> Notification[Notification HTTP]
+    Gateway --> Workflow[Workflow HTTP]
 
     Crm --> CrmCore[Crm.Core]
     Identity --> IdentityCore[Identity.Core]
-    AuditApi --> AuditCore[Audit.Core]
+    Audit --> AuditCore[Audit.Core]
+    Search --> SearchCore[Search.Core]
+    Notification --> NotifCore[Notification.Core]
+    Workflow --> WorkflowCore[Workflow.Core]
 
     CrmCore --> CrmDb[(CrmDb)]
     IdentityCore --> IdentityDb[(IdentityDb)]
     AuditCore --> AuditDb[(AuditDb)]
+    SearchCore --> SearchDb[(SearchDb)]
+    NotifCore --> NotifDb[(NotifDb)]
+    WorkflowCore --> WorkflowDb[(WorkflowDb)]
 
     CrmFn[Crm.Functions] --> CrmCore
     IdentityFn[Identity.Functions] --> IdentityCore
     AuditFn[Audit.Functions] --> AuditCore
+    SearchFn[Search.Functions] --> SearchCore
+    NotifFn[Notification.Functions] --> NotifCore
+    WorkflowFn[Workflow.Functions] --> WorkflowCore
 
-    CrmFn <--> CrmDb
-    IdentityFn <--> IdentityDb
-    AuditFn <--> AuditDb
+    CrmFn -.-> CrmDb
+    IdentityFn -.-> IdentityDb
+    AuditFn -.-> AuditDb
+    SearchFn -.-> SearchDb
+    NotifFn -.-> NotifDb
+    WorkflowFn -.-> WorkflowDb
 
     CrmFn --> Bus[(Azure Service Bus)]
     IdentityFn --> Bus
-    Bus --> AuditFn
+    AuditFn --> Bus
+    SearchFn --> Bus
+    NotifFn --> Bus
+    WorkflowFn --> Bus
 
     subgraph Observability
       OTEL[OpenTelemetry]
@@ -87,8 +105,16 @@ flowchart TB
     Gateway -.-> OTEL
     Crm -.-> OTEL
     Identity -.-> OTEL
+    Audit -.-> OTEL
+    Search -.-> OTEL
+    Notification -.-> OTEL
+    Workflow -.-> OTEL
     CrmFn -.-> OTEL
+    IdentityFn -.-> OTEL
     AuditFn -.-> OTEL
+    SearchFn -.-> OTEL
+    NotifFn -.-> OTEL
+    WorkflowFn -.-> OTEL
     OTEL --> AI
 ```
 
@@ -96,15 +122,27 @@ flowchart TB
 
 ### Crm — Proposed
 
-Owns Client, Project and Task state, lifecycle/status transitions, assignment, dashboard and global search over CRM-owned data.
+Owns Client, Project and Task entities, lifecycle/status transitions, assignment, archival, and exports CRM-focused integration events.
 
 ### Identity — Proposed
 
-Owns ASP.NET Core Identity users, roles and account/authentication operations. Authentication transport remains a separate decision.
+Owns ASP.NET Core Identity users, roles, claims and account/authentication operations. Authentication transport remains a separate decision.
 
 ### Audit — Proposed
 
-Owns append-only durable audit entries and privileged audit/support queries. It is fed asynchronously rather than through cross-database writes.
+Owns append-only durable audit entries and read-only audit/activity queries. Fed asynchronously via Service Bus without cross-database writes. Never mutated after append in normal workflows.
+
+### Notification — Proposed
+
+Consumes CRM and Identity events. Evaluates notification rules (task assignment, deadline approaching, project milestone, status changes, activity digest). Sends notifications via configured channels (in-app, email, webhooks). Maintains delivery history and user preferences.
+
+### Search — Proposed
+
+Maintains a denormalized read-model of CRM entities (Clients, Projects, Tasks). Consumes CRM events for eventual-consistency synchronization. Provides global full-text search and advanced filtering API. No mutations to CRM data.
+
+### Workflow — Proposed
+
+Defines and executes automation rules that consume CRM and Identity events. Triggers secondary events and actions across service boundaries. Maintains execution history and supports compensation for failed workflow steps. Provides administration API for rule management.
 
 ## 8. Internal service layering
 
@@ -265,11 +303,11 @@ Public APIs use consistent ProblemDetails-style responses. Production responses 
 
 The following are intentionally unresolved until their ADRs are accepted:
 
-1. exact initial bounded-context catalog,
-2. Audit retention/redaction details,
-3. Service Bus topology,
-4. browser authentication/session transport,
-5. production Azure SQL hosting topology,
-6. infrastructure-as-code approach/deployment ownership.
+1. ~~exact initial bounded-context catalog~~ → **ADR-0015** (six-service catalog proposed),
+2. Audit retention/redaction details → ADR-0016,
+3. Service Bus topic/subscription topology → ADR-0017,
+4. browser authentication/session transport → ADR-0018,
+5. production Azure SQL hosting topology → ADR-0019,
+6. infrastructure-as-code approach/deployment ownership → ADR-0020.
 
 The implementation prompts stop at these gates rather than silently inventing answers.
