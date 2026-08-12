@@ -1,4 +1,19 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(Select-String -Path \"c:\\\\architect4hire\\\\projectchicago\\\\docs\\\\prompts\\\\project-chicago-scrub-microprompts.md\" -Pattern \"^## Prompt|^Covers:|^Requirements:\")",
+      "Bash(python3)",
+      "Bash(Get-ChildItem -Filter \"*.sln\")",
+      "Bash(dotnet new *)",
+      "Bash(dotnet sln *)",
+      "Bash(xmllint src/Directory.Build.props)",
+      "Bash(dotnet --version)",
+      "Bash(dotnet build *)",
+      "Bash(dotnet add *)",
+      "Bash(npm create *)",
+      "Bash(npx create-vite@latest . --template react-ts --yes)"
+    ]
+  },
   "hooks": {
     "PreToolUse": [
       {
@@ -21,11 +36,6 @@
           }
         ]
       }
-    ]
-  },
-  "permissions": {
-    "allow": [
-      "Bash(Select-String -Path \"c:\\\\architect4hire\\\\projectchicago\\\\docs\\\\prompts\\\\project-chicago-scrub-microprompts.md\" -Pattern \"^## Prompt|^Covers:|^Requirements:\")"
     ]
   }
 }

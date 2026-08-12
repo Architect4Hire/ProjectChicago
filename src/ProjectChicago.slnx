@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="ProjectChicago.AppHost/ProjectChicago.AppHost.csproj" />
+  <Project Path="ProjectChicago.Contracts/ProjectChicago.Contracts.csproj" />
+  <Project Path="ProjectChicago.Gateway/ProjectChicago.Gateway.csproj" />
+  <Project Path="ProjectChicago.ServiceDefaults/ProjectChicago.ServiceDefaults.csproj" />
+  <Project Path="ProjectChicago.Shared/ProjectChicago.Shared.csproj" />
+</Solution>
