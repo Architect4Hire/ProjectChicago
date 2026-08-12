@@ -6,11 +6,16 @@ var builder = DistributedApplication.CreateBuilder(args);
 var sql = builder.AddSqlServer("sql")
     .WithLifetime(ContainerLifetime.Persistent);
 
+// CRM's own SQL database (ADR-0015: "CrmDb", DATA-031..034). Resource name doubles as the
+// Aspire-injected connection name the Crm host/Functions composition roots resolve via the SQL
+// Server EF Core integration (DEPLOY-001).
+var crmDb = sql.AddDatabase("CrmDb");
+
 // Local Azure Service Bus emulator, topology per ADR-0017 (confirmed in CLAUDE.md): a single shared
 // topic "ProjectChicago.Events" with one subscription per consuming service - "Audit" initially,
 // with Notification/Search/Workflow subscriptions added later without changing this topology.
 // MaxDeliveryCount is left at the Aspire default of 10, which already matches the ADR's bounded-retry
-// value for ASYNC-007. No project references this resource yet.
+// value for ASYNC-007.
 var messaging = builder.AddAzureServiceBus("messaging")
     .RunAsEmulator();
 
@@ -18,10 +23,25 @@ var eventsTopic = messaging.AddServiceBusTopic("events-topic", "ProjectChicago.E
 
 eventsTopic.AddServiceBusSubscription("audit-subscription", "Audit");
 
-// CRM bounded-service HTTP host (ADR-0015). Registered as a plain project resource for now - it is
-// composition/transport scaffolding only, with no controllers, EF/database, auth, routes, or Service
-// Bus wired up yet, so it gets no database or messaging reference here.
-builder.AddProject<Projects.ProjectChicago_Crm>("crm");
+// CRM bounded-service HTTP host (ADR-0015). Composition-only: ServiceDefaults plus the Aspire SQL
+// Server EF Core integration for its own "CrmDb" database (DATA-030..034). WaitFor ensures the SQL
+// container is ready before Crm starts; no messaging reference here since the host has no Service
+// Bus wiring yet (aspire.md: don't give an API host Service Bus credentials it doesn't use).
+builder.AddProject<Projects.ProjectChicago_Crm>("crm")
+    .WithReference(crmDb)
+    .WaitFor(crmDb);
+
+// CRM's sibling Azure Functions project (ADR-0015), the only asynchronous entry point for this
+// service (functions.md). It is the CRM publisher side of the outbox pattern (OUTBOX-003), so -
+// unlike the "crm" HTTP host above - it receives both the "CrmDb" reference (to read/mark outbox
+// rows) and the shared Service Bus resource (to relay them). No triggers exist yet; this step only
+// proves least-privilege composition wiring. Implicit Aspire-managed host storage is used (no
+// explicit WithHostStorage) since no storage-specific behavior is required yet.
+builder.AddAzureFunctionsProject<Projects.ProjectChicago_Crm_Functions>("crm-functions")
+    .WithReference(crmDb)
+    .WaitFor(crmDb)
+    .WithReference(messaging)
+    .WaitFor(messaging);
 
 // The gateway is Project Chicago's only browser-facing HTTP edge (SEC-020, gateway.md). Registered
 // as a plain project resource for Aspire service discovery/health/telemetry defaults; no routes to

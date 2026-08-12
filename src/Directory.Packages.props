@@ -29,6 +29,12 @@
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.10" />
   </ItemGroup>
 
+  <!-- EF Core SQL Server provider + design/migration tooling (service-owned .Core projects; see database.md) -->
+  <ItemGroup>
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.10" />
+  </ItemGroup>
+
   <!-- Azure Service Bus SDK (Shared publisher mechanism) -->
   <ItemGroup>
     <PackageVersion Include="Azure.Messaging.ServiceBus" Version="7.20.2" />
@@ -38,13 +44,24 @@
   <ItemGroup>
     <PackageVersion Include="Microsoft.Azure.Functions.Worker" Version="2.52.0" />
     <PackageVersion Include="Microsoft.Azure.Functions.Worker.Sdk" Version="2.1.0" />
+    <!-- Functions-host/worker span correlation (OTEL-003/ASYNC-003); requires Worker.Core >= 2.51.0. -->
+    <PackageVersion Include="Microsoft.Azure.Functions.Worker.OpenTelemetry" Version="1.1.0" />
+    <!-- TimerTrigger attribute/binding for the outbox relay Function (OUTBOX-003..006). -->
+    <PackageVersion Include="Microsoft.Azure.Functions.Worker.Extensions.Timer" Version="4.3.1" />
   </ItemGroup>
 
   <!-- Aspire hosting integrations (AppHost local resource model) - versioned to match Aspire.AppHost.Sdk -->
   <ItemGroup>
     <PackageVersion Include="Aspire.Hosting.SqlServer" Version="13.4.6" />
     <PackageVersion Include="Aspire.Hosting.Azure.ServiceBus" Version="13.4.6" />
+    <PackageVersion Include="Aspire.Hosting.Azure.Functions" Version="13.4.6" />
     <PackageVersion Include="Aspire.Hosting.JavaScript" Version="13.4.6" />
+  </ItemGroup>
+
+  <!-- Aspire client integrations (service composition roots) - versioned to match Aspire.Hosting.* above -->
+  <ItemGroup>
+    <PackageVersion Include="Aspire.Microsoft.EntityFrameworkCore.SqlServer" Version="13.4.6" />
+    <PackageVersion Include="Aspire.Azure.Messaging.ServiceBus" Version="13.4.6" />
   </ItemGroup>
 
   <!-- Test infrastructure -->
@@ -54,6 +71,10 @@
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
     <PackageVersion Include="Microsoft.Extensions.Configuration" Version="10.0.11" />
     <PackageVersion Include="Microsoft.AspNetCore.TestHost" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.10" />
+    <!-- Real SQL Server container for CrmOutboxStore integration tests (database.md: EF InMemory
+         cannot prove SQL Server-specific behavior such as RowVersion optimistic concurrency). -->
+    <PackageVersion Include="Testcontainers.MsSql" Version="4.13.0" />
   </ItemGroup>
 
 </Project>

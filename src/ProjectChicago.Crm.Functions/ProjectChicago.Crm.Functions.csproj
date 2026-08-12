@@ -11,6 +11,28 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Azure.Functions.Worker" />
     <PackageReference Include="Microsoft.Azure.Functions.Worker.Sdk" />
+    <!-- Functions-host/worker span correlation layered on top of ServiceDefaults' OpenTelemetry
+         pipeline (ASYNC-003, OTEL-003). -->
+    <PackageReference Include="Microsoft.Azure.Functions.Worker.OpenTelemetry" />
+    <!-- TimerTrigger attribute/binding for RelayOutboxFunction (OUTBOX-003..006). -->
+    <PackageReference Include="Microsoft.Azure.Functions.Worker.Extensions.Timer" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Aspire SQL Server EF Core client integration for this service's own "CrmDb" database -
+         same integration/connection name as the Crm HTTP host (aspire.md/database.md). -->
+    <PackageReference Include="Aspire.Microsoft.EntityFrameworkCore.SqlServer" />
+    <!-- Aspire Azure Service Bus client integration: this Function app is CRM's publisher side of
+         the outbox pattern (OUTBOX-003), so unlike the Crm HTTP host it is approved for Service Bus
+         credentials (aspire.md: narrowest reference, not the API host). -->
+    <PackageReference Include="Aspire.Azure.Messaging.ServiceBus" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ProjectChicago.Crm.Core\ProjectChicago.Crm.Core.csproj" />
+    <ProjectReference Include="..\ProjectChicago.Shared\ProjectChicago.Shared.csproj" />
+    <ProjectReference Include="..\ProjectChicago.Contracts\ProjectChicago.Contracts.csproj" />
+    <ProjectReference Include="..\ProjectChicago.ServiceDefaults\ProjectChicago.ServiceDefaults.csproj" />
   </ItemGroup>
 
 </Project>

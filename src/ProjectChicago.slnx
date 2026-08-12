@@ -3,7 +3,10 @@
   <Project Path="ProjectChicago.Contracts/ProjectChicago.Contracts.csproj" />
   <Project Path="ProjectChicago.Contracts.Tests/ProjectChicago.Contracts.Tests.csproj" />
   <Project Path="ProjectChicago.Crm/ProjectChicago.Crm.csproj" />
+  <Project Path="ProjectChicago.Crm.Api.Tests/ProjectChicago.Crm.Api.Tests.csproj" />
+  <Project Path="ProjectChicago.Crm.Core.Tests/ProjectChicago.Crm.Core.Tests.csproj" />
   <Project Path="ProjectChicago.Crm.Core/ProjectChicago.Crm.Core.csproj" />
+  <Project Path="ProjectChicago.Crm.Functions.Tests/ProjectChicago.Crm.Functions.Tests.csproj" />
   <Project Path="ProjectChicago.Crm.Functions/ProjectChicago.Crm.Functions.csproj" />
   <Project Path="ProjectChicago.Gateway/ProjectChicago.Gateway.csproj" />
   <Project Path="ProjectChicago.Gateway.Tests/ProjectChicago.Gateway.Tests.csproj" />
