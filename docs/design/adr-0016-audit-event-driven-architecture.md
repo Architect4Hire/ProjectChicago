@@ -6,6 +6,8 @@
 **Requirement Links:** [AUDIT-001..008](../requirements/lightweight-crm-product-and-system-requirements.md#audit-001); [DATA-020..023](../requirements/lightweight-crm-product-and-system-requirements.md#data-020); [PRIV-001..005](../requirements/lightweight-crm-product-and-system-requirements.md#priv-001)  
 **Decision:** Implement the Audit bounded context as an event-driven append-only authority that consumes integration events through Azure Service Bus rather than allowing owning services to write audit state directly.
 
+> **2026-08-12 addendum:** [`docs/adr/0016-audit-bounded-context-retention.md`](../adr/0016-audit-bounded-context-retention.md) is now also Accepted and supersedes this document's ingestion mechanism specifically: owning services publish one shared, versioned `ProjectChicago.Contracts.Audit.EntityMutationAudited` fact per mutation instead of requiring Audit to subscribe to and interpret every per-entity business event shape (the `ClientCreated`/`ProjectStatusChanged`-style examples in Section 2 below). Audit's exclusive database ownership, outbox/inbox mechanics, redaction rules, `AuditEntry` storage shape, ordering/idempotency guarantees, and retention/purge governance sections of this document remain in force unchanged.
+
 ## Problem
 
 AUDIT-001 requires every mutation to Clients, Projects, and Tasks to generate an audit event with specific fields and traceability. AUDIT-002 defines required audit fields including previous/new values and correlation metadata. DATA-020..023 require archival-over-deletion with privileged purge authority and retention documentation. PRIV-001..005 require minimized sensitive-data collection and authorization enforcement.

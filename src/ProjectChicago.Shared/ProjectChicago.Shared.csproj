@@ -4,6 +4,11 @@
     <ProjectReference Include="..\ProjectChicago.Contracts\ProjectChicago.Contracts.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Needed for Microsoft.AspNetCore.Http.ProblemDetails / Mvc.ValidationProblemDetails (Errors.ApiProblemDetailsFactory). -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>

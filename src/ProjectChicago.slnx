@@ -1,7 +1,11 @@
 <Solution>
   <Project Path="ProjectChicago.AppHost/ProjectChicago.AppHost.csproj" />
   <Project Path="ProjectChicago.Contracts/ProjectChicago.Contracts.csproj" />
+  <Project Path="ProjectChicago.Contracts.Tests/ProjectChicago.Contracts.Tests.csproj" />
   <Project Path="ProjectChicago.Gateway/ProjectChicago.Gateway.csproj" />
+  <Project Path="ProjectChicago.Gateway.Tests/ProjectChicago.Gateway.Tests.csproj" />
   <Project Path="ProjectChicago.ServiceDefaults/ProjectChicago.ServiceDefaults.csproj" />
+  <Project Path="ProjectChicago.ServiceDefaults.Tests/ProjectChicago.ServiceDefaults.Tests.csproj" />
   <Project Path="ProjectChicago.Shared/ProjectChicago.Shared.csproj" />
+  <Project Path="ProjectChicago.Shared.Tests/ProjectChicago.Shared.Tests.csproj" />
 </Solution>

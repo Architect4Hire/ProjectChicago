@@ -30,7 +30,7 @@ Once an ADR is **Accepted**, do not rewrite history. Supersede it with a new ADR
 | [0013](0013-azure-functions-flex-consumption-async-boundary.md) | Azure Functions isolated/Flex Consumption for async entry points | Accepted |
 | [0014](0014-archival-and-optimistic-concurrency.md) | Archival over normal deletion and optimistic concurrency | Accepted |
 | [0015](0015-initial-bounded-context-catalog.md) | Initial Crm / Identity / Audit bounded-context catalog | Proposed |
-| [0016](0016-audit-bounded-context-retention.md) | Durable Audit bounded context and retention ownership | Proposed |
+| [0016](0016-audit-bounded-context-retention.md) | Durable Audit bounded context and generic `EntityMutationAudited` ingestion contract | Accepted |
 | [0017](0017-service-bus-topology.md) | Initial Service Bus topics/subscriptions/permissions | Proposed |
 | [0018](0018-browser-authentication-session-transport.md) | Browser auth/session transport | Proposed |
 | [0019](0019-production-sql-hosting.md) | Production SQL hosting/topology | Proposed |

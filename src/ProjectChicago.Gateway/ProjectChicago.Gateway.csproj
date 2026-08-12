@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
   <ItemGroup>
+    <ProjectReference Include="..\ProjectChicago.ServiceDefaults\ProjectChicago.ServiceDefaults.csproj" />
     <ProjectReference Include="..\ProjectChicago.Shared\ProjectChicago.Shared.csproj" />
   </ItemGroup>
 

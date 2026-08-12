@@ -1,11 +1,16 @@
+using System.Reflection;
+using Azure.Monitor.OpenTelemetry.AspNetCore;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.ServiceDiscovery;
 using OpenTelemetry;
+using OpenTelemetry.Instrumentation.SqlClient;
 using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 
 namespace Microsoft.Extensions.Hosting;
@@ -53,6 +58,13 @@ public static class Extensions
         });
 
         builder.Services.AddOpenTelemetry()
+            .ConfigureResource(resource => resource
+                .AddService(
+                    serviceName: builder.Environment.ApplicationName,
+                    serviceVersion: ResolveServiceVersion())
+                .AddAttributes([
+                    new("deployment.environment", builder.Environment.EnvironmentName)
+                ]))
             .WithMetrics(metrics =>
             {
                 metrics.AddAspNetCoreInstrumentation()
@@ -70,7 +82,12 @@ public static class Extensions
                     )
                     // Uncomment the following line to enable gRPC instrumentation (requires the OpenTelemetry.Instrumentation.GrpcNetClient package)
                     //.AddGrpcClientInstrumentation()
-                    .AddHttpClientInstrumentation();
+                    .AddHttpClientInstrumentation()
+                    // EF Core/SQL Server dependency calls execute through Microsoft.Data.SqlClient; this captures them.
+                    .AddSqlClientInstrumentation(ConfigureSqlClientInstrumentation)
+                    // Azure SDK clients (e.g. Azure.Messaging.ServiceBus) publish their own W3C-compatible
+                    // Activities under the "Azure.*" ActivitySource family; no dedicated instrumentation package exists.
+                    .AddSource("Azure.*");
             });
 
         builder.AddOpenTelemetryExporters();
@@ -80,21 +97,37 @@ public static class Extensions
 
     private static TBuilder AddOpenTelemetryExporters<TBuilder>(this TBuilder builder) where TBuilder : IHostApplicationBuilder
     {
-        var useOtlpExporter = !string.IsNullOrWhiteSpace(builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]);
-
-        if (useOtlpExporter)
+        // Local development: Aspire injects OTEL_EXPORTER_OTLP_ENDPOINT so traces/metrics/logs flow to the Aspire Dashboard.
+        if (HasOtlpExporterEndpoint(builder.Configuration))
         {
             builder.Services.AddOpenTelemetry().UseOtlpExporter();
         }
 
-        // Uncomment the following lines to enable the Azure Monitor exporter (requires the Azure.Monitor.OpenTelemetry.AspNetCore package)
-        //if (!string.IsNullOrEmpty(builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"]))
-        //{
-        //    builder.Services.AddOpenTelemetry()
-        //       .UseAzureMonitor();
-        //}
+        // Production: Azure Monitor/Application Insights is the SPOG backend (ADR-0011/ADR-0021).
+        // Activated only when a connection string is present in configuration; never hardcoded here.
+        if (HasAzureMonitorConnectionString(builder.Configuration))
+        {
+            builder.Services.AddOpenTelemetry().UseAzureMonitor();
+        }
 
         return builder;
+    }
+
+    internal static bool HasOtlpExporterEndpoint(IConfiguration configuration) =>
+        !string.IsNullOrWhiteSpace(configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]);
+
+    internal static bool HasAzureMonitorConnectionString(IConfiguration configuration) =>
+        !string.IsNullOrWhiteSpace(configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"]);
+
+    internal static string ResolveServiceVersion() =>
+        Assembly.GetEntryAssembly()?.GetName().Version?.ToString() ?? "unknown";
+
+    internal static void ConfigureSqlClientInstrumentation(SqlClientTraceInstrumentationOptions options)
+    {
+        // This instrumentation never captures SQL statement text or parameter values by default.
+        // Record exceptions (OTEL-003) but do not wire an enrichment callback that could
+        // reintroduce sensitive command/parameter data into spans.
+        options.RecordException = true;
     }
 
     public static TBuilder AddDefaultHealthChecks<TBuilder>(this TBuilder builder) where TBuilder : IHostApplicationBuilder
