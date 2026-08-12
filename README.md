@@ -1,3 +1,9 @@
+
+
+<div>
+ <image src="docs/logo.png" />
+</div>
+
 # Project Chicago
 
 Project Chicago is a documentation-first reference implementation for a **lightweight CRM** built around three business concepts:
