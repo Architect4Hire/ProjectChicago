@@ -33,20 +33,21 @@ React
 
 ## Identity model for diagnostics
 
-| Identifier | Purpose |
-|---|---|
-| TraceId | Distributed technical trace |
-| SpanId | Current technical operation |
-| CorrelationId | Stable logical/business flow correlation |
-| CausationId | Immediate causal operation/event |
-| Event/MessageId | Durable message identity + idempotency |
-| Entity ID | Optional safe business lookup (Client/Project/Task) |
+| Identifier      | Purpose                                             |
+| --------------- | --------------------------------------------------- |
+| TraceId         | Distributed technical trace                         |
+| SpanId          | Current technical operation                         |
+| CorrelationId   | Stable logical/business flow correlation            |
+| CausationId     | Immediate causal operation/event                    |
+| Event/MessageId | Durable message identity + idempotency              |
+| Entity ID       | Optional safe business lookup (Client/Project/Task) |
 
 Trace parentage may change across delayed async work, but correlation/causation remains explicit.
 
 ## Automatic instrumentation
 
 Enable where supported:
+
 - ASP.NET Core requests,
 - outgoing HTTP,
 - EF Core/SQL client,
@@ -59,6 +60,7 @@ Do not capture SQL parameters or message bodies indiscriminately.
 ## Custom spans
 
 Use stable operation names for important business behavior, for example:
+
 - `Client.Create`
 - `Client.UpdateLifecycle`
 - `Project.Create`
@@ -72,6 +74,7 @@ Avoid a span per method. The trace should explain the business operation, not mi
 ## Structured logging
 
 Log properties rather than parse-dependent message strings. Typical safe context:
+
 - service,
 - environment,
 - version,
@@ -88,6 +91,7 @@ Exceptions should normally be recorded at the boundary that handles/reports them
 ## Metrics
 
 Required operational views include:
+
 - request rate/error/latency,
 - dependency latency/failure,
 - Function executions,
@@ -120,6 +124,7 @@ Sampling is centrally configured and must not make critical operational/audit co
 ## Verification
 
 The canonical proof is one Client creation where:
+
 - the same logical correlation is visible at every hop,
 - the original HTTP trace is discoverable,
 - SQL/outbox/Function/Service Bus spans are visible or linked,

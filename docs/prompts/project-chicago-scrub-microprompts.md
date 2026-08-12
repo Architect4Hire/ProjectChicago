@@ -2,6 +2,8 @@
 
 > Replacement prompt library for the obsolete Lifecycle CRM / Angular prompt set currently in the repository.
 
+
+
 These prompts implement the Project Chicago requirements for **Clients → Projects → Tasks** while preserving the architecture encoded in the current `CLAUDE.md` and `.claude/` toolkit.
 
 The sequence is deliberately granular:
@@ -81,12 +83,12 @@ Before changing code, Claude must:
 9. Make only the primary change.
 10. Run the smallest meaningful verification.
 11. Report:
-   - files changed,
-   - verification command(s),
-   - pass/fail,
-   - requirement IDs advanced,
-   - follow-up prompt number,
-   - and then **STOP**.
+    - files changed,
+    - verification command(s),
+    - pass/fail,
+    - requirement IDs advanced,
+    - follow-up prompt number,
+    - and then **STOP**.
 
 ### Atomicity rule
 
@@ -306,7 +308,6 @@ USAGE: Use the requirements index from Prompt 001 and this prompt document.
 
 BEHAVIOR: Verify every requirement ID appears at least once or is explicitly marked deferred with rationale. Report uncovered IDs and STOP.
 ```
-
 
 ---
 
@@ -776,7 +777,6 @@ USAGE: Follow aspire.md/frontend.md and verify current Aspire JS APIs.
 BEHAVIOR: Run the smallest AppHost model/build verification and web build. STOP.
 ```
 
-
 ---
 
 # Part 2 — CRM bounded service scaffold and persistence foundation
@@ -1213,7 +1213,6 @@ USAGE: Use the approved EF command with Aspire-provided connection configuration
 BEHAVIOR: Verify applied migration list and query SQL metadata for expected tables/FKs. STOP.
 ```
 
-
 ---
 
 # Part 3 — Client business requirements
@@ -1522,7 +1521,6 @@ USAGE: Use add-endpoint skill.
 BEHAVIOR: Add API tests for success, invalid field, stale version, 401 and 403; verify OpenAPI operation and STOP.
 ```
 
-
 ---
 
 # Part 4 — Project business requirements
@@ -1750,7 +1748,6 @@ USAGE: Use add-endpoint skill.
 
 BEHAVIOR: Add API tests for success, invalid dates, stale version, 401/403 and STOP.
 ```
-
 
 ---
 
@@ -2011,7 +2008,6 @@ USAGE: Use add-endpoint skill.
 
 BEHAVIOR: Add API tests for success, invalid dates, stale version, 401/403 and STOP.
 ```
-
 
 ---
 
@@ -2321,7 +2317,6 @@ USAGE: Follow identity.md and add-endpoint skill.
 BEHAVIOR: Add API tests for list/detail pagination, role display, 401/403 and sensitive-field absence; STOP.
 ```
 
-
 ---
 
 # Part 7 — Durable Audit bounded service
@@ -2533,7 +2528,6 @@ USAGE: Use current official ASP.NET Core OpenAPI APIs and api-contract-checker.
 
 BEHAVIOR: Build each host, generate/inspect each OpenAPI document, run contract checks for schema leakage/duplicate operation IDs and STOP.
 ```
-
 
 ---
 
@@ -2891,7 +2885,6 @@ USAGE: Use add-component skill and existing Identity endpoints.
 BEHAVIOR: Add tests for password change success/error, recovery request/complete behavior defined by ADR, pending states and accessibility; STOP.
 ```
 
-
 ---
 
 # Part 9 — Dashboard, global search, activity, and operational observability
@@ -3088,7 +3081,6 @@ USAGE: Use the observability ADR and existing deployment/IaC conventions.
 BEHAVIOR: Validate alert definitions with the available IaC/query tooling and report signal, threshold, evaluation window and action-group placeholder/approved target for each alert; STOP.
 ```
 
-
 ---
 
 # Part 10 — End-to-end proof, security, resilience, and release gates
@@ -3220,7 +3212,6 @@ USAGE: Use canonical repository commands and Aspire dashboard.
 
 BEHAVIOR: Produce final release-gate checklist with commands, results, failed/deferred requirement IDs and explicit statement whether the current branch satisfies the requirements baseline. STOP.
 ```
-
 
 ---
 

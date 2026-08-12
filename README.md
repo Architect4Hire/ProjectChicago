@@ -10,16 +10,16 @@ The functional model is intentionally small. The engineering model is intentiona
 
 ## Start here
 
-| If you want to… | Read |
-|---|---|
-| Understand the product | [`docs/requirements/lightweight-crm-product-and-system-requirements.md`](docs/requirements/lightweight-crm-product-and-system-requirements.md) |
-| Understand the architecture | [`docs/design/high-level-design.md`](docs/design/high-level-design.md) |
-| See the proposed solution layout | [`docs/PROPOSED-SOLUTION-STRUCTURE.md`](docs/PROPOSED-SOLUTION-STRUCTURE.md) |
-| Understand architecture decisions | [`docs/adr/README.md`](docs/adr/README.md) |
-| Implement the system with Claude Code | [`docs/prompts/project-chicago-scrub-microprompts.md`](docs/prompts/project-chicago-scrub-microprompts.md) |
-| Learn the recurring implementation patterns | [`docs/developer/patterns/README.md`](docs/developer/patterns/README.md) |
-| Trace one request end-to-end | [`docs/tracing-a-slice-create-a-client.md`](docs/tracing-a-slice-create-a-client.md) |
-| Navigate all documentation | [`docs/README.md`](docs/README.md) |
+| If you want to…                             | Read                                                                                                                                           |
+| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Understand the product                      | [`docs/requirements/lightweight-crm-product-and-system-requirements.md`](docs/requirements/lightweight-crm-product-and-system-requirements.md) |
+| Understand the architecture                 | [`docs/design/high-level-design.md`](docs/design/high-level-design.md)                                                                         |
+| See the proposed solution layout            | [`docs/PROPOSED-SOLUTION-STRUCTURE.md`](docs/PROPOSED-SOLUTION-STRUCTURE.md)                                                                   |
+| Understand architecture decisions           | [`docs/adr/README.md`](docs/adr/README.md)                                                                                                     |
+| Implement the system with Claude Code       | [`docs/prompts/project-chicago-scrub-microprompts.md`](docs/prompts/project-chicago-scrub-microprompts.md)                                     |
+| Learn the recurring implementation patterns | [`docs/developer/patterns/README.md`](docs/developer/patterns/README.md)                                                                       |
+| Trace one request end-to-end                | [`docs/tracing-a-slice-create-a-client.md`](docs/tracing-a-slice-create-a-client.md)                                                           |
+| Navigate all documentation                  | [`docs/README.md`](docs/README.md)                                                                                                             |
 
 ## Architecture at a glance
 

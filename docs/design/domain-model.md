@@ -37,6 +37,7 @@ stateDiagram-v2
 The diagram illustrates plausible paths, not an authorization to invent transition rules. The exact allowed transition matrix must be defined/approved in business code/tests from the requirements. Every lifecycle change is audited.
 
 Statuses:
+
 - Lead
 - Prospect
 - Active
@@ -45,6 +46,7 @@ Statuses:
 - Archived
 
 Key invariants:
+
 - stable enumeration-resistant public identifier,
 - searchable name,
 - owner reference,
@@ -59,6 +61,7 @@ Key invariants:
 Every Project belongs to exactly one Client.
 
 Statuses:
+
 - Planned
 - Active
 - On Hold
@@ -69,6 +72,7 @@ Statuses:
 Priorities should be represented by an explicit approved finite set rather than arbitrary free text.
 
 Completion:
+
 - records actual completion UTC,
 - if open Tasks remain, the user must explicitly acknowledge before completing,
 - does not silently complete open Tasks.
@@ -80,6 +84,7 @@ Archival is non-destructive.
 Every Task belongs to exactly one Project and therefore one Client through that relationship.
 
 Statuses:
+
 - Backlog
 - To Do
 - In Progress
@@ -88,12 +93,14 @@ Statuses:
 - Cancelled
 
 Priorities:
+
 - Low
 - Normal
 - High
 - Critical
 
 Key behavior:
+
 - assignment/reassignment is auditable,
 - priority change is auditable,
 - completion records completion UTC,
@@ -103,6 +110,7 @@ Key behavior:
 ## Cross-cutting record metadata
 
 Mutable CRM records should include:
+
 - created UTC / created by,
 - modified UTC / modified by,
 - optimistic concurrency token/version,
@@ -115,6 +123,7 @@ Backend persistence uses UTC. Presentation converts to user timezone.
 AuditEntry, OutboxMessage and InboxMessage are supporting technical/audit constructs, not CRM business entities.
 
 A successful mutation produces a business audit fact containing enough information to answer:
+
 - what changed,
 - when,
 - who,

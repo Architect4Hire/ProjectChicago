@@ -13,6 +13,7 @@ A focused audit extraction/review runbook is also provided:
 Run **one prompt at a time**. Each prompt performs one primary action, verifies it and stops.
 
 Before implementation:
+
 - read `CLAUDE.md`,
 - read referenced requirement IDs,
 - read applicable `.claude/rules`,

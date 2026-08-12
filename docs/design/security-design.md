@@ -7,6 +7,7 @@ Project Chicago applies authentication, authorization and least privilege as arc
 ## Identity baseline
 
 ASP.NET Core Identity is accepted for:
+
 - application users,
 - password hashing/storage,
 - roles,
@@ -18,6 +19,7 @@ The system never implements custom password hashing.
 ## Roles
 
 Initial roles:
+
 - **Administrator** — user/role administration plus broad CRM/audit access.
 - **Manager** — manage authorized Clients/Projects/Tasks.
 - **Contributor** — work within authorized CRM scope, especially Tasks.
@@ -28,6 +30,7 @@ Role names alone do not replace resource-level authorization. A Manager may stil
 ## Browser authentication decision gate
 
 The precise browser session/token transport is **not yet accepted**. ADR-0018 must resolve:
+
 - cookie/session vs access-token model,
 - CSRF strategy,
 - browser storage,
@@ -63,6 +66,7 @@ YARP is the only browser-facing backend edge. Internal services are not public b
 ## Azure resource access
 
 Use managed identity wherever supported. Grant least privilege:
+
 - service database access only to owning service identities,
 - Service Bus Send to publisher relay Functions,
 - Service Bus Listen to consumer Functions,
@@ -72,6 +76,7 @@ Use managed identity wherever supported. Grant least privilege:
 ## Secrets
 
 Never commit:
+
 - connection strings with credentials,
 - client secrets,
 - tokens,
@@ -83,6 +88,7 @@ Production secrets/configuration use approved Azure configuration/Key Vault mech
 ## Logging, telemetry and audit privacy
 
 Never write passwords, access/refresh tokens, connection strings or cryptographic secrets into:
+
 - structured logs,
 - trace attributes,
 - metrics,
@@ -99,6 +105,7 @@ ProblemDetails is safe-by-default; production responses never reveal stack trace
 ## Security verification
 
 Release review includes:
+
 - route-by-route auth matrix,
 - 401/403 behavior,
 - role/resource policy tests,

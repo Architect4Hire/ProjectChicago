@@ -24,16 +24,16 @@ Initial scope does not include sales opportunities, quotes, invoices, payments, 
 
 ## 4. Architecture drivers
 
-| Driver | Architectural response |
-|---|---|
-| Lightweight product | Keep Clients/Projects/Tasks together in the recommended CRM bounded context |
-| Strong data ownership | SQL database per bounded service; no cross-service SQL |
-| Auditability | Immutable business audit events delivered durably to proposed Audit context |
+| Driver                  | Architectural response                                                           |
+| ----------------------- | -------------------------------------------------------------------------------- |
+| Lightweight product     | Keep Clients/Projects/Tasks together in the recommended CRM bounded context      |
+| Strong data ownership   | SQL database per bounded service; no cross-service SQL                           |
+| Auditability            | Immutable business audit events delivered durably to proposed Audit context      |
 | Cradle-to-grave tracing | W3C/OTel + CorrelationId/CausationId across HTTP, SQL, outbox, bus and Functions |
-| Security | ASP.NET Core Identity + server authorization + least privilege |
-| Operational simplicity | YARP single edge; Aspire local orchestration; common ServiceDefaults |
-| Async reliability | transactional outbox, timer Functions, Service Bus, persistent inbox |
-| UI consistency | local PCDS + React 19/TypeScript/Tailwind v4 |
+| Security                | ASP.NET Core Identity + server authorization + least privilege                   |
+| Operational simplicity  | YARP single edge; Aspire local orchestration; common ServiceDefaults             |
+| Async reliability       | transactional outbox, timer Functions, Service Bus, persistent inbox             |
+| UI consistency          | local PCDS + React 19/TypeScript/Tailwind v4                                     |
 
 ## 5. System context
 
@@ -95,12 +95,15 @@ flowchart TB
 ## 7. Recommended bounded contexts
 
 ### Crm — Proposed
+
 Owns Client, Project and Task state, lifecycle/status transitions, assignment, dashboard and global search over CRM-owned data.
 
 ### Identity — Proposed
+
 Owns ASP.NET Core Identity users, roles and account/authentication operations. Authentication transport remains a separate decision.
 
 ### Audit — Proposed
+
 Owns append-only durable audit entries and privileged audit/support queries. It is fed asynchronously rather than through cross-database writes.
 
 ## 8. Internal service layering
@@ -234,6 +237,7 @@ See [Security Design](security-design.md).
 Automatic instrumentation covers ASP.NET Core, HTTP clients, SQL/EF, Service Bus and Functions. Custom spans cover meaningful business actions, not every method.
 
 Every hop carries or links:
+
 - TraceId / SpanId,
 - CorrelationId,
 - CausationId,

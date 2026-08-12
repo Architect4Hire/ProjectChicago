@@ -14,27 +14,28 @@ A feature is not implemented merely because it appears in a design document or S
 
 ## Product capability matrix
 
-| Capability | Specified | Prompt-covered | Implementation evidence |
-|---|---:|---:|---|
-| Client create/list/detail/search/filter | Yes | Yes | Verify in current `src/` |
-| Client lifecycle/archive | Yes | Yes | Verify in current `src/` |
-| Project create/list/detail/status/archive | Yes | Yes | Verify in current `src/` |
-| Task create/list/assign/priority/status/reopen | Yes | Yes | Verify in current `src/` |
-| Dashboard | Yes | Yes | Verify in current `src/` |
-| Global search | Yes | Yes | Verify in current `src/` |
-| ASP.NET Core Identity | Yes | Yes | Verify in current `src/` |
-| Role authorization | Yes | Yes | Verify in current `src/` |
-| Business audit history | Yes | Yes | Proposed Audit service decision must be accepted first |
-| Transactional outbox/inbox | Yes | Yes | Verify in current `src/` |
-| Service Bus Functions | Yes | Yes | Verify in current `src/` |
-| OpenTelemetry | Yes | Yes | Verify in current `src/` |
-| Azure Monitor/App Insights dashboards | Yes | Yes | Verify IaC/config/runtime |
-| PCDS React UX | Yes | Yes | Verify in current `src/web` |
-| Accessibility target | Yes | Yes | Verify automated/manual evidence |
+| Capability                                     | Specified | Prompt-covered | Implementation evidence                                |
+| ---------------------------------------------- | ---------:| --------------:| ------------------------------------------------------ |
+| Client create/list/detail/search/filter        | Yes       | Yes            | Verify in current `src/`                               |
+| Client lifecycle/archive                       | Yes       | Yes            | Verify in current `src/`                               |
+| Project create/list/detail/status/archive      | Yes       | Yes            | Verify in current `src/`                               |
+| Task create/list/assign/priority/status/reopen | Yes       | Yes            | Verify in current `src/`                               |
+| Dashboard                                      | Yes       | Yes            | Verify in current `src/`                               |
+| Global search                                  | Yes       | Yes            | Verify in current `src/`                               |
+| ASP.NET Core Identity                          | Yes       | Yes            | Verify in current `src/`                               |
+| Role authorization                             | Yes       | Yes            | Verify in current `src/`                               |
+| Business audit history                         | Yes       | Yes            | Proposed Audit service decision must be accepted first |
+| Transactional outbox/inbox                     | Yes       | Yes            | Verify in current `src/`                               |
+| Service Bus Functions                          | Yes       | Yes            | Verify in current `src/`                               |
+| OpenTelemetry                                  | Yes       | Yes            | Verify in current `src/`                               |
+| Azure Monitor/App Insights dashboards          | Yes       | Yes            | Verify IaC/config/runtime                              |
+| PCDS React UX                                  | Yes       | Yes            | Verify in current `src/web`                            |
+| Accessibility target                           | Yes       | Yes            | Verify automated/manual evidence                       |
 
 ## Architecture gates that prevent false completeness
 
 The canonical prompts intentionally stop for approval on:
+
 - bounded-context catalog,
 - browser auth/session transport,
 - Audit retention/design,
@@ -47,6 +48,7 @@ Until those decisions are Accepted, dependent items should not be labeled produc
 ## Definition of done per API feature
 
 A mutation is not done unless applicable:
+
 - auth/authz,
 - validation,
 - stable API contract,
@@ -60,6 +62,7 @@ A mutation is not done unless applicable:
 - architecture boundaries.
 
 A read feature is not done unless applicable:
+
 - auth/authz and scope trimming,
 - bounded pagination,
 - deterministic sort,
@@ -71,6 +74,7 @@ A read feature is not done unless applicable:
 ## Definition of done per Function
 
 A Function is not done unless:
+
 - trigger is transport-only,
 - delegates to Facade,
 - trace/correlation context is propagated,
@@ -83,6 +87,7 @@ A Function is not done unless:
 ## Release evidence
 
 The release gate should archive or report:
+
 - `.NET` build/test results,
 - SQL integration test results,
 - Function reliability matrix,

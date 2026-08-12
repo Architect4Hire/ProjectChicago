@@ -15,6 +15,7 @@ Before broad scaffolding:
 ## Phase 1 — Shared platform
 
 Establish:
+
 - solution/build/package management,
 - Aspire AppHost and ServiceDefaults,
 - Contracts and Shared,
@@ -30,6 +31,7 @@ Success condition: shared spine builds and telemetry/resource topology can be in
 ## Phase 2 — CRM vertical slice
 
 Scaffold the approved CRM service and prove one Client create slice:
+
 - Crm host/Core/Functions,
 - CrmDb,
 - Client entity/persistence,
@@ -42,6 +44,7 @@ Do not fan out to Projects/Tasks until the slice proves the architecture.
 ## Phase 3 — Business completeness
 
 Implement Client, Project and Task requirements atomically, including:
+
 - lists/search/filter/pagination,
 - detail views,
 - lifecycle/status transitions,
@@ -53,6 +56,7 @@ Implement Client, Project and Task requirements atomically, including:
 ## Phase 4 — Identity
 
 Implement the approved Identity context after auth/session ADR acceptance:
+
 - IdentityDb,
 - roles,
 - login/logout/current user,
@@ -63,6 +67,7 @@ Implement the approved Identity context after auth/session ADR acceptance:
 ## Phase 5 — Audit
 
 Implement durable Audit only after ADR-0016/0017:
+
 - AuditDb + append-only model,
 - inbox,
 - Service Bus trigger,
@@ -73,6 +78,7 @@ Implement durable Audit only after ADR-0016/0017:
 ## Phase 6 — User experience
 
 Build React features through the local PCDS:
+
 - login/protected routing,
 - Clients,
 - Projects,
@@ -84,6 +90,7 @@ Build React features through the local PCDS:
 ## Phase 7 — Operational proof
 
 Prove:
+
 - one cradle-to-grave Client trace,
 - Service Bus duplicate/idempotency behavior,
 - outbox failure recovery,
@@ -96,15 +103,19 @@ Prove:
 ## Production architecture still to decide
 
 ### Production SQL
+
 Resolve ADR-0019 including HA/backup/private networking/cost.
 
 ### IaC
+
 Resolve ADR-0020; provision Flex Consumption, SQL, Service Bus, identity/RBAC, observability and networking reproducibly.
 
 ### Alerting/SLOs
+
 Requirements define signals, but production thresholds/action groups should be tuned against observed workloads rather than guessed during scaffolding.
 
 ### Retention/privacy
+
 Audit and telemetry retention need explicit business/legal/operational ownership.
 
 ## Evolution rule

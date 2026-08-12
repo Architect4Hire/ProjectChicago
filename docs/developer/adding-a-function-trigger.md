@@ -43,6 +43,7 @@ No event-type business switch belongs in the trigger.
 ## Trace propagation
 
 For Service Bus:
+
 - extract W3C trace context when available,
 - preserve CorrelationId/CausationId/EventId,
 - create/link current Activity according to OTel integration,
@@ -51,6 +52,7 @@ For Service Bus:
 ## Tests
 
 Function adapter tests should prove:
+
 - valid binding delegates once,
 - cancellation propagates,
 - correlation context propagates,
