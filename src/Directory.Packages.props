@@ -23,6 +23,24 @@
     <PackageVersion Include="Azure.Monitor.OpenTelemetry.AspNetCore" Version="1.6.0" />
   </ItemGroup>
 
+  <!-- EF Core (Shared persistence mechanism metadata, e.g. outbox) -->
+  <ItemGroup>
+    <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.10" />
+  </ItemGroup>
+
+  <!-- Azure Service Bus SDK (Shared publisher mechanism) -->
+  <ItemGroup>
+    <PackageVersion Include="Azure.Messaging.ServiceBus" Version="7.20.2" />
+  </ItemGroup>
+
+  <!-- Aspire hosting integrations (AppHost local resource model) - versioned to match Aspire.AppHost.Sdk -->
+  <ItemGroup>
+    <PackageVersion Include="Aspire.Hosting.SqlServer" Version="13.4.6" />
+    <PackageVersion Include="Aspire.Hosting.Azure.ServiceBus" Version="13.4.6" />
+    <PackageVersion Include="Aspire.Hosting.JavaScript" Version="13.4.6" />
+  </ItemGroup>
+
   <!-- Test infrastructure -->
   <ItemGroup>
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />

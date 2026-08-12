@@ -8,4 +8,14 @@
     <UserSecretsId>eaa3efe9-a747-4417-9b8e-96dd4ed90d36</UserSecretsId>
   </PropertyGroup>
 
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.SqlServer" />
+    <PackageReference Include="Aspire.Hosting.Azure.ServiceBus" />
+    <PackageReference Include="Aspire.Hosting.JavaScript" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ProjectChicago.Gateway\ProjectChicago.Gateway.csproj" />
+  </ItemGroup>
+
 </Project>

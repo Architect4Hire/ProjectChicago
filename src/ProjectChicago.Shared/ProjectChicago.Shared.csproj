@@ -9,6 +9,21 @@
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Needed for IEntityTypeConfiguration<T>/ModelBuilder and SQL Server-compatible column mapping
+         (Outbox.OutboxMessageConfiguration). No provider package here - owning services choose
+         Microsoft.EntityFrameworkCore.SqlServer for their own DbContext. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Needed for ServiceBusClient/ServiceBusSender/ServiceBusMessage (Messaging.AzureServiceBusPublisher).
+         No Aspire hosting/client-integration package here - the owning service's composition root
+         registers ServiceBusClient via Aspire; this project only depends on the SDK types. -->
+    <PackageReference Include="Azure.Messaging.ServiceBus" />
+  </ItemGroup>
+
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
