@@ -15,6 +15,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\ProjectChicago.Crm\ProjectChicago.Crm.csproj" />
     <ProjectReference Include="..\ProjectChicago.Gateway\ProjectChicago.Gateway.csproj" />
   </ItemGroup>
 

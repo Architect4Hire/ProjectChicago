@@ -34,6 +34,12 @@
     <PackageVersion Include="Azure.Messaging.ServiceBus" Version="7.20.2" />
   </ItemGroup>
 
+  <!-- Azure Functions isolated worker (net10.0-compatible minimums per functions.md) -->
+  <ItemGroup>
+    <PackageVersion Include="Microsoft.Azure.Functions.Worker" Version="2.52.0" />
+    <PackageVersion Include="Microsoft.Azure.Functions.Worker.Sdk" Version="2.1.0" />
+  </ItemGroup>
+
   <!-- Aspire hosting integrations (AppHost local resource model) - versioned to match Aspire.AppHost.Sdk -->
   <ItemGroup>
     <PackageVersion Include="Aspire.Hosting.SqlServer" Version="13.4.6" />

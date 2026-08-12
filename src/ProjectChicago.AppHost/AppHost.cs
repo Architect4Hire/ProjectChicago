@@ -18,6 +18,11 @@ var eventsTopic = messaging.AddServiceBusTopic("events-topic", "ProjectChicago.E
 
 eventsTopic.AddServiceBusSubscription("audit-subscription", "Audit");
 
+// CRM bounded-service HTTP host (ADR-0015). Registered as a plain project resource for now - it is
+// composition/transport scaffolding only, with no controllers, EF/database, auth, routes, or Service
+// Bus wired up yet, so it gets no database or messaging reference here.
+builder.AddProject<Projects.ProjectChicago_Crm>("crm");
+
 // The gateway is Project Chicago's only browser-facing HTTP edge (SEC-020, gateway.md). Registered
 // as a plain project resource for Aspire service discovery/health/telemetry defaults; no routes to
 // backend service API hosts are wired here since none exist yet, and it gets no SQL/Service Bus
