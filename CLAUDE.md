@@ -1,186 +1,228 @@
-# Lifecycle CRM
+# Project Chicago
 
-*Project memory written as a SCRUB prompt: Scope, Constraints, Restrictions, Usage, Behavior. Loaded every Claude Code session.*
+Project memory, written as a SCRUB prompt — Scope, Constraints, Restrictions, Usage, Behavior. This file is loaded every Claude Code session. Keep enduring architecture rules here; put path-specific details in `.claude/rules/`, repeatable procedures in `.claude/skills/`, review work in `.claude/agents/`, and deterministic safeguards in `.claude/hooks/`.
 
 ## Scope
 
-- Lifecycle CRM tracks organizations and contacts through a configurable lifecycle journey from awareness through advocacy.
-- The solution has one deployable ASP.NET Core API, one secondary Domain class-library project, one SQL Server/Azure SQL Database (SQLDB), one required .NET Aspire AppHost, one required ServiceDefaults project, and one Angular SPA.
-- The API uses MVC controllers. Do not implement new minimal-API routes.
-- The mandatory server-side call chain is:
-
-```text
-HTTP request
-  -> Controller (API project)
-  -> Facade (Domain project: validation, authorization context checks, cache lookup/invalidation, orchestration)
-  -> Business (Domain project: business rules and API/domain/data model translation)
-  -> Data (Domain project: EF Core queries, commands, transactions, persistence models)
-  -> SQL Server
-```
-
-- Primary CRM areas: Identity & Access, Accounts, Contacts, Lifecycle, Activities, Tasks, Opportunities, Engagement, Reporting, Administration, and Audit.
-- In bounds: controllers, Domain Facade/Business/Data layers, database schema, Angular application, tests, documentation, and `.claude/` tooling.
-- Out of bounds unless explicitly approved: microservices, message brokers, distributed transactions, minimal APIs, MediatR, a public API gateway, additional databases, event sourcing, or a generic workflow engine.
+- Project Chicago is a CRM application for managing customers through a lifecycle journey.
+- The system is a distributed .NET solution developed locally with Aspire, backed by Microsoft SQL Server, integrated asynchronously through Azure Service Bus, and presented through a client-side React 19 application.
+- The reusable Claude Code engineering toolkit lives in `.claude/`.
+- In bounds: existing bounded services, each service's HTTP host, `.Core` project and `.Functions` project; the YARP gateway; Contracts and Shared libraries; Aspire AppHost/ServiceDefaults; Microsoft SQL databases; Service Bus resources; and the React client.
+- Out of bounds unless explicitly approved: inventing a new bounded service, sharing a service database, introducing a second message broker, server-side React/Next.js, bypassing PCDS with a competing design system, or replacing architectural seams for convenience.
+- The initial bounded-context catalog is intentionally not invented in this toolkit. When the project defines service names and ownership, document them here and in an architecture decision record.
 
 ## Constraints
 
-### Stack
+### Runtime and orchestration
 
-- .NET 10 and ASP.NET Core MVC Web API controllers.
-- Angular standalone components, strict TypeScript, signals for local state, RxJS for asynchronous streams, and lazy-loaded feature routes.
-- EF Core with Microsoft SQL Server/Azure SQL Database. One database and one migrations assembly discovered from the repository. Do not assume its project or folder; use the existing convention or document the decision before creating one.
-- OpenAPI is the HTTP contract. Generate the Angular API client from the controller-produced OpenAPI document when practical.
-- Authentication uses ASP.NET Core Identity or an external OIDC provider. Controller policies provide coarse authorization; Facades enforce record/context-sensitive access.
-- .NET Aspire is required for local orchestration and the supported developer startup path. The AppHost must orchestrate the API, Angular application, SQL Server resource/database, health checks, telemetry, and declared dependencies.
+- .NET 10 is the backend target.
+- Aspire is the development-time composition/orchestration model through `ProjectChicago.AppHost` and `ProjectChicago.ServiceDefaults`.
+- Aspire may model API projects, Azure Functions projects, SQL Server databases, Service Bus/emulator resources, cache resources, gateway, and the React client for local development.
+- Azure Functions use the .NET isolated worker model. Do not create in-process Functions.
+- Production Azure Functions run on **Flex Consumption**. Treat Flex Consumption constraints as deployment architecture, not an implementation detail.
+- Every bounded service has one sibling `ProjectChicago.<Service>.Functions` project deployed as its own Function App unless an explicit ADR changes this.
+- Project Chicago Functions are asynchronous workloads. Do not add HTTP-triggered Functions for browser/application APIs; YARP + service HTTP hosts are the only HTTP application edge.
+- A Functions project is a real deployable workload, not a `BackgroundService` hidden inside an API host.
+- Do not put application or business logic in AppHost. AppHost declares resources, dependencies, configuration references, health/start ordering, and local orchestration only.
 
-### Required solution shape
+### Service shape — preserve this structure
 
-```text
-src/
-├── <apphost-project>/                 # required orchestration and developer entry point
-├── <service-defaults-project>/         # telemetry, health, resilience
-├── <api-project>/                     # HTTP host and composition root only
-│   ├── Controllers/                      # MVC controllers grouped by CRM area
-│   ├── Contracts/                        # HTTP request/response contracts
-│   ├── Filters/                          # HTTP-only filters
-│   ├── Middleware/                       # HTTP-only middleware
-│   ├── Configuration/                    # composition-root registration
-│   └── Program.cs
-├── <domain-project>/                  # secondary domain-layer project
-│   ├── Common/
-│   ├── Accounts/
-│   │   ├── Facade/
-│   │   ├── Business/
-│   │   └── Data/
-│   ├── Contacts/
-│   │   ├── Facade/
-│   │   ├── Business/
-│   │   └── Data/
-│   └── <Area>/
-│       ├── Facade/
-│       ├── Business/
-│       └── Data/
-└── web/                                  # Angular SPA
-
-tests/
-├── <api-unit-tests-project>/
-├── <api-integration-tests-project>/
-├── <domain-unit-tests-project>/
-├── <domain-integration-tests-project>/
-└── web/
-```
-
-### Onion responsibilities
-
-#### Controller — API project
-
-- Bind route, query, header, and body values.
-- Apply authentication and coarse policy authorization attributes.
-- Pass trusted request context and a typed Facade request to exactly one Facade operation.
-- Translate the Facade result into `ActionResult<T>` and stable Problem Details.
-- Declare OpenAPI metadata through controller/action attributes and typed contracts.
-- Contain no business rules, cache calls, EF Core access, data-model translation, or calls to Business/Data.
-
-#### Facade — Domain project
-
-- Be the only Domain layer callable by controllers.
-- Perform request validation that depends on operation context.
-- Resolve and enforce record-level access using trusted current-user abstractions.
-- Check cache before Business for cacheable queries.
-- Invalidate or refresh cache after successful commands.
-- Orchestrate one or more Business operations when required.
-- Own idempotency coordination and operation-level result/error translation.
-- Never use `DbContext`, `DbSet`, SQL, EF entities, or Data implementations directly.
-
-#### Business — Domain project
-
-- Be callable only by Facade.
-- Enforce CRM business rules and lifecycle invariants.
-- Translate between Facade models and Data request/result models.
-- Coordinate Data operations through Data interfaces.
-- Decide transaction intent, concurrency expectations, audit/timeline facts, and domain outcomes.
-- Contain no HTTP types, controller contracts, claims parsing, cache provider calls, or direct EF Core access.
-
-#### Data — Domain project
-
-- Be callable only by Business.
-- Own `<db-context>`, EF entities, configurations, migrations, queries, commands, transactions, and database exception translation.
-- Accept and return Data-layer models, not API contracts or Business entities.
-- Perform SQL projection, stable ordering, pagination, concurrency-safe writes, and atomic persistence.
-- Never call Facade, Business implementations, controllers, Angular code, or external HTTP endpoints.
-
-### Dependency direction
+Every bounded service uses three projects while preserving one `.Core` implementation stack:
 
 ```text
-<api-project> -> <domain-project>
-Controller -> I<Feature>Facade
-Facade -> I<Feature>Business
-Business -> I<Feature>Data
-Data -> EF Core/Microsoft SQL Server or Azure SQL Database
+ProjectChicago.<Service>/             # thin ASP.NET Core HTTP/API host
+ProjectChicago.<Service>.Core/        # domain/application implementation
+ProjectChicago.<Service>.Functions/   # asynchronous entry points only
 ```
 
-- Calls and references must never skip a layer.
-- Interfaces are declared at the consuming boundary or in a narrowly scoped contracts folder consistent with the repository convention.
-- No circular project, namespace, service-registration, or runtime dependencies.
-- Cross-area work still follows the same chain. A Facade may orchestrate multiple Business interfaces; a Business component may coordinate multiple Data interfaces. Controllers never orchestrate multiple lower layers themselves.
+The HTTP host contains controllers/endpoints, middleware registration, and composition only. The Functions project contains Service Bus triggers, timer triggers, function-specific composition, `host.json`, and binding/configuration only. Both entry-point projects delegate to the same service-owned `.Core` behavior.
 
-### CRM domain
+Inside `.Core`, keep the onion/layer direction:
 
-- An Account represents a customer organization or household. A Contact belongs to an account unless explicitly modeled as an independent prospect.
-- Canonical lifecycle stages: Awareness, Interest, Consideration, Decision, Onboarding, Loyalty, Advocacy. Stable IDs survive rename, reorder, enable, and disable operations.
-- A lifecycle transition updates current state and appends history atomically.
-- Every transition records entity type/ID, prior/new stage, reason, effective UTC timestamp, actor, source, and correlation ID.
-- Activities form the customer timeline: note, email, call, meeting, task, stage transition, opportunity event, system event, and custom activity.
-- Deleting business records defaults to soft deletion where retention, reporting, or audit history would otherwise break.
-- Metrics define date window, timezone, filters, and denominator.
+```text
+HTTP Controller ─┐
+                 ├─> Facade -> Business -> Data -> Repository -> DbContext
+Function Trigger ┘
+```
 
-### Frontend design system
+Responsibilities are strict:
 
-- Inter from Google Fonts.
-- Primary: Navy `#0D1117`, Slate `#1E293B`, Blue `#2563EB`, Teal `#14B8A6`, Amber `#F59E0B`, Red `#EF4444`, Surface `#F8FAFC`.
-- Lifecycle: Awareness `#2563EB`, Interest `#14B8A6`, Consideration `#F59E0B`, Decision `#8B5CF6`, Onboarding `#22C55E`, Loyalty `#06B6D4`, Advocacy `#EF4444`.
-- Dark navy sidebar, light content surface, 8px cards, 6px inputs, 8px spacing grid, 150–200ms transitions.
-- WCAG AA contrast, keyboard navigation, visible focus, reduced motion, and one icon family.
+- **Controller / Function trigger**: transport binding, authentication/authorization context where applicable, request/event deserialization, correlation metadata, call the facade, map result/settlement. No business rules and no direct repositories.
+- **Facade**: input validation, orchestration at the use-case boundary, cache lookup/invalidation, authorization policy calls when service-owned, and delegation to Business.
+- **Business**: domain decisions, state-transition rules, model translation, and decision about which integration facts must be emitted. No EF queries and no Service Bus calls.
+- **Data**: composes repository operations and owns transaction boundaries; persists domain changes plus outbox records atomically; performs inbox/idempotency state transitions for consumed messages.
+- **Repository**: persistence operations for one service database. No cross-service queries and no business decisions.
+- **DbContext**: EF Core SQL Server mapping and unit-of-work plumbing for the owning service only.
 
-### Canonical commands
+### Reference direction
 
-- API: `dotnet restore`, `dotnet build`, `dotnet test`.
-- EF migration: discover the actual data project, startup project, and DbContext first; then run `dotnet ef migrations add <Name> --project <data-project> --startup-project <api-project> --context <db-context>`.
-- Database update: target only the Aspire-provided local SQLDB connection and run `dotnet ef database update --project <data-project> --startup-project <api-project> --context <db-context>`.
-- Frontend from `src/web`: `npm ci`, `npm test -- --watch=false`, `npm run build`, `npx playwright test`.
+Keep project references acyclic and boundary-safe:
+
+```text
+ProjectChicago.Contracts      # leaf: integration-event contracts only
+           ↑
+ProjectChicago.Shared         # cross-cutting mechanisms; may reference Contracts only if required
+           ↑
+ProjectChicago.<Service>.Core # service implementation; references Shared/Contracts
+           ↑              ↑
+<Service> HTTP host      <Service>.Functions
+           ↑              ↑
+           └────── ProjectChicago.AppHost references deployable projects for local orchestration
+```
+
+- One bounded service never references another bounded service's `.Core`, API host, Functions project, repository, DbContext, or internal model.
+- Cross-service behavior uses a stable gateway HTTP contract when synchronous interaction is truly required, or integration events through Service Bus when asynchronous decoupling is appropriate.
+- `ProjectChicago.Contracts` contains integration-event records/interfaces only. It is not a shared-domain-model library.
+- `ProjectChicago.Shared` contains cross-cutting mechanism only: base persistence abstractions, outbox/inbox infrastructure, error contracts, correlation/telemetry helpers, cache abstractions, Service Bus serialization/publishing mechanisms, and similar infrastructure. No CRM domain logic.
+
+### Messaging and Azure Functions
+
+- Azure Service Bus is the asynchronous integration boundary.
+- **Do not implement Service Bus consumers as `BackgroundService`, `IHostedService`, or hosted processors inside API projects.** Incoming asynchronous work is handled by Service Bus-triggered Azure Functions in the owning service's `.Functions` project, deployed on Flex Consumption.
+- Preserve the transactional outbox pattern. A mutating request does not publish directly from Controller, Facade, Business, or Repository. The Data layer saves the domain transaction and an outbox row together.
+- Replace the old always-running outbox dispatcher with a timer-triggered Azure Function per publishing service. The trigger delegates to a reusable outbox-relay mechanism; the Function itself contains no relay/domain logic.
+- Only the outbox relay publishes integration events generated by transactional application work. Do not introduce ad-hoc `ServiceBusSender.SendMessageAsync` calls elsewhere.
+- Consumed messages are idempotent. Record/check inbox state using the owning service database and design duplicate delivery as a normal condition.
+- When message processing fails transiently, allow the Function invocation to fail so Service Bus retry/dead-letter policy can do its job. Do not catch-and-log-and-return success for an event that was not safely processed.
+- Correlation ID, causation ID, message/event ID, event type/version, and occurred-at UTC are carried through the message boundary and logs.
+- Event names describe facts in past tense. Events are versionable external contracts, not serialized EF entities.
+- Service Bus entity names and connection information come from configuration/Aspire/Azure settings; never hardcode broker endpoints or credentials.
+- A service's API project should not receive Service Bus credentials merely because its `.Functions` sibling needs them. Wire the narrowest resource references possible.
+
+### Microsoft SQL Server
+
+- PostgreSQL/Npgsql is not part of Project Chicago.
+- Use Microsoft SQL Server locally through Aspire SQL Server hosting and EF Core's SQL Server provider/client integration.
+- Each bounded service owns exactly one database. Local development may use one SQL Server resource with one database per service, but ownership remains isolated.
+- Use `Microsoft.EntityFrameworkCore.SqlServer` / the Aspire SQL Server EF Core integration rather than Npgsql packages or PostgreSQL types.
+- Use SQL Server-compatible data types and migrations (`uniqueidentifier`, `datetime2`, `nvarchar`, `rowversion` when justified). Do not introduce `jsonb`, PostgreSQL arrays, PostgreSQL-specific indexes, or Npgsql annotations.
+- If a JSON payload must be retained (for example, an audit envelope), store it using a SQL Server-compatible representation selected by the project; do not assume PostgreSQL JSON behavior.
+- Migration files live with the owning `.Core` project. Do not let Functions auto-create or auto-migrate schemas at message-processing time.
+- A service may not read another service's database for joins, reporting shortcuts, validation, or troubleshooting.
+
+### Edge / gateway
+
+- `src/ProjectChicago.Gateway/` is the YARP edge and the browser's only backend address unless an explicit architecture decision changes this.
+- The React client never calls internal service hosts or Function endpoints directly.
+- The gateway exposes stable public CRM routes and resolves internal service resources through Aspire/configuration, not hardcoded ports.
+- Cross-cutting edge concerns belong at the gateway when truly edge-wide; service/domain authorization stays with the owning service.
+
+### Identity and authorization
+
+- Project Chicago uses **ASP.NET Core Identity** as the application identity system.
+- Do not replace ASP.NET Core Identity with Entra ID, Auth0, another OIDC product, or a custom password/token store unless an explicit architecture decision changes the baseline.
+- ASP.NET Core Identity owns user credentials, password hashing, users, roles/claims, reset/confirmation tokens, lockout and related account-security mechanics through supported framework APIs. Do not reimplement those mechanics in CRM domain code.
+- The bounded service/database that will own the Identity store is intentionally **not selected yet** because the bounded-service catalog is not defined. Do not invent an Identity service as a side effect of another feature.
+- Browser authentication traffic goes through YARP to the eventual owning HTTP service. React never connects to an Identity database or Function endpoint directly.
+- Cookie vs token transport, refresh/session strategy, MFA/passkey adoption, external providers and account-recovery policy require explicit security decisions; do not silently choose them while implementing an unrelated feature.
+- Resource/action authorization remains service-owned even when the gateway applies edge-wide authenticated-user requirements.
+
+### React 19 client and Project Chicago Design System (PCDS)
+
+- The client is a **client-side React 19 + TypeScript + Vite + Tailwind CSS v4** application under `src/web/`.
+- PCDS (`https://github.com/architect4hire/PCDS`) is the UI design-system source of truth. Do not create a competing set of tokens/primitives/recipes in feature folders.
+- Preserve the PCDS architecture:
+  - primitive and semantic tokens in the global CSS token layer;
+  - shared Tailwind bundles and typed variants in design-system recipes;
+  - reusable React primitives in `src/design-system`;
+  - composed patterns for page headers, loading, empty and error states;
+  - feature pages that compose those primitives and retain only feature-specific layout/behavior.
+- Prefer design-system primitives such as `Button`, `Surface`, `Card`, `Field`, `Input`, `Stack`, `Cluster`, `Grid`, and `Tabs` over repeated Tailwind class bundles.
+- Use the PCDS `cx()`/recipe approach for conditional class composition; do not paste recipe bundles into pages.
+- Accessibility is a release requirement: semantic HTML, keyboard interaction, labels, visible focus, correct dialog/tab behavior, status announcements where needed, and reduced-motion support.
+- Support both light and dark modes through the established PCDS theme mechanism.
+- The UI talks only to the gateway through typed API modules. No component issues raw `fetch` calls to an internal service URL.
+- Do not add Next.js, server components, SSR, or a second CSS/component framework unless explicitly requested.
+
+### Observability
+
+- Use ServiceDefaults/OpenTelemetry conventions across API hosts and Functions where supported.
+- Every request and event-processing log should be traceable using correlation/causation identifiers.
+- Log structured facts, not secrets or full sensitive CRM payloads.
+- Function logs must include event type, message ID, correlation ID, owning service, result, retry-relevant failure information, and duration without logging credentials.
+
+### Testing
+
+- Unit-test Facade/Business/Data behavior at the layer that owns the rule.
+- API tests verify request mapping, response/error contracts, authorization and gateway-visible behavior.
+- Function tests verify event deserialization/binding adapter behavior and delegation, but business assertions belong in `.Core` tests.
+- Messaging tests must cover duplicate delivery/idempotency, failed processing, outbox atomicity, outbox relay retry behavior, and event contract compatibility.
+- SQL integration tests use SQL Server-compatible infrastructure. Do not use an in-memory provider to claim SQL-specific persistence behavior is tested.
+- Frontend changes run lint/build and focused component tests when present; validate keyboard behavior, responsive layout, light/dark mode, and loading/empty/error states.
 
 ## Restrictions
 
-- Do not add minimal API route mappings for product endpoints. Use controllers deriving from `ControllerBase`.
-- Do not inject Business or Data interfaces into controllers.
-- Do not inject Data interfaces or `<db-context>` into Facades.
-- Do not call Facades from Business, or any upper layer from Data.
-- Do not pass API request/response contracts into Business or Data.
-- Do not return EF entities, `IQueryable`, provider exceptions, or Data models above Business.
-- Do not put validation or cache logic in controllers when it belongs in Facade.
-- Do not put business rules or API/domain translation in Data.
-- Do not place business logic in Angular components, controllers, `Program.cs`, migrations, mapping profiles, or cache adapters.
-- Do not introduce generic repositories that merely mirror `DbSet`; Data interfaces must express business-relevant persistence operations.
-- Do not bypass the lifecycle Business operation for stage changes.
-- Do not hardcode lifecycle IDs, names, colors, URLs, credentials, tenant IDs, or connection strings in feature code.
-- Do not physically delete lifecycle history or audit records through ordinary flows.
-- Do not commit secrets or generated build/dependency directories.
+- Never add `BackgroundService`/`IHostedService` for Service Bus consumption or outbox dispatch. If recurring/asynchronous work is needed, first determine whether it belongs in an Azure Function trigger.
+- Never let a Function become a second business layer. A trigger delegates to its service `.Core`.
+- Never publish a transactional integration event before its domain transaction commits to the outbox.
+- Never mark an outbox message dispatched before Service Bus confirms the publish operation.
+- Never mark an inbox message complete when business side effects failed.
+- Never share a DbContext/database across service boundaries.
+- Never add Npgsql/PostgreSQL packages, connection strings, migrations, or SQL syntax.
+- Never hardcode SQL, Redis, Service Bus, gateway, or service endpoints/credentials.
+- Never put CRM domain logic in Shared, Contracts, AppHost, Gateway, controllers, or Function trigger classes.
+- Never bypass the gateway from React.
+- Never duplicate PCDS token values or common Tailwind recipes inside feature pages.
+- Never introduce a new service or redesign a service boundary as a side effect of implementing one feature. Propose boundary changes explicitly.
+- Never silently swallow exceptions to make a Function invocation appear successful.
+- Never log secrets, tokens, raw connection strings, or unnecessarily broad customer data.
 
 ## Usage
 
-- Work in microsteps: one prompt, one primary action, one verification, then stop.
-- Use `.claude/skills/add-controller-endpoint` for one controller action and its complete onion path.
-- Use `.claude/skills/add-crm-module` for a new CRM area with Facade/Business/Data structure.
-- Use `.claude/skills/plan-microstep` to split multi-action requests.
-- Use `.claude/skills/trace-request` to inspect Controller -> Facade -> Business -> Data behavior.
-- Use the remaining skills for lifecycle, audit, migrations, Angular, metrics, and quality gates.
-- Use `docs/prompts/scrub-prompts.md` for the ordered one-action build process.
+Before changing code:
+
+1. Identify the owning bounded service and the entry path: HTTP, Service Bus trigger, timer trigger, UI, or infrastructure.
+2. Read the matching `.claude/rules/*.md` files.
+3. Use a matching skill when one exists instead of inventing a new procedure.
+4. For multi-file changes, state a short plan that names affected projects and boundaries.
+5. If the task would create a service, share a database, bypass the gateway, introduce a new broker, or change PCDS ownership, stop and surface the architectural decision instead of slipping it into implementation.
+
+Useful skills:
+
+- `add-endpoint` — add/modify an HTTP use case through Controller → Facade → Business → Data → Repository.
+- `add-function-trigger` — add a Service Bus or timer-triggered Function that delegates into an existing service `.Core`.
+- `add-integration-event` — add both publish and consume sides of a cross-service event, including outbox/inbox and Functions wiring.
+- `add-component` — add React UI using PCDS and the gateway.
+- `add-aspire-resource` — add/wire SQL Server DBs, Service Bus resources, Functions projects, cache, or a new deployable resource.
+- `add-audit-event` — conditionally extend a support audit trail if the Audit bounded context is enabled.
+- `trace-a-request` — reconstruct request/event flow from correlation telemetry/audit data without cross-service DB access.
+
+Use read-only agents after implementation:
+
+- `code-reviewer`
+- `test-gap-analyzer`
+- `api-contract-checker`
+- `function-boundary-checker`
+- `audit-coverage-checker` when the Audit context is enabled
 
 ## Behavior
 
-- Before editing, name the single action and the exact layer being changed.
-- Inspect a comparable implementation in the same layer before introducing a new pattern.
-- Preserve Controller -> Facade -> Business -> Data with no shortcuts.
-- Build or test after every microstep and report changed files, command results, risks, and the next logical microstep.
-- Stop rather than silently compensating when a required lower-layer contract is missing; identify the prerequisite microstep.
-- Never generate/apply migrations or regenerate/adapt Angular clients in the same microstep as backend implementation.
+- Preserve existing architecture before optimizing aesthetics or reducing files.
+- Prefer small vertical changes that prove one complete seam over broad scaffolding with placeholders.
+- When an external API/package/tooling surface is fast-moving (Aspire, Azure Functions, Service Bus bindings, Claude Code, React/Tailwind), verify current official documentation before writing version-sensitive configuration.
+- Explain boundary-impacting choices in the change summary: owner, database, HTTP route, event(s), Function trigger(s), Service Bus entity configuration, and PCDS primitives used.
+- If requirements are ambiguous but implementation can safely proceed, make the narrowest reversible assumption and record it. Ask only when a decision changes architecture, public contracts, security, persistence ownership, or deployment topology.
+- Keep comments focused on why a non-obvious constraint exists. Let names and structure explain routine code.
+- A feature is not complete merely because it compiles: validate the HTTP/event contract, persistence transaction, retry/idempotency path, telemetry, tests, and UI state handling that apply to it.
+
+## Confirmed architecture decisions
+
+1. The bounded-service catalog is intentionally undefined. Claude must not invent service names or boundaries.
+2. Every future bounded service uses one HTTP host, one `.Core`, and one `.Functions` project.
+3. Each publishing service uses a timer-triggered Function to drain its transactional outbox.
+4. Each Service Bus subscription is consumed from the owning service's `.Functions` project.
+5. Azure Functions production hosting is **Flex Consumption**. Function deployment guidance must not depend on unsupported hosting features such as deployment slots.
+6. YARP is the **only gateway / browser-facing backend edge** for the solution. React never calls service or Function endpoints directly.
+7. Each bounded service owns exactly one Microsoft SQL database. Local Aspire may use one SQL Server resource with one database resource per service while preserving ownership isolation.
+8. PCDS is copied into Project Chicago and consumed from the local source in the React application. Skills must inspect and reuse/extend that local design system rather than recreating it.
+9. Application identity uses **ASP.NET Core Identity**. Identity-store bounded-context ownership and auth transport/session details remain open until the service/security design is defined.
+
+## Still intentionally open
+
+- The CRM bounded-service catalog and concrete database names.
+- The production Microsoft SQL hosting flavor (for example Azure SQL Database vs another SQL Server deployment).
+- Service Bus topic/subscription naming and filtering topology.
+- Whether Audit, Redis/caching and a reporting/read-model service are baseline bounded contexts/resources.
+- The API edge style inside each service (controllers are the current preserved default; changing that requires a deliberate decision).
+- Identity-store ownership plus cookie/token/session/MFA/external-provider policy.
+- IaC/deployment ownership and tooling beyond the confirmed Flex Consumption target.

@@ -1380,7 +1380,6 @@ USAGE: Follow backend.md and the owning module rules.
 BEHAVIOR: Add focused unit/integration tests, run them, report, and stop.
 ```
 
-
 ## Template J — Regenerate the Angular client
 
 ```text

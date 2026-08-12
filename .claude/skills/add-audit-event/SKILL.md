@@ -1,107 +1,88 @@
 ---
 name: add-audit-event
-description: >
-  Add immutable, security-conscious audit coverage to one CRM business operation, including event naming,
-  actor and target identity, safe change details, correlation, transaction placement, read authorization,
-  retention considerations, and focused tests.
+description: If Project Chicago has an approved Audit bounded context, make a business mutation land in its durable support trail through the normal integration event/outbox, Service Bus-triggered Audit Function, inbox idempotency and SQL Server append. Never creates Audit automatically.
 ---
-# Add audit coverage
+# Add an audit event — conditional
 
-Audit is authoritative evidence of who did what, to which record, when, and through which operation. It is
-not application logging and not the customer activity timeline.
+## Gate: confirm Audit exists
 
-## Discovery gate
+First inspect the solution/architecture. If there is no approved `ProjectChicago.Audit` (or explicit equivalent), stop and report:
 
-Before changing code, discover the actual solution/project paths, namespaces, target frameworks, package versions, AppHost resource names, SQLDB connection name, DbContext, migrations assembly, test conventions, and feature location. Never treat example names as repository facts. Stop without editing when a required value cannot be proven. Aspire is required and is the supported source of local SQLDB connection information.
+> Audit support is intentionally conditional in the Claude toolkit. No Audit bounded context is approved/present, so this skill will not create one implicitly.
 
-## When audit is required
+Do not scaffold a new service from this skill.
 
-Audit at minimum:
+If Audit exists, read `.claude/rules/audit.md` and `.claude/rules/messaging.md`.
 
-- Authentication, role, permission, ownership, and assignment changes.
-- Account/contact create, merge, archive, restore, and delete.
-- Lifecycle transitions and transition-rule changes.
-- Opportunity amount/probability/stage changes.
-- Export, bulk update, and sensitive-data access where policy requires it.
-- Administration/reference-data changes.
-- Failed privileged operations when the security policy requires attempts to be recorded.
+## 1. Reuse the business event when possible
 
-Routine reads generally belong in telemetry, not the immutable audit table, unless compliance requires read
-auditing.
+A support audit trail should usually record the same past-tense fact already emitted for business integration.
 
-## Audit event contract
+Ask:
 
-Define a stable action name such as `Contact.EmailChanged` or `Lifecycle.StageTransitioned`.
-Capture:
+- Does this mutation already produce a suitable event?
+- Does that event carry stable entity/actor/thread identifiers needed for support?
+- Would adding a second audit-only event create duplicate semantic facts?
 
-- Event ID.
-- Occurred-on UTC.
-- Actor user ID and actor type.
-- Effective/impersonated actor if supported.
-- Action name and module.
-- Target type and target ID.
-- Parent/account ID when useful for authorized retrieval.
-- Correlation/trace ID.
-- Source/channel (`Api`, `Import`, `Automation`, `Admin`).
-- Outcome when auditing attempts.
-- Safe structured details or field-level changes.
+Prefer extending the standard event envelope/thread metadata additively over publishing redundant "AuditSomething" events.
 
-Do not store access tokens, passwords, full authorization headers, connection strings, unrestricted request
-bodies, sensitive notes, or binary data. Store old/new values only for approved fields. For sensitive
-fields, record `changed: true` or a redacted/hash representation according to policy.
+## 2. Publish side
 
-## Procedure
+In the owning service:
 
-1. Name the business fact and reason it needs audit coverage.
-2. Locate the operation's transaction boundary.
-3. Reuse the central audit writer; do not insert audit entities directly from every module.
-4. Build actor/correlation/source from trusted server context, not client input.
-5. Build safe details explicitly; do not serialize the command object wholesale.
-6. Write success evidence in the same transaction as the state change.
-7. For failed-attempt auditing, use the repository-approved separate mechanism and clearly distinguish
-   `Attempted` from `Succeeded`; never create a false success event.
-8. Add read authorization and filtering if a new audit query is introduced.
-9. Add tests.
+- Business decides the fact.
+- Data writes state + outbox atomically.
+- Timer-triggered outbox relay publishes it.
 
-## Transaction rule
+Never write Audit's DB directly.
 
-For successful business changes, state and audit are one unit:
+## 3. Audit consume side
 
-```text
-begin transaction
-  update authoritative state
-  append lifecycle/timeline history if applicable
-  append audit record
-commit
-```
+In `ProjectChicago.Audit.Functions`:
 
-If any leg fails, none commit. Do not publish an audit entry after the transaction as a fire-and-forget task.
+- add/reuse Service Bus trigger/subscription;
+- deserialize Contracts event;
+- establish correlation/message context;
+- delegate to Audit Facade;
+- allow processing failure to fail invocation.
 
-## Reading audit data
+Audit `.Core`:
 
-- Audit records are append-only; no general update/delete endpoint.
-- Require privileged policy.
-- Apply record/organization scope.
-- Paginate and order by occurred-on + ID for stable ties.
-- Return explicit response contracts, not raw detail JSON when that could expose newly added fields.
-- Consider retention/legal-hold rules before adding cleanup behavior.
+- inbox dedupe;
+- map event envelope + support-safe payload to append-only entry;
+- write Audit SQL row and inbox completion transactionally as designed;
+- no callback into publisher to fill missing data.
 
-## Tests
+## 4. Payload minimization
 
-- Success writes exactly one event with correct action, actor, target, UTC timestamp, and correlation ID.
-- State change and audit roll back together on failure.
-- Validation/business rejection does not produce success evidence.
-- Unauthorized caller cannot read audit data.
-- Sensitive values are absent/redacted.
-- Repeated/idempotent request does not create duplicate success facts unless each attempt is intentionally
-  auditable.
+Record enough to answer support questions without duplicating full customer records unnecessarily:
 
-## Completion checklist
+- event type/version;
+- event/message ID;
+- CorrelationId/CausationId;
+- actor ID/category if policy permits;
+- owning service;
+- entity type + stable ID(s);
+- occurred-at/recorded-at UTC;
+- changed-field names/status transition where useful;
+- compact event payload only when justified.
 
-- [ ] Action name is stable and past-tense/factual.
-- [ ] Actor and correlation come from trusted context.
-- [ ] Details are allow-listed and safe.
-- [ ] Success audit is atomic with state.
-- [ ] Timeline and telemetry responsibilities remain separate.
-- [ ] Read access is privileged, scoped, ordered, and paginated.
-- [ ] Rollback, unauthorized, redaction, and duplicate behavior are tested.
+Avoid credentials, tokens, secrets and unnecessary sensitive customer fields.
+
+Use SQL Server-compatible storage; no `jsonb` assumption.
+
+## 5. Query path
+
+Support/audit reads go through approved Audit API/gateway/observability surfaces. Do not teach other services to query `auditdb` directly.
+
+## 6. Tests
+
+- owning mutation produces event via outbox;
+- Audit first delivery appends once;
+- duplicate delivery appends zero additional rows;
+- failed append does not complete inbox;
+- correlation/causation/actor/entity fields retained;
+- sensitive fields not duplicated unintentionally;
+- query route returns ordered trace as designed.
+
+Run `audit-coverage-checker` after changes.

@@ -1,60 +1,156 @@
 ---
 paths:
-  - "src/**/*.cs"
-  - "src/**/*.cs"
+  - "src/services/ProjectChicago.*/**"
+  - "tests/ProjectChicago.*.Core.Tests/**"
+  - "tests/ProjectChicago.*.Api.Tests/**"
 ---
-# Controller and Onion Architecture Rules
+# Backend service rules
 
-## Mandatory flow
+Each CRM bounded service owns its behavior and persistence. Preserve the thin HTTP host + `.Core` implementation split from the source architecture, with a sibling `.Functions` project for async transport.
 
-Every product API operation follows exactly:
+## HTTP host
+
+`ProjectChicago.<Service>` contains:
+
+- Controllers/API transport contracts
+- Program/startup composition
+- ASP.NET Core authentication/authorization middleware wiring
+- exception/ProblemDetails wiring
+- health/telemetry wiring
+- no repositories, EF models, business rules or Service Bus consumers
+
+Controller flow:
 
 ```text
-Controller -> Facade -> Business -> Data
+Controller -> Facade -> Business -> Data -> Repository -> DbContext
 ```
 
-A layer may call only the next layer. No shortcuts and no upward calls.
+Controller responsibilities:
 
-## Controllers
+1. Bind/validate transport shape enough to produce a coherent request.
+2. Capture user/tenant/correlation context through shared abstractions.
+3. Call one service-owned facade use case.
+4. Map the service result to HTTP status/view model/error contract.
+5. Do not call Business/Data/Repository directly.
 
-- Use ASP.NET Core MVC controllers and `ControllerBase`; do not add minimal API routes.
-- Controllers depend only on Facade interfaces plus HTTP/framework services.
-- Controllers bind input, apply coarse authorization, call one Facade operation, and map its result to `ActionResult<T>`.
-- Controllers contain no FluentValidation execution, cache access, business decisions, EF Core, mapping to persistence models, or transaction handling.
-- Keep route names, action names, response types, and Problem Details metadata stable for OpenAPI generation.
+## `.Core` layout
 
-## Facade
+Use a predictable structure; adapt names only when existing code has an established equivalent:
 
-- Facades live in `<domain-project>/<Area>/Facade`.
-- Facades are the only application entry point callable by controllers.
-- Facades own contextual validation, record-level authorization, cache lookup/invalidation, idempotency coordination, and orchestration.
-- Facades depend only on Business interfaces and abstractions such as current user, clock, cache, and correlation context.
-- Facades never depend on `DbContext`, `DbSet`, EF entities, Data interfaces, repositories, SQL, or provider exceptions.
+```text
+.Core/
+├── Facades/
+├── Business/
+├── Data/
+├── Repositories/
+├── Persistence/
+├── Models/
+│   ├── ServiceModels/
+│   └── DataModels/Entities/
+├── Validation/
+├── Mapping/
+└── DependencyInjection/
+```
 
-## Business
+### Facade
 
-- Business components live in `<domain-project>/<Area>/Business`.
-- Business is callable only by Facade.
-- Business owns domain rules, lifecycle invariants, and translation between Facade and Data models.
-- Business depends only on Data interfaces and cross-cutting domain abstractions.
-- Business has no HTTP types, API DTOs, claims parsing, controller attributes, cache implementation, EF Core, or SQL.
+- Public application/use-case seam for controllers and Functions.
+- Performs validation through validators, not hand-written repeated `if` blocks where a validator exists.
+- May handle cache read-through/invalidation when the cache belongs to the use case.
+- May coordinate multiple Business calls **inside the same bounded service**.
+- Does not query EF directly.
+- Does not publish Service Bus messages directly.
 
-## Data
+### Business
 
-- Data components live in `<domain-project>/<Area>/Data`.
-- Data is callable only by Business.
-- Data owns EF Core, SQL Server, transactions, persistence entities/configurations, query projection, pagination, concurrency, and database exception translation.
-- Data interfaces express purposeful operations, not generic CRUD mirroring `DbSet`.
-- Data returns Data result models. It never exposes EF entities or `IQueryable`.
+- Owns state-transition rules and CRM lifecycle decisions.
+- Translates between service models and data-layer operations through mappers.
+- Decides which integration event facts should be emitted as a result of a successful mutation.
+- Does not open transactions, run EF queries, or know Service Bus connection/entity names.
 
-## Composition
+### Data
 
-- `<api-project>` references `<domain-project>`; Domain never references API.
-- Register controllers in API composition root and register Domain onion layers through Domain extension methods.
-- Do not use service locator patterns.
-- Add architecture tests that reject Controller->Business/Data, Facade->Data/EF, Business->Facade/API/cache-provider, and Data->upper-layer references.
+- Composes repositories.
+- Owns transactional persistence for a use case.
+- Writes domain/data changes and outbox messages atomically.
+- For consumed events, owns the persistent idempotency/inbox transition along with side effects where the design requires atomicity.
+- Does not contain CRM policy beyond persistence-specific invariants.
+
+### Repository
+
+- Works only with its owning service DbContext.
+- Expresses persistence operations/query specifications.
+- Does not call another service, gateway or message broker.
+- Does not return `IQueryable` beyond the repository/data boundary unless the project explicitly standardizes that pattern.
+
+## Models and contracts
+
+- HTTP ViewModels/requests are transport-facing and live with the API host or an explicit service API-contract area.
+- ServiceModels are service-owned internal application types.
+- EF entities/data models stay in `.Core` persistence/model areas and do not leak to the browser or integration events.
+- Integration events live in `ProjectChicago.Contracts` and are stable cross-service facts.
+- Avoid one giant shared `Customer` DTO used by every service. Each bounded context owns the shape it needs.
 
 
-## Repository evidence
+## ASP.NET Core Identity boundary
 
-Do not assume literal project names, paths, namespaces, DbContext names, connection names, or package versions. Resolve them from the solution, project files, AppHost, ServiceDefaults, and existing source before editing. Examples in the toolkit are role labels only.
+- ASP.NET Core Identity is the confirmed identity framework, but the bounded service/database that owns the Identity store is not defined yet. Do not create an `Identity` service/project unless the architecture explicitly assigns that responsibility.
+- Once an owner is selected, Identity EF entities/tables belong only to that owner's database; other services consume trusted user identity/claims and keep only service-owned references they actually need.
+- Use supported ASP.NET Core Identity APIs for password hashing, lockout, account tokens, roles/claims and user management. CRM Business/Data code must not recreate credential-security mechanics.
+- Authorization decisions about service-owned resources remain in the owning service even when authentication is established at the edge.
+- Functions do not authenticate end users through ASP.NET Core Identity; they process trusted broker messages and propagate actor/correlation metadata captured by the publishing transaction when applicable.
+
+## SQL Server persistence
+
+- Use EF Core SQL Server packages/provider, not Npgsql.
+- DbContext is service-owned and derives from the Project Chicago shared base context only if that base contains cross-cutting persistence mechanism (outbox/inbox, conventions), not domain entities.
+- Use `datetime2`/UTC for persistent timestamps.
+- Use optimistic concurrency (`rowversion` or an explicit concurrency token) only when the domain operation benefits from it; test the conflict path.
+- Migrations belong to the service `.Core` project and must be SQL Server compatible.
+- Do not run migrations implicitly on every Function invocation.
+
+## Cross-service reads/writes
+
+A service may not:
+
+- attach another service's DbContext;
+- query another service's database for validation;
+- join two service databases;
+- reference another service `.Core`;
+- copy another service repository into Shared.
+
+If a use case needs data owned elsewhere, choose deliberately between:
+
+- a synchronous gateway/internal API contract when immediate consistency is required and accepted;
+- an integration event/read model when eventual consistency is appropriate;
+- a bounded-context redesign, which requires explicit architecture approval.
+
+## Error handling
+
+- Use the shared error/ProblemDetails shape consistently.
+- Business/domain failures should be typed/structured, not inferred by parsing exception strings.
+- Do not leak SQL details, stack traces or Service Bus internals to public API responses.
+
+## Tests
+
+For each mutation, test at minimum:
+
+- happy path;
+- validation failure;
+- important domain/state transition rejection;
+- persistence failure/rollback when relevant;
+- outbox row written in the same transaction if an event is emitted;
+- no outbox row when the transaction fails;
+- concurrency conflict if concurrency is part of the behavior.
+
+## Red flags
+
+Reject changes that add:
+
+- `BackgroundService`/`IHostedService` to a service API host for message work;
+- `ServiceBusClient` use in Controller/Facade/Business;
+- direct repository calls from Controller;
+- EF queries in Business;
+- Npgsql/Postgres types;
+- cross-service project references or DB access;
+- a second copy of a service implementation inside `.Functions`.
