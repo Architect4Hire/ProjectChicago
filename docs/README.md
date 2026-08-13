@@ -15,20 +15,22 @@ This folder is the navigational center for Project Chicago. It is organized like
 
 ## Design documents
 
-| Document | Purpose |
-|---|---|
-| [High-Level Design](design/high-level-design.md) | System context, containers, bounded contexts, data ownership, synchronous and asynchronous flows |
-| [Domain Model](design/domain-model.md) | Client, Project and Task model, lifecycle/state rules and invariants |
-| [Security Design](design/security-design.md) | Identity, authentication decision boundary, authorization, secrets and API security |
-| [Observability Design](design/observability-design.md) | Trace/log/metric design and cradle-to-grave correlation |
-| [Product Completeness](design/product-completeness.md) | Requirements coverage and distinction between specified, prompt-covered and implemented |
-| [Ongoing Architecture Plan](design/ongoing-architecture-plan.md) | Decisions still open, planned validation work and architectural evolution |
-| [Requirements Traceability](design/requirements-traceability.md) | Requirement families mapped to design artifacts, ADRs and implementation prompts |
+| Document                                                         | Purpose                                                                                          |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| [High-Level Design](design/high-level-design.md)                 | System context, containers, bounded contexts, data ownership, synchronous and asynchronous flows |
+| [Domain Model](design/domain-model.md)                           | Client, Project and Task model, lifecycle/state rules and invariants                             |
+| [Security Design](design/security-design.md)                     | Identity, authentication decision boundary, authorization, secrets and API security              |
+| [Observability Design](design/observability-design.md)           | Trace/log/metric design and cradle-to-grave correlation                                          |
+| [Product Completeness](design/product-completeness.md)           | Requirements coverage and distinction between specified, prompt-covered and implemented          |
+| [Ongoing Architecture Plan](design/ongoing-architecture-plan.md) | Decisions still open, planned validation work and architectural evolution                        |
+| [Requirements Traceability](design/requirements-traceability.md) | Requirement families mapped to design artifacts, ADRs and implementation prompts                 |
+| [Why This Architecture](why-this-architecture.md)                |                                                                                                  |
+| [Prompting Logic](project-story.md)                              |                                                                                                  |
 
 ## Requirements Traceability Matrix
 
-| Document | Purpose |
-|---|---|
+| Document                                                                    | Purpose                                                                                                                                                                                   |
+| --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [Requirements-to-Prompt Matrix](matrix/requirements-traceability-matrix.md) | Complete mapping of all 298 requirement IDs to the 164 SCRUB implementation prompts (P000–P163); shows architecture, implementation, and verification prompts for each requirement family |
 
 ## Architecture Decision Records
@@ -39,14 +41,14 @@ Do not mark a proposed ADR accepted merely because downstream design documents i
 
 ## Developer guides
 
-| Guide | Purpose |
-|---|---|
-| [Adding an endpoint manually](developer/adding-an-endpoint-manually.md) | Contract-to-controller path without breaking the layer arrows |
-| [Adding a Function trigger](developer/adding-a-function-trigger.md) | Thin Functions, Service Bus triggers and timer triggers |
-| [Adding seed data](developer/adding-seed-data.md) | Safe, development-only seed strategy |
-| [Tracing the outbox ClientCreated flow](developer/tracing-the-outbox-client-created.md) | Debug durable publication from SQL to Audit |
-| [Testing strategy](developer/testing-strategy.md) | Unit, SQL integration, API, Function, UI and architecture tests |
-| [Pattern index](developer/patterns/README.md) | Deep dives into recurring mechanics |
+| Guide                                                                                   | Purpose                                                         |
+| --------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| [Adding an endpoint manually](developer/adding-an-endpoint-manually.md)                 | Contract-to-controller path without breaking the layer arrows   |
+| [Adding a Function trigger](developer/adding-a-function-trigger.md)                     | Thin Functions, Service Bus triggers and timer triggers         |
+| [Adding seed data](developer/adding-seed-data.md)                                       | Safe, development-only seed strategy                            |
+| [Tracing the outbox ClientCreated flow](developer/tracing-the-outbox-client-created.md) | Debug durable publication from SQL to Audit                     |
+| [Testing strategy](developer/testing-strategy.md)                                       | Unit, SQL integration, API, Function, UI and architecture tests |
+| [Pattern index](developer/patterns/README.md)                                           | Deep dives into recurring mechanics                             |
 
 ## Walkthrough
 
