@@ -32,12 +32,12 @@ public sealed class ClientsController : ControllerBase
     // surfaces here only as an UnauthorizedAccessException the already-registered ApiExceptionHandler
     // classifies into 403.
     [HttpPost(Name = ClientsApiContract.CreateOperationId)]
-    [ProducesResponseType(typeof(ClientResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ClientServiceModel), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<ActionResult<ClientResponse>> Create(
-        [FromBody] CreateClientRequest request,
+    public async Task<ActionResult<ClientServiceModel>> Create(
+        [FromBody] CreateClientViewModel request,
         CancellationToken cancellationToken)
     {
         if (User.Identity is not { IsAuthenticated: true })

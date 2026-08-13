@@ -1,8 +1,8 @@
 using ProjectChicago.Contracts.Audit;
+using ProjectChicago.Crm.Contracts.Clients;
 using ProjectChicago.Crm.Core.Business;
 using ProjectChicago.Crm.Core.Data;
 using ProjectChicago.Crm.Core.Models.DataModels.Entities;
-using ProjectChicago.Crm.Core.Models.ServiceModels;
 using ProjectChicago.Shared.Correlation;
 using Xunit;
 
@@ -11,7 +11,10 @@ namespace ProjectChicago.Crm.Core.Tests.Business;
 // Pure unit tests for ClientBusiness (CLIENT-001..004, AUDIT-001..003; backend.md Tests: "Unit-test
 // Facade/Business/Data behavior at the layer that owns the rule"). IClientData is faked rather than
 // backed by SQL Server - proving Business's own rules/translation does not require a database,
-// matching the RESTRICTION that Business itself never touches EF.
+// matching the RESTRICTION that Business itself never touches EF. CreateAsync takes the wire
+// CreateClientViewModel and returns the wire ClientServiceModel directly (Business owns that
+// mapping - ClientContractMappingExtensions), so these tests assert against ClientServiceModel's
+// fields rather than an internal Client-entity wrapper.
 public class ClientBusinessTests
 {
     private sealed class FakeClientData : IClientData
@@ -50,22 +53,30 @@ public class ClientBusinessTests
 
     private static readonly DateTime CreatedAtUtc = new(2026, 1, 15, 12, 0, 0, DateTimeKind.Utc);
 
-    private static CreateClientCommand CreateCommand(
+    private static CreateClientViewModel CreateViewModel(
         string name = "Acme Corporation",
         string? primaryEmail = "Jane@Acme.example",
         string? primaryPhone = "+1-555-0100",
-        ClientLifecycleStatus? lifecycleStatus = null,
-        ActorContext? actor = null) => new()
+        ClientLifecycleStatusContract? lifecycleStatus = null) => new()
     {
         Name = name,
         OwnerUserId = "owner-1",
         PrimaryEmail = primaryEmail,
         PrimaryPhone = primaryPhone,
         LifecycleStatus = lifecycleStatus,
-        Actor = actor ?? ActorContext.ForUser("user-1"),
-        RequestContext = RequestContext.CreateNew(),
-        CreatedAtUtc = CreatedAtUtc,
     };
+
+    private static Task<ClientServiceModel> CreateAsync(
+        ClientBusiness business,
+        CreateClientViewModel request,
+        ActorContext? actor = null,
+        RequestContext? requestContext = null) =>
+        business.CreateAsync(
+            request,
+            actor ?? ActorContext.ForUser("user-1"),
+            requestContext ?? RequestContext.CreateNew(),
+            CreatedAtUtc,
+            CancellationToken.None);
 
     // --- Initial state (CLIENT-010) ---
 
@@ -74,9 +85,9 @@ public class ClientBusinessTests
     {
         var business = new ClientBusiness(new FakeClientData());
 
-        var result = await business.CreateAsync(CreateCommand(), CancellationToken.None);
+        var result = await CreateAsync(business, CreateViewModel());
 
-        Assert.Equal(ClientLifecycleStatus.Lead, result.Client.LifecycleStatus);
+        Assert.Equal(ClientLifecycleStatusContract.Lead, result.LifecycleStatus);
     }
 
     [Fact]
@@ -84,19 +95,18 @@ public class ClientBusinessTests
     {
         var business = new ClientBusiness(new FakeClientData());
 
-        var result = await business.CreateAsync(
-            CreateCommand(lifecycleStatus: ClientLifecycleStatus.Active), CancellationToken.None);
+        var result = await CreateAsync(business, CreateViewModel(lifecycleStatus: ClientLifecycleStatusContract.Active));
 
-        Assert.Equal(ClientLifecycleStatus.Active, result.Client.LifecycleStatus);
+        Assert.Equal(ClientLifecycleStatusContract.Active, result.LifecycleStatus);
     }
 
     [Fact]
     public async Task CreateAsync_WithAnUndefinedLifecycleStatus_Throws()
     {
         var business = new ClientBusiness(new FakeClientData());
-        var command = CreateCommand() with { LifecycleStatus = (ClientLifecycleStatus)999 };
+        var request = CreateViewModel() with { LifecycleStatus = (ClientLifecycleStatusContract)999 };
 
-        await Assert.ThrowsAsync<ArgumentException>(() => business.CreateAsync(command, CancellationToken.None));
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => CreateAsync(business, request));
     }
 
     // --- Model translation ---
@@ -106,23 +116,23 @@ public class ClientBusinessTests
     {
         var business = new ClientBusiness(new FakeClientData());
 
-        var result = await business.CreateAsync(
-            CreateCommand(name: "  Acme Corporation  ", primaryEmail: "Jane@Acme.EXAMPLE"), CancellationToken.None);
+        var result = await CreateAsync(
+            business, CreateViewModel(name: "  Acme Corporation  ", primaryEmail: "Jane@Acme.EXAMPLE"));
 
-        Assert.Equal("Acme Corporation", result.Client.Name);
-        Assert.Equal("jane@acme.example", result.Client.PrimaryEmail);
+        Assert.Equal("Acme Corporation", result.Name);
+        Assert.Equal("jane@acme.example", result.PrimaryEmail);
     }
 
     [Fact]
     public async Task CreateAsync_ConvertsBlankOptionalFieldsToNull()
     {
         var business = new ClientBusiness(new FakeClientData());
-        var command = CreateCommand() with { Website = "   ", Description = "" };
+        var request = CreateViewModel() with { Website = "   ", Description = "" };
 
-        var result = await business.CreateAsync(command, CancellationToken.None);
+        var result = await CreateAsync(business, request);
 
-        Assert.Null(result.Client.Website);
-        Assert.Null(result.Client.Description);
+        Assert.Null(result.Website);
+        Assert.Null(result.Description);
     }
 
     [Fact]
@@ -130,9 +140,9 @@ public class ClientBusinessTests
     {
         var business = new ClientBusiness(new FakeClientData());
 
-        var result = await business.CreateAsync(CreateCommand(), CancellationToken.None);
+        var result = await CreateAsync(business, CreateViewModel());
 
-        Assert.NotEqual(Guid.Empty, result.Client.Id);
+        Assert.NotEqual(Guid.Empty, result.Id);
     }
 
     [Fact]
@@ -140,11 +150,10 @@ public class ClientBusinessTests
     {
         var business = new ClientBusiness(new FakeClientData());
 
-        var result = await business.CreateAsync(
-            CreateCommand(actor: ActorContext.ForUser("actor-42")), CancellationToken.None);
+        var result = await CreateAsync(business, CreateViewModel(), actor: ActorContext.ForUser("actor-42"));
 
-        Assert.Equal("actor-42", result.Client.CreatedBy);
-        Assert.Equal("actor-42", result.Client.LastModifiedBy);
+        Assert.Equal("actor-42", result.CreatedBy);
+        Assert.Equal("actor-42", result.LastModifiedBy);
     }
 
     [Fact]
@@ -153,7 +162,7 @@ public class ClientBusinessTests
         var business = new ClientBusiness(new FakeClientData());
 
         await Assert.ThrowsAsync<ArgumentException>(
-            () => business.CreateAsync(CreateCommand(actor: ActorContext.ForSystem()), CancellationToken.None));
+            () => CreateAsync(business, CreateViewModel(), actor: ActorContext.ForSystem()));
     }
 
     [Fact]
@@ -162,9 +171,10 @@ public class ClientBusinessTests
         var data = new FakeClientData();
         var business = new ClientBusiness(data);
 
-        var result = await business.CreateAsync(CreateCommand(), CancellationToken.None);
+        var result = await CreateAsync(business, CreateViewModel());
 
-        Assert.Same(result.Client, data.CreatedClient);
+        Assert.NotNull(data.CreatedClient);
+        Assert.Equal(result.Id, data.CreatedClient!.Id);
     }
 
     [Fact]
@@ -173,8 +183,7 @@ public class ClientBusinessTests
         var data = new FakeClientData();
         var business = new ClientBusiness(data);
 
-        await business.CreateAsync(
-            CreateCommand(name: "  Acme Corporation  ", primaryEmail: "Jane@Acme.EXAMPLE"), CancellationToken.None);
+        await CreateAsync(business, CreateViewModel(name: "  Acme Corporation  ", primaryEmail: "Jane@Acme.EXAMPLE"));
 
         Assert.Equal("Acme Corporation", data.DuplicateLookupName);
         Assert.Equal("jane@acme.example", data.DuplicateLookupEmail);
@@ -196,8 +205,8 @@ public class ClientBusinessTests
         var data = new FakeClientData { DuplicateCandidatesToReturn = [existing] };
         var business = new ClientBusiness(data);
 
-        var result = await business.CreateAsync(
-            CreateCommand(name: "Acme Corporation", primaryEmail: "jane@acme.example"), CancellationToken.None);
+        var result = await CreateAsync(
+            business, CreateViewModel(name: "Acme Corporation", primaryEmail: "jane@acme.example"));
 
         var duplicate = Assert.Single(result.PossibleDuplicates);
         Assert.Equal(existingId, duplicate.ClientId);
@@ -218,10 +227,10 @@ public class ClientBusinessTests
         var data = new FakeClientData { DuplicateCandidatesToReturn = [existing] };
         var business = new ClientBusiness(data);
 
-        var result = await business.CreateAsync(CreateCommand(name: "Acme Corporation"), CancellationToken.None);
+        var result = await CreateAsync(business, CreateViewModel(name: "Acme Corporation"));
 
         Assert.NotNull(data.CreatedClient);
-        Assert.NotEqual(existing.Id, result.Client.Id);
+        Assert.NotEqual(existing.Id, result.Id);
     }
 
     // --- Emitted audit fact (AUDIT-001..003) ---
@@ -232,13 +241,13 @@ public class ClientBusinessTests
         var data = new FakeClientData();
         var business = new ClientBusiness(data);
 
-        var result = await business.CreateAsync(CreateCommand(), CancellationToken.None);
+        var result = await CreateAsync(business, CreateViewModel());
 
         var fact = data.CreatedAuditFact!;
         Assert.Equal(AuditSourceServices.Crm, fact.SourceService);
         Assert.Equal(AuditEntityTypes.Client, fact.EntityType);
         Assert.Equal(AuditActions.Created, fact.Action);
-        Assert.Equal(result.Client.Id, fact.EntityId);
+        Assert.Equal(result.Id, fact.EntityId);
         Assert.Equal(AuditActorTypes.User, fact.ActorType);
         Assert.Equal("user-1", fact.ActorId);
     }
@@ -249,9 +258,8 @@ public class ClientBusinessTests
         var data = new FakeClientData();
         var business = new ClientBusiness(data);
         var requestContext = RequestContext.CreateNew(ActorContext.ForUser("user-1")).CreateCaused();
-        var command = CreateCommand() with { RequestContext = requestContext };
 
-        await business.CreateAsync(command, CancellationToken.None);
+        await CreateAsync(business, CreateViewModel(), requestContext: requestContext);
 
         var fact = data.CreatedAuditFact!;
         Assert.Equal(requestContext.TraceId, fact.TraceId);
@@ -265,7 +273,7 @@ public class ClientBusinessTests
         var data = new FakeClientData();
         var business = new ClientBusiness(data);
 
-        await business.CreateAsync(CreateCommand(), CancellationToken.None);
+        await CreateAsync(business, CreateViewModel());
 
         var changedFields = data.CreatedAuditFact!.ChangedFields;
         Assert.Contains(nameof(Client.Name), changedFields);
@@ -281,7 +289,7 @@ public class ClientBusinessTests
         var data = new FakeClientData();
         var business = new ClientBusiness(data);
 
-        await business.CreateAsync(CreateCommand(), CancellationToken.None);
+        await CreateAsync(business, CreateViewModel());
 
         Assert.Null(data.CreatedAuditFact!.PreviousValues);
         Assert.Null(data.CreatedAuditFact!.NewValues);

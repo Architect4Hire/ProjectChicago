@@ -9,12 +9,12 @@ namespace ProjectChicago.Crm.Api.Tests.Contracts.Clients;
 // transport-level shape/format validation (SEC-022) independently of any future controller/MVC
 // JSON configuration - every property carries an explicit [JsonPropertyName], so these
 // expectations hold under a plain System.Text.Json.JsonSerializer.Serialize/Deserialize call.
-public class CreateClientRequestContractTests
+public class CreateClientViewModelContractTests
 {
     [Fact]
     public void Serialize_FullRequest_UsesCamelCasePropertyNamesAndStringLifecycleStatus()
     {
-        var request = new CreateClientRequest
+        var request = new CreateClientViewModel
         {
             Name = "Acme Corporation",
             PrimaryContactName = "Jamie Rivera",
@@ -60,7 +60,7 @@ public class CreateClientRequestContractTests
             }
             """;
 
-        var request = JsonSerializer.Deserialize<CreateClientRequest>(json);
+        var request = JsonSerializer.Deserialize<CreateClientViewModel>(json);
 
         Assert.NotNull(request);
         Assert.Equal("Acme Corporation", request!.Name);
@@ -79,7 +79,7 @@ public class CreateClientRequestContractTests
         // run (add-endpoint.md step 2: "Transport model validation catches shape/format").
         const string json = """{ "ownerUserId": "user-42" }""";
 
-        Assert.Throws<JsonException>(() => JsonSerializer.Deserialize<CreateClientRequest>(json));
+        Assert.Throws<JsonException>(() => JsonSerializer.Deserialize<CreateClientViewModel>(json));
     }
 
     [Fact]
@@ -87,13 +87,13 @@ public class CreateClientRequestContractTests
     {
         const string json = """{ "name": "Acme Corporation" }""";
 
-        Assert.Throws<JsonException>(() => JsonSerializer.Deserialize<CreateClientRequest>(json));
+        Assert.Throws<JsonException>(() => JsonSerializer.Deserialize<CreateClientViewModel>(json));
     }
 
     [Fact]
     public void Validate_FullyPopulatedValidRequest_ProducesNoValidationErrors()
     {
-        var request = new CreateClientRequest
+        var request = new CreateClientViewModel
         {
             Name = "Acme Corporation",
             PrimaryEmail = "jamie@acme.example",
@@ -111,21 +111,21 @@ public class CreateClientRequestContractTests
     [InlineData("   ")]
     public void Validate_BlankName_IsRejected(string blankName)
     {
-        var request = new CreateClientRequest { Name = blankName, OwnerUserId = "user-42" };
+        var request = new CreateClientViewModel { Name = blankName, OwnerUserId = "user-42" };
 
         var errors = Validate(request);
 
-        Assert.Contains(errors, e => e.MemberNames.Contains(nameof(CreateClientRequest.Name)));
+        Assert.Contains(errors, e => e.MemberNames.Contains(nameof(CreateClientViewModel.Name)));
     }
 
     [Fact]
     public void Validate_NameLongerThanTwoHundredCharacters_IsRejected()
     {
-        var request = new CreateClientRequest { Name = new string('a', 201), OwnerUserId = "user-42" };
+        var request = new CreateClientViewModel { Name = new string('a', 201), OwnerUserId = "user-42" };
 
         var errors = Validate(request);
 
-        Assert.Contains(errors, e => e.MemberNames.Contains(nameof(CreateClientRequest.Name)));
+        Assert.Contains(errors, e => e.MemberNames.Contains(nameof(CreateClientViewModel.Name)));
     }
 
     [Theory]
@@ -133,17 +133,17 @@ public class CreateClientRequestContractTests
     [InlineData("   ")]
     public void Validate_BlankOwnerUserId_IsRejected(string blankOwnerUserId)
     {
-        var request = new CreateClientRequest { Name = "Acme Corporation", OwnerUserId = blankOwnerUserId };
+        var request = new CreateClientViewModel { Name = "Acme Corporation", OwnerUserId = blankOwnerUserId };
 
         var errors = Validate(request);
 
-        Assert.Contains(errors, e => e.MemberNames.Contains(nameof(CreateClientRequest.OwnerUserId)));
+        Assert.Contains(errors, e => e.MemberNames.Contains(nameof(CreateClientViewModel.OwnerUserId)));
     }
 
     [Fact]
     public void Validate_MalformedPrimaryEmail_IsRejected()
     {
-        var request = new CreateClientRequest
+        var request = new CreateClientViewModel
         {
             Name = "Acme Corporation",
             OwnerUserId = "user-42",
@@ -152,13 +152,13 @@ public class CreateClientRequestContractTests
 
         var errors = Validate(request);
 
-        Assert.Contains(errors, e => e.MemberNames.Contains(nameof(CreateClientRequest.PrimaryEmail)));
+        Assert.Contains(errors, e => e.MemberNames.Contains(nameof(CreateClientViewModel.PrimaryEmail)));
     }
 
     [Fact]
     public void Validate_MalformedWebsite_IsRejected()
     {
-        var request = new CreateClientRequest
+        var request = new CreateClientViewModel
         {
             Name = "Acme Corporation",
             OwnerUserId = "user-42",
@@ -167,10 +167,10 @@ public class CreateClientRequestContractTests
 
         var errors = Validate(request);
 
-        Assert.Contains(errors, e => e.MemberNames.Contains(nameof(CreateClientRequest.Website)));
+        Assert.Contains(errors, e => e.MemberNames.Contains(nameof(CreateClientViewModel.Website)));
     }
 
-    private static IReadOnlyList<ValidationResult> Validate(CreateClientRequest request)
+    private static IReadOnlyList<ValidationResult> Validate(CreateClientViewModel request)
     {
         var results = new List<ValidationResult>();
         Validator.TryValidateObject(request, new ValidationContext(request), results, validateAllProperties: true);

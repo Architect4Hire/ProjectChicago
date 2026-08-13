@@ -6,18 +6,18 @@ using Xunit;
 namespace ProjectChicago.Crm.Api.Tests.Contracts.Common;
 
 // Locks the shared collection-response envelope's wire shape (api-contracts.md's "shared
-// pagination envelope") using ClientResponse as the item type, since GET api/clients (CLIENT-020..
+// pagination envelope") using ClientServiceModel as the item type, since GET api/clients (CLIENT-020..
 // 024, API-005) is the envelope's first consumer.
 public class PagedResponseTests
 {
     [Fact]
     public void Serialize_Response_UsesCamelCasePropertyNamesForEnvelopeFields()
     {
-        var envelope = new PagedResponse<ClientResponse>
+        var envelope = new PagedResponse<ClientServiceModel>
         {
             Items =
             [
-                new ClientResponse
+                new ClientServiceModel
                 {
                     Id = Guid.NewGuid(),
                     Name = "Acme Corporation",
@@ -50,7 +50,7 @@ public class PagedResponseTests
     [Fact]
     public void Serialize_EmptyItems_ProducesAnEmptyArrayNotNull()
     {
-        var envelope = new PagedResponse<ClientResponse>
+        var envelope = new PagedResponse<ClientServiceModel>
         {
             Items = [],
             Page = 1,
@@ -69,7 +69,7 @@ public class PagedResponseTests
     [Fact]
     public void Deserialize_RoundTrips_PreservingPaginationMetadata()
     {
-        var envelope = new PagedResponse<ClientResponse>
+        var envelope = new PagedResponse<ClientServiceModel>
         {
             Items = [],
             Page = 3,
@@ -79,7 +79,7 @@ public class PagedResponseTests
         };
 
         var json = JsonSerializer.Serialize(envelope);
-        var roundTripped = JsonSerializer.Deserialize<PagedResponse<ClientResponse>>(json);
+        var roundTripped = JsonSerializer.Deserialize<PagedResponse<ClientServiceModel>>(json);
 
         Assert.NotNull(roundTripped);
         Assert.Equal(envelope.Page, roundTripped!.Page);

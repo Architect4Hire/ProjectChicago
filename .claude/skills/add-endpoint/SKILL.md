@@ -43,33 +43,40 @@ For a mutation, name the resulting business fact(s) in plain past tense before d
 
 ## 2. Service/API model
 
-Create/reuse:
+Create/reuse two named shapes per use case, both living in the owning `.Core` project (e.g.
+`<Service>.Core/Contracts/<Area>`) rather than the HTTP host project, so Business can reference
+them directly without creating a Core→API-host reference cycle:
 
-- transport request/response DTOs, living in the owning `.Core` project (e.g.
-  `<Service>.Core/Contracts/<Area>`) rather than the HTTP host project, so Business can reference
-  them directly without creating a Core→API-host reference cycle;
-- a `.Core` ServiceModel/Command/Result shape for the use case's actual business input/output
-  (distinct from the transport DTO) when the operation is also callable from a Function, or when
-  the transport DTO needs actor/context/timestamp fields a caller must never supply itself;
-- extension-method mappers between the transport DTO and the service model, defined in the
-  `<domain-project>/<Area>/Business` folder (e.g. `<Area>ContractMappingExtensions`) — never inline
-  in the controller.
+- a **ViewModel** for the inbound shape (e.g. `Create<Aggregate>ViewModel`) — what the controller
+  binds the request body/query/route to;
+- a **ServiceModel** for the outbound shape (e.g. `<Aggregate>ServiceModel`) — what the controller
+  returns as the HTTP response body.
 
-Transport model validation catches shape/format. Domain/state rules stay in Business.
+Both are plain DTOs with the transport-level `[JsonPropertyName]`/`DataAnnotations` attributes
+(api-contracts.md). There is no separate Facade-only or Business-only request/result type layered
+on top of them — Controller, Facade, and Business all pass the same ViewModel in and the same
+ServiceModel out. `IFacade`/`IBusiness` method signatures are written directly against these two
+types (e.g. `Task<XServiceModel> CreateAsync(CreateXViewModel request, ...)`), not against an
+internal DataModel or a wrapper record.
+
+Transport model validation (`[Required]`, `[StringLength]`, `[EnumDataType]`, etc. on the
+ViewModel) catches shape/format. Domain/state rules stay in Business.
 
 ## 3. Controller — transport only
 
 Implement the smallest action that:
 
-1. binds request;
-2. obtains authenticated actor/tenant/correlation context through established abstractions;
-3. calls one Facade method, passing the bound transport DTO straight through;
-4. maps typed result/error to public HTTP response.
+1. binds the request body/query/route to the ViewModel;
+2. obtains authenticated actor/tenant/correlation context through established abstractions (coarse
+   authentication check only — see rule 4);
+3. calls one Facade method, passing the bound ViewModel straight through;
+4. wraps the returned ServiceModel in the right `ActionResult` (`Created`, `Ok`, etc.) or maps a
+   thrown exception to the standard Problem Details shape.
 
-The controller does not construct the service input or read fields off the result to build the
-response body — `IFacade.CreateAsync(...)` (or equivalent) accepts and returns the transport DTOs
-directly, so the controller only wraps the returned DTO in the right `ActionResult` (`Created`,
-`Ok`, etc.).
+The controller never constructs a service input from the ViewModel's fields, and never reads the
+ServiceModel's fields to build a different response shape — it passes the ViewModel in and the
+ServiceModel out completely unchanged. No field-by-field mapping code, and no mapping extension
+method call, belongs in the controller.
 
 Do not:
 
@@ -78,23 +85,24 @@ Do not:
 - open a transaction;
 - implement lifecycle rules;
 - query another service;
-- map request fields into a service model, or map a service result into the response DTO, itself.
+- map ViewModel fields into anything, or read ServiceModel fields to build anything — the
+  controller only forwards and wraps.
 
 ## 4. Facade — use-case boundary
 
-Add a focused facade method that accepts and returns the transport DTOs.
+Add a focused facade method with the exact same signature shape as the Business method it calls:
+`Task<XServiceModel> CreateAsync(CreateXViewModel request, ...)`.
 
 Facade may:
 
-- run validator(s) against the transport DTO;
-- normalize safe input;
+- run validator(s) against the ViewModel (`System.ComponentModel.DataAnnotations.Validator`, or an
+  equivalent);
+- resolve actor/correlation/clock context the ViewModel must never carry itself (security.md:
+  never accept the actor from ordinary client input) and pass those as separate parameters
+  alongside the untouched ViewModel;
 - check/cache service-owned read-through values;
-- resolve actor/correlation/clock context and pass it into the Business-owned
-  `ToCommand(...)` mapping extension method to build the service input;
 - coordinate Business methods in the same service;
-- invalidate service-owned cache after successful mutations;
-- call the Business-owned `ToResponse()`/equivalent mapping extension method on the Business
-  result before returning it to the controller.
+- invalidate service-owned cache after successful mutations.
 
 Facade must not:
 
@@ -102,26 +110,36 @@ Facade must not:
 - send Service Bus messages;
 - become a second repository/data layer;
 - call another service's Core;
-- hand-roll the field-by-field DTO↔service-model translation inline — that belongs in the
-  Business-owned mapping extension methods, even though the Facade is what calls them.
-
-Return a typed service result rather than using exceptions for expected domain rejection when the codebase has an established result/error pattern.
+- map any ViewModel field into a different shape, or read any field off the Business result to
+  build a different response — Facade passes the ViewModel into Business and returns whatever
+  Business hands back, unchanged. **All ViewModel↔domain↔ServiceModel mapping lives in Business,
+  not Facade** — Facade's only job around the DTOs is resolving the context Business needs and
+  forwarding.
 
 ## 5. Business — rules, mapping, and event decision
 
-Business owns:
+Business is the only layer that maps. `IBusiness.CreateAsync(CreateXViewModel request, actor,
+requestContext, createdAtUtc, cancellationToken)` returns `Task<XServiceModel>` and, inside that
+one method:
 
-- allowed CRM lifecycle transition(s);
-- current-state/business preconditions;
-- calculations/decisions;
-- translation between service state and persistence requests;
-- the transport-DTO↔service-model mapping extension methods (`ToCommand`, `ToResponse`, etc.) that
-  the Facade calls — keep the core rule-owning `CreateAsync(command)`-style method operating on
-  plain service models only, so it stays testable without the transport DTO in scope;
-- creation of integration-event fact(s) when other bounded services need to know the committed
-  outcome.
+- unwraps/normalizes the ViewModel's fields (trim, lowercase-email, etc.);
+- maps any wire-level enum to the domain enum (throw on an undefined value rather than silently
+  defaulting);
+- owns allowed lifecycle transition(s), current-state/business preconditions, calculations/
+  decisions, and persistence-request translation;
+- builds the domain aggregate and persists it (plus outbox/audit facts) through Data;
+- maps the persisted domain result back into the ServiceModel before returning.
 
-Business does not publish the event. It returns/attaches the event to the Data operation in the project's established style.
+Keep the ViewModel→domain and domain→ServiceModel translation as small private/internal helper
+methods or extension methods colocated in the `<domain-project>/<Area>/Business` folder (e.g.
+`<Area>ContractMappingExtensions`) so the translation is unit-testable and readable independently
+of the rest of `CreateAsync`, but do not expose a separate public overload that accepts an internal
+command/result type instead of the ViewModel/ServiceModel — the ViewModel in, ServiceModel out
+signature is the one seam every caller (Facade today, a Function later) uses.
+
+Business also owns creation of integration-event fact(s) when other bounded services need to know
+the committed outcome, but does not publish the event — it returns/attaches the event to the Data
+operation in the project's established style.
 
 For an event, define the contract in `ProjectChicago.Contracts` and then follow `add-integration-event` for the full seam.
 
@@ -222,9 +240,9 @@ Run/delegate:
 ## Completion checklist
 
 - [ ] Owning service is explicit.
-- [ ] Controller is transport-only and does no request/response field mapping.
-- [ ] Facade validates/orchestrates only; DTO↔service-model mapping happens through Business-owned extension methods, not inline in Facade.
-- [ ] Business owns rules/event decision, and the mapping extension methods live in its folder.
+- [ ] Controller is transport-only and does no ViewModel/ServiceModel field mapping.
+- [ ] Facade validates/resolves context/orchestrates only; it passes the ViewModel to Business unchanged and returns the ServiceModel unchanged.
+- [ ] Business's `CreateAsync`-style method takes the ViewModel and returns the ServiceModel directly, owns rules/event decision, and its mapping helpers live in its own folder.
 - [ ] Data owns transaction.
 - [ ] Repository uses only owning SQL Server DbContext.
 - [ ] State + outbox are atomic when event emitted.

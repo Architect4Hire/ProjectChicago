@@ -28,14 +28,14 @@ public class ClientsControllerTests
     private const string CrmDbConnectionStringEnvironmentVariable = "ConnectionStrings__CrmDb";
     private static readonly DateTime FixedUtcNow = new(2026, 1, 15, 12, 0, 0, DateTimeKind.Utc);
 
-    private static CreateClientRequest ValidRequest() => new()
+    private static CreateClientViewModel ValidRequest() => new()
     {
         Name = "Acme Corporation",
         OwnerUserId = "owner-1",
         PrimaryEmail = "jane@acme.example",
     };
 
-    private static ClientResponse BuildResponse(
+    private static ClientServiceModel BuildResponse(
         string name = "Acme Corporation",
         string ownerUserId = "owner-1",
         IReadOnlyList<ClientDuplicateWarning>? possibleDuplicates = null) => new()
@@ -67,7 +67,7 @@ public class ClientsControllerTests
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         Assert.Equal($"{ClientsApiContract.Route}/{expectedResponse.Id}", response.Headers.Location?.ToString());
 
-        var body = await response.Content.ReadFromJsonAsync<ClientResponse>();
+        var body = await response.Content.ReadFromJsonAsync<ClientServiceModel>();
         Assert.NotNull(body);
         Assert.Equal(expectedResponse.Id, body!.Id);
         Assert.Equal(expectedResponse.Name, body.Name);
@@ -113,7 +113,7 @@ public class ClientsControllerTests
         var response = await httpClient.PostAsJsonAsync(ClientsApiContract.Route, ValidRequest());
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-        var body = await response.Content.ReadFromJsonAsync<ClientResponse>();
+        var body = await response.Content.ReadFromJsonAsync<ClientServiceModel>();
         var duplicate = Assert.Single(body!.PossibleDuplicates);
         Assert.Equal("Acme Corp", duplicate.Name);
         Assert.Contains(ClientDuplicateMatchField.Name, duplicate.MatchedOn);
@@ -208,15 +208,15 @@ public class ClientsControllerTests
     // used in this repository).
     private sealed class FakeClientFacade : IClientFacade
     {
-        public ClientResponse ResultToReturn { get; init; } = null!;
+        public ClientServiceModel ResultToReturn { get; init; } = null!;
 
         public Exception? ExceptionToThrow { get; init; }
 
         public bool WasCalled { get; private set; }
 
-        public CreateClientRequest? ReceivedRequest { get; private set; }
+        public CreateClientViewModel? ReceivedRequest { get; private set; }
 
-        public Task<ClientResponse> CreateAsync(CreateClientRequest request, CancellationToken cancellationToken)
+        public Task<ClientServiceModel> CreateAsync(CreateClientViewModel request, CancellationToken cancellationToken)
         {
             WasCalled = true;
             ReceivedRequest = request;

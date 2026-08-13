@@ -8,7 +8,7 @@ namespace ProjectChicago.Crm.Contracts.Clients;
 // rather than driven by JsonPropertyName/System.Text.Json.
 //
 // DataAnnotations here catch only shape/format problems at the transport boundary (add-endpoint.md
-// step 2/3), mirroring CreateClientRequest's split: whether a supplied LifecycleStatus/OwnerUserId
+// step 2/3), mirroring CreateClientViewModel's split: whether a supplied LifecycleStatus/OwnerUserId
 // actually exists or is visible to the caller is a Business/Facade concern, not this contract's.
 //
 // CLIENT-021 search fields (name/contact/email/phone) are exposed as a single free-text Search
@@ -42,7 +42,7 @@ public sealed record ListClientsRequest
     public bool? IsActive { get; init; }
 
     // CLIENT-023 sort attribute/direction. Both optional - the default sort applied when omitted is
-    // a Business-layer decision (mirrors CreateClientRequest.LifecycleStatus's optional-with-
+    // a Business-layer decision (mirrors CreateClientViewModel.LifecycleStatus's optional-with-
     // downstream-default pattern), not baked into this transport contract.
     [EnumDataType(typeof(ClientSortField))]
     public ClientSortField? SortBy { get; init; }

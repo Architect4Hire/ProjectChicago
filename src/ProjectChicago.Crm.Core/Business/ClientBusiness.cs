@@ -1,17 +1,20 @@
 using ProjectChicago.Contracts.Audit;
+using ProjectChicago.Crm.Contracts.Clients;
 using ProjectChicago.Crm.Core.Data;
 using ProjectChicago.Crm.Core.Models.DataModels.Entities;
 using ProjectChicago.Crm.Core.Models.ServiceModels;
 using ProjectChicago.Shared.Correlation;
+using CoreDuplicateMatchField = ProjectChicago.Crm.Core.Models.ServiceModels.ClientDuplicateMatchField;
 
 namespace ProjectChicago.Crm.Core.Business;
 
 // IClientBusiness implementation for Client creation (CLIENT-001..004, AUDIT-001..003; backend.md,
 // onion-boundaries.md). Owns exactly: normalizing business values, deciding the initial lifecycle
-// status, deciding CLIENT-004 duplicate warnings, translating the command into the Client aggregate
-// and the one EntityMutationAudited fact for the mutation, and persisting both through IClientData.
-// No EF, cache, HttpContext, or Service Bus dependency - those belong to Data, Facade, and the
-// outbox relay respectively.
+// status, deciding CLIENT-004 duplicate warnings, translating the wire CreateClientViewModel into
+// the Client aggregate and the one EntityMutationAudited fact for the mutation, persisting both
+// through IClientData, and mapping the result into the wire ClientServiceModel
+// (ClientContractMappingExtensions). No EF, cache, HttpContext, or Service Bus dependency - those
+// belong to Data, Facade, and the outbox relay respectively.
 public sealed class ClientBusiness : IClientBusiness
 {
     private readonly IClientData _clientData;
@@ -21,21 +24,27 @@ public sealed class ClientBusiness : IClientBusiness
         _clientData = clientData ?? throw new ArgumentNullException(nameof(clientData));
     }
 
-    public async Task<ClientCreationResult> CreateAsync(CreateClientCommand command, CancellationToken cancellationToken)
+    public async Task<ClientServiceModel> CreateAsync(
+        CreateClientViewModel request,
+        ActorContext actor,
+        RequestContext requestContext,
+        DateTime createdAtUtc,
+        CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(command);
+        ArgumentNullException.ThrowIfNull(request);
 
-        var normalizedName = NormalizeRequired(command.Name, nameof(command.Name));
-        var normalizedOwnerUserId = NormalizeRequired(command.OwnerUserId, nameof(command.OwnerUserId));
-        var normalizedEmail = NormalizeEmail(command.PrimaryEmail);
-        var normalizedPhone = NormalizeOptional(command.PrimaryPhone);
+        var normalizedName = NormalizeRequired(request.Name, nameof(request.Name));
+        var normalizedOwnerUserId = NormalizeRequired(request.OwnerUserId, nameof(request.OwnerUserId));
+        var normalizedEmail = NormalizeEmail(request.PrimaryEmail);
+        var normalizedPhone = NormalizeOptional(request.PrimaryPhone);
 
-        var lifecycleStatus = command.LifecycleStatus ?? ClientLifecycleStatus.Lead;
-        if (!Enum.IsDefined(lifecycleStatus))
-        {
-            throw new ArgumentException(
-                "Lifecycle status must be a defined ClientLifecycleStatus value.", nameof(command));
-        }
+        // ToCoreLifecycleStatus throws ArgumentOutOfRangeException for an undefined wire value
+        // before the CLIENT-010 Lead default is ever considered, so an out-of-range value is
+        // rejected the same way whether or not it was caught by CreateClientViewModel's own
+        // [EnumDataType] validation upstream.
+        var lifecycleStatus = request.LifecycleStatus is { } status
+            ? status.ToCoreLifecycleStatus()
+            : ClientLifecycleStatus.Lead;
 
         // Looked up before the new Client is built, so the new record can never match itself
         // (CLIENT-004).
@@ -45,7 +54,7 @@ public sealed class ClientBusiness : IClientBusiness
 
         // CLIENT-001: only an identified actor (User or Service - the only ActorContext factories
         // that guarantee a non-null ActorId) can be attributed as CreatedBy.
-        var createdBy = ResolveCreatedBy(command.Actor);
+        var createdBy = ResolveCreatedBy(actor);
 
         var client = Client.Create(
             id: Guid.NewGuid(),
@@ -53,30 +62,26 @@ public sealed class ClientBusiness : IClientBusiness
             lifecycleStatus: lifecycleStatus,
             ownerUserId: normalizedOwnerUserId,
             createdBy: createdBy,
-            createdAtUtc: command.CreatedAtUtc,
-            primaryContactName: NormalizeOptional(command.PrimaryContactName),
+            createdAtUtc: createdAtUtc,
+            primaryContactName: NormalizeOptional(request.PrimaryContactName),
             primaryEmail: normalizedEmail,
             primaryPhone: normalizedPhone,
-            website: NormalizeOptional(command.Website),
-            addressLine: NormalizeOptional(command.AddressLine),
-            city: NormalizeOptional(command.City),
-            stateOrProvince: NormalizeOptional(command.StateOrProvince),
-            postalCode: NormalizeOptional(command.PostalCode),
-            country: NormalizeOptional(command.Country),
-            description: NormalizeOptional(command.Description));
+            website: NormalizeOptional(request.Website),
+            addressLine: NormalizeOptional(request.AddressLine),
+            city: NormalizeOptional(request.City),
+            stateOrProvince: NormalizeOptional(request.StateOrProvince),
+            postalCode: NormalizeOptional(request.PostalCode),
+            country: NormalizeOptional(request.Country),
+            description: NormalizeOptional(request.Description));
 
-        var auditFact = BuildAuditFact(client, command);
+        var auditFact = BuildAuditFact(client, actor, requestContext);
 
         await _clientData.CreateAsync(client, auditFact, cancellationToken).ConfigureAwait(false);
 
-        return new ClientCreationResult
-        {
-            Client = client,
-            PossibleDuplicates = possibleDuplicates,
-        };
+        return client.ToServiceModel(possibleDuplicates);
     }
 
-    private static EntityMutationAudited BuildAuditFact(Client client, CreateClientCommand command)
+    private static EntityMutationAudited BuildAuditFact(Client client, ActorContext actor, RequestContext requestContext)
     {
         return new EntityMutationAudited
         {
@@ -86,11 +91,11 @@ public sealed class ClientBusiness : IClientBusiness
             EntityType = AuditEntityTypes.Client,
             EntityId = client.Id,
             Action = AuditActions.Created,
-            ActorId = command.Actor.ActorId,
-            ActorType = ResolveAuditActorType(command.Actor.ActorType),
-            TraceId = command.RequestContext.TraceId,
-            CorrelationId = command.RequestContext.CorrelationId,
-            CausationId = command.RequestContext.CausationId,
+            ActorId = actor.ActorId,
+            ActorType = ResolveAuditActorType(actor.ActorType),
+            TraceId = requestContext.TraceId,
+            CorrelationId = requestContext.CorrelationId,
+            CausationId = requestContext.CausationId,
             // Field names only, never values (AUDIT-008) - a Created fact has no "previous" state to
             // disclose, and this microstep does not decide which "new" values are safe to publish.
             ChangedFields = BuildChangedFields(client),
@@ -145,21 +150,21 @@ public sealed class ClientBusiness : IClientBusiness
         var results = new List<ClientDuplicateCandidate>(candidates.Count);
         foreach (var candidate in candidates)
         {
-            var matchedOn = new List<ClientDuplicateMatchField>();
+            var matchedOn = new List<CoreDuplicateMatchField>();
 
             if (string.Equals(candidate.Name, normalizedName, StringComparison.Ordinal))
             {
-                matchedOn.Add(ClientDuplicateMatchField.Name);
+                matchedOn.Add(CoreDuplicateMatchField.Name);
             }
 
             if (normalizedEmail is not null && string.Equals(candidate.PrimaryEmail, normalizedEmail, StringComparison.Ordinal))
             {
-                matchedOn.Add(ClientDuplicateMatchField.PrimaryEmail);
+                matchedOn.Add(CoreDuplicateMatchField.PrimaryEmail);
             }
 
             if (normalizedPhone is not null && string.Equals(candidate.PrimaryPhone, normalizedPhone, StringComparison.Ordinal))
             {
-                matchedOn.Add(ClientDuplicateMatchField.PrimaryPhone);
+                matchedOn.Add(CoreDuplicateMatchField.PrimaryPhone);
             }
 
             results.Add(new ClientDuplicateCandidate

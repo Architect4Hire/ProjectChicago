@@ -25,7 +25,7 @@ namespace ProjectChicago.Crm.Contracts.Clients;
 // initial status this contract expects the Business layer to assign is Lead (a Client relationship
 // normally starts as a lead) - a narrow, reversible default recorded here rather than invented
 // silently downstream (CLAUDE.md Usage #5, requirements doc Sec. 48.8).
-public sealed record CreateClientRequest
+public sealed record CreateClientViewModel
 {
     [JsonPropertyName("name")]
     [Required(AllowEmptyStrings = false)]

@@ -6,7 +6,7 @@ namespace ProjectChicago.Crm.Contracts.Clients;
 //
 // -- POST api/clients (create) --
 //   Method + route:  POST api/clients                                        (API-002/API-003)
-//   Success:         201 Created, ClientResponse body, Location: api/clients/{id}
+//   Success:         201 Created, ClientServiceModel body, Location: api/clients/{id}
 //                     (the GET-by-id companion route is not implemented by this microstep; the
 //                     Location value follows the API-002 canonical route shape ahead of it).
 //   Validation:      400 ValidationProblemDetails (ApiProblemDetailsFactory.Validation) for
@@ -25,7 +25,7 @@ namespace ProjectChicago.Crm.Contracts.Clients;
 // -- GET api/clients (list/search) --
 //   Method + route:  GET api/clients                                         (API-002/API-003)
 //   Request:         ListClientsRequest bound from the query string (CLIENT-020..024, API-005).
-//   Success:         200 OK, PagedResponse<ClientResponse> body.
+//   Success:         200 OK, PagedResponse<ClientServiceModel> body.
 //   Validation:      400 ValidationProblemDetails (ApiProblemDetailsFactory.Validation) for an
 //                     out-of-range Page/PageSize or an undefined LifecycleStatus/SortBy/
 //                     SortDirection value (SEC-022).

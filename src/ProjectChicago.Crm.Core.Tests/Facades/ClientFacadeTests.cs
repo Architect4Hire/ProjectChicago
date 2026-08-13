@@ -2,12 +2,8 @@ using System.ComponentModel.DataAnnotations;
 using ProjectChicago.Crm.Contracts.Clients;
 using ProjectChicago.Crm.Core.Business;
 using ProjectChicago.Crm.Core.Facades;
-using ProjectChicago.Crm.Core.Models.DataModels.Entities;
-using ProjectChicago.Crm.Core.Models.ServiceModels;
 using ProjectChicago.Shared.Correlation;
 using Xunit;
-using CoreDuplicateMatchField = ProjectChicago.Crm.Core.Models.ServiceModels.ClientDuplicateMatchField;
-using ContractDuplicateMatchField = ProjectChicago.Crm.Contracts.Clients.ClientDuplicateMatchField;
 
 namespace ProjectChicago.Crm.Core.Tests.Facades;
 
@@ -15,36 +11,52 @@ namespace ProjectChicago.Crm.Core.Tests.Facades;
 // Facade/Business/Data behavior at the layer that owns the rule"). IClientBusiness,
 // IClientAuthorization, ICurrentRequestContext, and IClock are faked rather than backed by real
 // infrastructure - proving the Facade's own authorization-call/validation/orchestration rules do
-// not require EF, HTTP, or a real clock (RESTRICTION: this scope never touches Data/EF). The
-// wire<->Business mapping itself (ClientContractMappingExtensions) is exercised incidentally here
-// and directly by its own tests - CreateAsync's contract is "authorize, validate, delegate,
-// translate", not the mapping details.
+// not require EF, HTTP, or a real clock (RESTRICTION: this scope never touches Data/EF).
+// CreateAsync's contract is "authorize, validate, resolve context, delegate, return unchanged" -
+// the ViewModel<->ServiceModel mapping itself belongs to IClientBusiness/ClientBusinessTests, not
+// here.
 public class ClientFacadeTests
 {
     private sealed class FakeClientBusiness : IClientBusiness
     {
-        public CreateClientCommand? ReceivedCommand { get; private set; }
+        public CreateClientViewModel? ReceivedRequest { get; private set; }
+
+        public ActorContext? ReceivedActor { get; private set; }
+
+        public RequestContext? ReceivedRequestContext { get; private set; }
+
+        public DateTime? ReceivedCreatedAtUtc { get; private set; }
 
         public bool WasCalled { get; private set; }
 
-        public ClientCreationResult ResultToReturn { get; init; } = BuildDefaultResult();
+        public ClientServiceModel ResultToReturn { get; init; } = BuildDefaultResult();
 
-        public Task<ClientCreationResult> CreateAsync(CreateClientCommand command, CancellationToken cancellationToken)
+        public Task<ClientServiceModel> CreateAsync(
+            CreateClientViewModel request,
+            ActorContext actor,
+            RequestContext requestContext,
+            DateTime createdAtUtc,
+            CancellationToken cancellationToken)
         {
             WasCalled = true;
-            ReceivedCommand = command;
+            ReceivedRequest = request;
+            ReceivedActor = actor;
+            ReceivedRequestContext = requestContext;
+            ReceivedCreatedAtUtc = createdAtUtc;
             return Task.FromResult(ResultToReturn);
         }
 
-        private static ClientCreationResult BuildDefaultResult() => new()
+        private static ClientServiceModel BuildDefaultResult() => new()
         {
-            Client = Client.Create(
-                id: Guid.NewGuid(),
-                name: "Acme Corporation",
-                lifecycleStatus: ClientLifecycleStatus.Lead,
-                ownerUserId: "owner-1",
-                createdBy: "user-1",
-                createdAtUtc: FixedUtcNow),
+            Id = Guid.NewGuid(),
+            Name = "Acme Corporation",
+            LifecycleStatus = ClientLifecycleStatusContract.Lead,
+            OwnerUserId = "owner-1",
+            CreatedAtUtc = FixedUtcNow,
+            CreatedBy = "user-1",
+            LastModifiedAtUtc = FixedUtcNow,
+            LastModifiedBy = "user-1",
+            ConcurrencyToken = Convert.ToBase64String([1, 2, 3, 4, 5, 6, 7, 8]),
         };
     }
 
@@ -76,7 +88,7 @@ public class ClientFacadeTests
 
     private static readonly DateTime FixedUtcNow = new(2026, 1, 15, 12, 0, 0, DateTimeKind.Utc);
 
-    private static CreateClientRequest CreateRequest(
+    private static CreateClientViewModel CreateRequest(
         string name = "Acme Corporation",
         string ownerUserId = "owner-1",
         string? primaryEmail = "Jane@Acme.example",
@@ -93,7 +105,7 @@ public class ClientFacadeTests
         out FakeClientAuthorization authorization,
         bool authorized = true,
         ActorContext? actor = null,
-        ClientCreationResult? businessResult = null)
+        ClientServiceModel? businessResult = null)
     {
         business = businessResult is null
             ? new FakeClientBusiness()
@@ -111,40 +123,40 @@ public class ClientFacadeTests
     // --- Valid create ---
 
     [Fact]
-    public async Task CreateAsync_WhenAuthorizedAndValid_ReturnsTheMappedBusinessResult()
+    public async Task CreateAsync_WhenAuthorizedAndValid_ReturnsTheBusinessResultUnchanged()
     {
-        var client = Client.Create(
-            id: Guid.NewGuid(),
-            name: "Acme Corporation",
-            lifecycleStatus: ClientLifecycleStatus.Lead,
-            ownerUserId: "owner-1",
-            createdBy: "user-1",
-            createdAtUtc: FixedUtcNow);
-        var expected = new ClientCreationResult { Client = client };
+        var expected = new ClientServiceModel
+        {
+            Id = Guid.NewGuid(),
+            Name = "Acme Corporation",
+            LifecycleStatus = ClientLifecycleStatusContract.Lead,
+            OwnerUserId = "owner-1",
+            CreatedAtUtc = FixedUtcNow,
+            CreatedBy = "user-1",
+            LastModifiedAtUtc = FixedUtcNow,
+            LastModifiedBy = "user-1",
+            ConcurrencyToken = Convert.ToBase64String([1, 2, 3, 4, 5, 6, 7, 8]),
+        };
         var facade = BuildFacade(out var business, out _, businessResult: expected);
 
         var result = await facade.CreateAsync(CreateRequest(), CancellationToken.None);
 
         Assert.True(business.WasCalled);
-        Assert.Equal(client.Id, result.Id);
-        Assert.Equal(client.Name, result.Name);
-        Assert.Equal(ClientLifecycleStatusContract.Lead, result.LifecycleStatus);
-        Assert.Empty(result.PossibleDuplicates);
+        Assert.Same(expected, result);
     }
 
     [Fact]
-    public async Task CreateAsync_BuildsTheCommandFromTheResolvedActorRequestContextAndClock()
+    public async Task CreateAsync_PassesTheRequestAndResolvedActorRequestContextAndClockToBusiness()
     {
         var actor = ActorContext.ForUser("actor-42");
         var facade = BuildFacade(out var business, out _, actor: actor);
 
         await facade.CreateAsync(CreateRequest(name: "Acme Corporation", ownerUserId: "owner-9"), CancellationToken.None);
 
-        var command = business.ReceivedCommand!;
-        Assert.Equal("Acme Corporation", command.Name);
-        Assert.Equal("owner-9", command.OwnerUserId);
-        Assert.Equal(actor, command.Actor);
-        Assert.Equal(FixedUtcNow, command.CreatedAtUtc);
+        Assert.Equal("Acme Corporation", business.ReceivedRequest?.Name);
+        Assert.Equal("owner-9", business.ReceivedRequest?.OwnerUserId);
+        Assert.Equal(actor, business.ReceivedActor);
+        Assert.Equal(FixedUtcNow, business.ReceivedCreatedAtUtc);
     }
 
     [Fact]
@@ -213,21 +225,23 @@ public class ClientFacadeTests
     [Fact]
     public async Task CreateAsync_WhenBusinessReturnsPossibleDuplicates_ReturnsThemUnchanged()
     {
-        var duplicate = new ClientDuplicateCandidate
+        var duplicate = new ClientDuplicateWarning
         {
             ClientId = Guid.NewGuid(),
             Name = "Acme Corporation",
-            MatchedOn = [CoreDuplicateMatchField.Name],
+            MatchedOn = [ClientDuplicateMatchField.Name],
         };
-        var resultWithDuplicates = new ClientCreationResult
+        var resultWithDuplicates = new ClientServiceModel
         {
-            Client = Client.Create(
-                id: Guid.NewGuid(),
-                name: "Acme Corporation",
-                lifecycleStatus: ClientLifecycleStatus.Lead,
-                ownerUserId: "owner-1",
-                createdBy: "user-1",
-                createdAtUtc: FixedUtcNow),
+            Id = Guid.NewGuid(),
+            Name = "Acme Corporation",
+            LifecycleStatus = ClientLifecycleStatusContract.Lead,
+            OwnerUserId = "owner-1",
+            CreatedAtUtc = FixedUtcNow,
+            CreatedBy = "user-1",
+            LastModifiedAtUtc = FixedUtcNow,
+            LastModifiedBy = "user-1",
+            ConcurrencyToken = Convert.ToBase64String([1, 2, 3, 4, 5, 6, 7, 8]),
             PossibleDuplicates = [duplicate],
         };
         var facade = BuildFacade(out var business, out _, businessResult: resultWithDuplicates);
@@ -238,7 +252,7 @@ public class ClientFacadeTests
         Assert.True(business.WasCalled);
         var returnedDuplicate = Assert.Single(result.PossibleDuplicates);
         Assert.Equal(duplicate.ClientId, returnedDuplicate.ClientId);
-        Assert.Contains(ContractDuplicateMatchField.Name, returnedDuplicate.MatchedOn);
+        Assert.Contains(ClientDuplicateMatchField.Name, returnedDuplicate.MatchedOn);
     }
 
     // --- Unauthorized path (SEC-010..013) ---

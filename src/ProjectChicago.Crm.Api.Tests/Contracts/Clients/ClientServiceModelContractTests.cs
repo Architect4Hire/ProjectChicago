@@ -6,7 +6,7 @@ namespace ProjectChicago.Crm.Api.Tests.Contracts.Clients;
 
 // Locks the 201 Created response wire shape for POST /api/clients (CLIENT-001..004, API-001..007,
 // DATA-006, DATA-008) independently of any future controller/MVC JSON configuration.
-public class ClientResponseContractTests
+public class ClientServiceModelContractTests
 {
     [Fact]
     public void Serialize_Response_RoundTripsThroughJsonPreservingAllFields()
@@ -14,7 +14,7 @@ public class ClientResponseContractTests
         var createdAtUtc = new DateTime(2026, 8, 12, 15, 30, 0, DateTimeKind.Utc);
         var lastModifiedAtUtc = createdAtUtc;
         var duplicateClientId = Guid.NewGuid();
-        var response = new ClientResponse
+        var response = new ClientServiceModel
         {
             Id = Guid.NewGuid(),
             Name = "Acme Corporation",
@@ -47,7 +47,7 @@ public class ClientResponseContractTests
         };
 
         var json = JsonSerializer.Serialize(response);
-        var roundTripped = JsonSerializer.Deserialize<ClientResponse>(json);
+        var roundTripped = JsonSerializer.Deserialize<ClientServiceModel>(json);
 
         Assert.NotNull(roundTripped);
         Assert.Equal(response.Id, roundTripped!.Id);
@@ -66,7 +66,7 @@ public class ClientResponseContractTests
     [Fact]
     public void Serialize_Response_UsesCamelCasePropertyNamesAndStringEnumsNotNumbers()
     {
-        var response = new ClientResponse
+        var response = new ClientServiceModel
         {
             Id = Guid.NewGuid(),
             Name = "Acme Corporation",
@@ -93,7 +93,7 @@ public class ClientResponseContractTests
     [Fact]
     public void PossibleDuplicates_WhenNotSet_DefaultsToEmptyRatherThanNull()
     {
-        var response = new ClientResponse
+        var response = new ClientServiceModel
         {
             Id = Guid.NewGuid(),
             Name = "Acme Corporation",

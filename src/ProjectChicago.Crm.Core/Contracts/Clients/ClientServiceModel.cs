@@ -2,8 +2,12 @@ using System.Text.Json.Serialization;
 
 namespace ProjectChicago.Crm.Contracts.Clients;
 
-// Public response contract for POST /api/clients, returned as 201 Created (API-003/API-004).
-// Never the EF Client entity directly (api-contracts.md; backend.md).
+// Business-owned output of Client creation, and the public response contract for POST /api/clients
+// returned as 201 Created (API-003/API-004; onion-boundaries.md: "Business owns ... translation
+// between Facade and Data models"). ClientBusiness builds this directly from the persisted Client
+// aggregate - it is never the EF Client entity itself (api-contracts.md; backend.md), and no
+// Controller/Facade code maps into or out of it; ClientContractMappingExtensions.ToServiceModel is
+// the only place that translation happens.
 //
 // ConcurrencyToken carries the Client's optimistic-concurrency value (DATA-008; mirrors
 // Client.RowVersion) opaquely as an ASCII/base64 string, not a raw byte array, so REST clients can
@@ -13,7 +17,7 @@ namespace ProjectChicago.Crm.Contracts.Clients;
 // PossibleDuplicates surfaces CLIENT-004 warnings without blocking creation or silently merging:
 // the Client is always created when validation/authorization succeed, and any likely-duplicate
 // matches ride along on the same response for the caller to review.
-public sealed record ClientResponse
+public sealed record ClientServiceModel
 {
     [JsonPropertyName("id")]
     public required Guid Id { get; init; }
