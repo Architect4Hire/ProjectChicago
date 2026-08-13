@@ -1,8 +1,10 @@
 using ProjectChicago.Contracts.Audit;
 using ProjectChicago.Crm.Contracts.Clients;
+using ProjectChicago.Crm.Contracts.Common;
 using ProjectChicago.Crm.Core.Data;
 using ProjectChicago.Crm.Core.Models.DataModels.Entities;
 using ProjectChicago.Crm.Core.Models.ServiceModels;
+using ProjectChicago.Crm.Core.Repositories;
 using ProjectChicago.Shared.Correlation;
 using CoreDuplicateMatchField = ProjectChicago.Crm.Core.Models.ServiceModels.ClientDuplicateMatchField;
 
@@ -81,6 +83,90 @@ public sealed class ClientBusiness : IClientBusiness
         return client.ToServiceModel(possibleDuplicates);
     }
 
+    public async Task<ClientServiceModel?> ChangeLifecycleStatusAsync(
+        Guid clientId,
+        ClientLifecycleStatusContract newStatus,
+        string expectedConcurrencyToken,
+        ActorContext actor,
+        RequestContext requestContext,
+        DateTime changedAtUtc,
+        CancellationToken cancellationToken)
+    {
+        var coreNewStatus = newStatus.ToCoreLifecycleStatus();
+
+        // GetForLifecycleChangeAsync throws ClientConcurrencyConflictException itself when
+        // expectedConcurrencyToken is stale (DATA-008), so a caller acting on an old read never
+        // reaches the CLIENT-010..015 transition-rule check below with data it never actually saw.
+        var client = await _clientData.GetForLifecycleChangeAsync(
+            clientId, expectedConcurrencyToken, cancellationToken).ConfigureAwait(false);
+        if (client is null)
+        {
+            return null;
+        }
+
+        var previousStatus = client.LifecycleStatus;
+        if (!ClientLifecycleTransitionRules.IsAllowed(previousStatus, coreNewStatus))
+        {
+            throw new InvalidOperationException(
+                $"Client lifecycle status cannot transition from '{previousStatus}' to '{coreNewStatus}'.");
+        }
+
+        // CLIENT-001-equivalent for a mutation: only an identified actor can be attributed as the
+        // modifier of a StatusChanged audit fact.
+        var modifiedBy = ResolveModifiedBy(actor);
+        client.ChangeLifecycleStatus(coreNewStatus, modifiedBy, changedAtUtc);
+
+        var auditFact = BuildLifecycleAuditFact(client, previousStatus, actor, requestContext);
+
+        await _clientData.SaveLifecycleChangeAsync(client, auditFact, cancellationToken).ConfigureAwait(false);
+
+        return client.ToServiceModel([]);
+    }
+
+    public async Task<PagedResponse<ClientServiceModel>> ListAsync(
+        ListClientsRequest request,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var filter = new ClientListFilter
+        {
+            Search = NormalizeOptional(request.Search),
+            LifecycleStatus = request.LifecycleStatus?.ToCoreLifecycleStatus(),
+            OwnerUserId = NormalizeOptional(request.OwnerUserId),
+            IsActive = request.IsActive,
+            // CLIENT-023 default sort: Name ascending - the same fallback ClientRepository.ApplySort
+            // applies for an unmatched ClientListSortField, so "no sort requested" and "an unmapped
+            // sort field" never disagree about the default ordering.
+            SortBy = request.SortBy?.ToCoreListSortField() ?? ClientListSortField.Name,
+            SortDirection = request.SortDirection?.ToCoreListSortDirection() ?? ClientListSortDirection.Ascending,
+            Page = request.Page,
+            PageSize = request.PageSize,
+        };
+
+        var result = await _clientData.ListAsync(filter, cancellationToken).ConfigureAwait(false);
+
+        return new PagedResponse<ClientServiceModel>
+        {
+            // possibleDuplicates is always empty for a list result - CLIENT-004 duplicate detection
+            // is a creation-time concern, not something a list/search result recomputes per row.
+            Items = result.Items.Select(client => client.ToServiceModel([])).ToList(),
+            Page = request.Page,
+            PageSize = request.PageSize,
+            TotalCount = result.TotalCount,
+            TotalPages = request.PageSize > 0
+                ? (int)Math.Ceiling(result.TotalCount / (double)request.PageSize)
+                : 0,
+        };
+    }
+
+    public async Task<ClientDetailServiceModel?> GetDetailAsync(Guid clientId, CancellationToken cancellationToken)
+    {
+        var detail = await _clientData.GetDetailAsync(clientId, cancellationToken).ConfigureAwait(false);
+
+        return detail?.ToClientDetailServiceModel();
+    }
+
     private static EntityMutationAudited BuildAuditFact(Client client, ActorContext actor, RequestContext requestContext)
     {
         return new EntityMutationAudited
@@ -135,6 +221,46 @@ public sealed class ClientBusiness : IClientBusiness
             fields.Add(fieldName);
         }
     }
+
+    // AUDIT-002's Previous/New values for the one field this use case changes. LifecycleStatus's
+    // enum-member-name form is never sensitive (AuditSensitiveFieldNames), so both values are safe
+    // to disclose (AUDIT-008) - unlike BuildAuditFact's Created-fact ChangedFields, this fact also
+    // carries the actual before/after values because CLIENT-011/012 requires the lifecycle history
+    // itself to be reconstructable from audit, not just the fact that "something" changed.
+    private static EntityMutationAudited BuildLifecycleAuditFact(
+        Client client, ClientLifecycleStatus previousStatus, ActorContext actor, RequestContext requestContext)
+    {
+        return new EntityMutationAudited
+        {
+            EventId = Guid.NewGuid().ToString(),
+            OccurredAtUtc = new DateTimeOffset(client.LastModifiedAtUtc, TimeSpan.Zero),
+            SourceService = AuditSourceServices.Crm,
+            EntityType = AuditEntityTypes.Client,
+            EntityId = client.Id,
+            Action = AuditActions.StatusChanged,
+            ActorId = actor.ActorId,
+            ActorType = ResolveAuditActorType(actor.ActorType),
+            TraceId = requestContext.TraceId,
+            CorrelationId = requestContext.CorrelationId,
+            CausationId = requestContext.CausationId,
+            ChangedFields = [nameof(Client.LifecycleStatus)],
+            PreviousValues = new Dictionary<string, string>
+            {
+                [nameof(Client.LifecycleStatus)] = previousStatus.ToString(),
+            },
+            NewValues = new Dictionary<string, string>
+            {
+                [nameof(Client.LifecycleStatus)] = client.LifecycleStatus.ToString(),
+            },
+        };
+    }
+
+    private static string ResolveModifiedBy(ActorContext actor) =>
+        string.IsNullOrWhiteSpace(actor.ActorId)
+            ? throw new ArgumentException(
+                "Client lifecycle transitions require an identified actor (User or Service) with a resolved ActorId.",
+                nameof(actor))
+            : actor.ActorId;
 
     private static IReadOnlyList<ClientDuplicateCandidate> BuildDuplicateCandidates(
         IReadOnlyList<Client> candidates,

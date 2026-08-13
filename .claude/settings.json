@@ -15,7 +15,8 @@
       "Bash(mkdir -p src/ProjectChicago.Crm.Core/Contracts/Clients src/ProjectChicago.Crm.Core/Contracts/Common)",
       "Bash(git mv *)",
       "Bash(rmdir src/ProjectChicago.Crm/Contracts/Clients src/ProjectChicago.Crm/Contracts/Common src/ProjectChicago.Crm/Contracts)",
-      "Edit(/.claude/skills/add-endpoint/**)"
+      "Edit(/.claude/skills/add-endpoint/**)",
+      "Bash(docker info *)"
     ]
   },
   "hooks": {

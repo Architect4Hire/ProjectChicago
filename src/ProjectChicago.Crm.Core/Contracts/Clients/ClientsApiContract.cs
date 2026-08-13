@@ -36,6 +36,45 @@ namespace ProjectChicago.Crm.Contracts.Clients;
 //   Pagination:      server-side only (CLIENT-024); DefaultPage/DefaultPageSize apply when the
 //                     corresponding query value is omitted, MaxPageSize bounds every request so an
 //                     unbounded result set can never be requested.
+//
+// -- GET api/clients/{clientId} (detail) --
+//   Method + route:  GET api/clients/{clientId}                                (API-002/API-003)
+//   Success:         200 OK, ClientDetailServiceModel body (CLIENT-030..032).
+//   Not found:       404 ProblemDetails (ApiProblemDetailsFactory.NotFound) when no Client with the
+//                     requested Id exists - IClientFacade.GetDetailAsync returns null for that case,
+//                     and only this controller action decides that null maps to 404.
+//   Unauthenticated: 401 ProblemDetails (ApiProblemDetailsFactory.AuthenticationRequired).
+//   Unauthorized:    403 ProblemDetails (ApiProblemDetailsFactory.Forbidden) when the caller lacks
+//                     RequiredReadAuthorizationPolicy (SEC-012/SEC-013).
+//   Unexpected:      500 ProblemDetails (ApiProblemDetailsFactory.InternalError).
+//
+// -- PATCH api/clients/{clientId}/lifecycle-status (lifecycle transition) --
+//   Method + route:  PATCH api/clients/{clientId}/lifecycle-status              (API-002/API-003;
+//                     PATCH - a partial, state-only update of the Client resource, distinct from a
+//                     future general PUT/PATCH api/clients/{clientId} that would replace broader
+//                     Client fields - RESTRICTION: this contract adds no other Client update action).
+//   Request:         ChangeClientLifecycleStatusViewModel body - NewStatus plus
+//                     ExpectedConcurrencyToken, the caller's last-known
+//                     ClientServiceModel.ConcurrencyToken (DATA-008).
+//   Success:         200 OK, ClientServiceModel body reflecting the new LifecycleStatus and
+//                     ConcurrencyToken (CLIENT-010..012).
+//   Validation:      400 ValidationProblemDetails (ApiProblemDetailsFactory.Validation) for a
+//                     malformed/undefined NewStatus or missing ExpectedConcurrencyToken (SEC-022),
+//                     and for a well-formed but disallowed transition (CLIENT-010..015 -
+//                     ClientLifecycleTransitionRules rejects it) surfaced as a NewStatus field
+//                     error - a transition request is invalid the same way a malformed field is,
+//                     not a race with another request.
+//   Not found:       404 ProblemDetails (ApiProblemDetailsFactory.NotFound) when no Client with the
+//                     requested Id exists.
+//   Conflict:        409 ProblemDetails (ApiProblemDetailsFactory.ConcurrencyConflict) when
+//                     ExpectedConcurrencyToken does not match the Client's currently persisted
+//                     version (DATA-008) - the caller must reload and retry.
+//   Unauthenticated: 401 ProblemDetails (ApiProblemDetailsFactory.AuthenticationRequired).
+//   Unauthorized:    403 ProblemDetails (ApiProblemDetailsFactory.Forbidden) when the caller lacks
+//                     RequiredAuthorizationPolicy (SEC-012/SEC-013 - a lifecycle transition is a
+//                     mutation, so it is authorized against the same Clients.Write policy as
+//                     creation, not the read policy).
+//   Unexpected:      500 ProblemDetails (ApiProblemDetailsFactory.InternalError).
 public static class ClientsApiContract
 {
     public const string Route = "api/clients";
@@ -43,6 +82,13 @@ public static class ClientsApiContract
     public const string CreateOperationId = "Clients_Create";
 
     public const string ListOperationId = "Clients_List";
+
+    public const string GetDetailOperationId = "Clients_GetDetail";
+
+    public const string ChangeLifecycleStatusOperationId = "Clients_ChangeLifecycleStatus";
+
+    // Relative to Route: "api/clients/{clientId}/lifecycle-status".
+    public const string LifecycleStatusRouteSuffix = "{clientId:guid}/lifecycle-status";
 
     // Named per security.md's "<CRM capability>.<Verb>" convention (its own examples - Accounts.*
     // - are illustrative; this repository's entity is named Client, so the capability follows that

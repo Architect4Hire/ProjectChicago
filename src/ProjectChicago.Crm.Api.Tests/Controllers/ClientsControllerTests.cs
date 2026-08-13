@@ -9,6 +9,8 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using ProjectChicago.Crm.Contracts.Clients;
+using ProjectChicago.Crm.Contracts.Common;
+using ProjectChicago.Crm.Core.Data;
 using ProjectChicago.Crm.Core.Facades;
 using Xunit;
 
@@ -186,6 +188,373 @@ public class ClientsControllerTests
         Assert.Equal("forbidden", root.GetProperty("errorCode").GetString());
     }
 
+    // --- List/search (CLIENT-020..024, API-005) ---
+
+    private static ClientServiceModel BuildListItem(string name, ClientLifecycleStatusContract status = ClientLifecycleStatusContract.Lead) => new()
+    {
+        Id = Guid.NewGuid(),
+        Name = name,
+        OwnerUserId = "owner-1",
+        LifecycleStatus = status,
+        CreatedAtUtc = FixedUtcNow,
+        CreatedBy = "actor-1",
+        LastModifiedAtUtc = FixedUtcNow,
+        LastModifiedBy = "actor-1",
+        ConcurrencyToken = Convert.ToBase64String([1, 2, 3, 4, 5, 6, 7, 8]),
+        PossibleDuplicates = [],
+    };
+
+    [Fact]
+    public async Task List_WhenAuthenticatedWithNoQuery_Returns200WithFacadesDefaultPagedResponse()
+    {
+        var expectedResponse = new PagedResponse<ClientServiceModel>
+        {
+            Items = [BuildListItem("Acme Corporation"), BuildListItem("Contoso Ltd")],
+            Page = ClientsApiContract.DefaultPage,
+            PageSize = ClientsApiContract.DefaultPageSize,
+            TotalCount = 2,
+            TotalPages = 1,
+        };
+        var facade = new FakeClientFacade { ListResultToReturn = expectedResponse };
+        using var factory = CreateFactory(facade, authenticated: true);
+        using var httpClient = factory.CreateClient();
+
+        var response = await httpClient.GetAsync(ClientsApiContract.Route);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<PagedResponse<ClientServiceModel>>();
+        Assert.NotNull(body);
+        Assert.Equal(2, body!.Items.Count);
+        Assert.Equal(ClientsApiContract.DefaultPage, body.Page);
+        Assert.Equal(ClientsApiContract.DefaultPageSize, body.PageSize);
+        Assert.True(facade.ListWasCalled);
+        Assert.Equal(ClientsApiContract.DefaultPage, facade.ReceivedListRequest?.Page);
+        Assert.Equal(ClientsApiContract.DefaultPageSize, facade.ReceivedListRequest?.PageSize);
+    }
+
+    [Fact]
+    public async Task List_WhenSearchFilterAndSortSupplied_PassesTheBoundQueryFieldsToTheFacade()
+    {
+        var facade = new FakeClientFacade
+        {
+            ListResultToReturn = new PagedResponse<ClientServiceModel>
+            {
+                Items = [BuildListItem("Acme Corporation", ClientLifecycleStatusContract.Active)],
+                Page = 2,
+                PageSize = 10,
+                TotalCount = 11,
+                TotalPages = 2,
+            },
+        };
+        using var factory = CreateFactory(facade, authenticated: true);
+        using var httpClient = factory.CreateClient();
+
+        var query =
+            "?Search=acme" +
+            "&LifecycleStatus=Active" +
+            "&OwnerUserId=owner-1" +
+            "&IsActive=true" +
+            "&SortBy=CreatedAtUtc" +
+            "&SortDirection=Descending" +
+            "&Page=2" +
+            "&PageSize=10";
+
+        var response = await httpClient.GetAsync($"{ClientsApiContract.Route}{query}");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.True(facade.ListWasCalled);
+        var received = facade.ReceivedListRequest;
+        Assert.NotNull(received);
+        Assert.Equal("acme", received!.Search);
+        Assert.Equal(ClientLifecycleStatusContract.Active, received.LifecycleStatus);
+        Assert.Equal("owner-1", received.OwnerUserId);
+        Assert.True(received.IsActive);
+        Assert.Equal(ClientSortField.CreatedAtUtc, received.SortBy);
+        Assert.Equal(ClientSortDirection.Descending, received.SortDirection);
+        Assert.Equal(2, received.Page);
+        Assert.Equal(10, received.PageSize);
+    }
+
+    [Fact]
+    public async Task List_WhenPageSizeExceedsMax_Returns400ValidationProblemDetailsAndNeverCallsFacade()
+    {
+        var facade = new FakeClientFacade { ListResultToReturn = new PagedResponse<ClientServiceModel> { Items = [], Page = 1, PageSize = 1, TotalCount = 0, TotalPages = 0 } };
+        using var factory = CreateFactory(facade, authenticated: true);
+        using var httpClient = factory.CreateClient();
+
+        var response = await httpClient.GetAsync($"{ClientsApiContract.Route}?PageSize={ClientsApiContract.MaxPageSize + 1}");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        var root = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
+        Assert.Equal("validation_failed", root.GetProperty("errorCode").GetString());
+        Assert.False(facade.ListWasCalled);
+    }
+
+    [Fact]
+    public async Task List_WhenSortByIsUndefined_Returns400ValidationProblemDetailsAndNeverCallsFacade()
+    {
+        var facade = new FakeClientFacade { ListResultToReturn = new PagedResponse<ClientServiceModel> { Items = [], Page = 1, PageSize = 1, TotalCount = 0, TotalPages = 0 } };
+        using var factory = CreateFactory(facade, authenticated: true);
+        using var httpClient = factory.CreateClient();
+
+        var response = await httpClient.GetAsync($"{ClientsApiContract.Route}?SortBy=NotARealSortField");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.False(facade.ListWasCalled);
+    }
+
+    [Fact]
+    public async Task List_WhenNoAuthenticatedActor_Returns401AndNeverCallsFacade()
+    {
+        var facade = new FakeClientFacade { ListResultToReturn = new PagedResponse<ClientServiceModel> { Items = [], Page = 1, PageSize = 1, TotalCount = 0, TotalPages = 0 } };
+        using var factory = CreateFactory(facade, authenticated: false);
+        using var httpClient = factory.CreateClient();
+
+        var response = await httpClient.GetAsync(ClientsApiContract.Route);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        var root = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
+        Assert.Equal("authentication_required", root.GetProperty("errorCode").GetString());
+        Assert.False(facade.ListWasCalled);
+    }
+
+    [Fact]
+    public async Task List_WhenFacadeThrowsUnauthorizedAccessException_Returns403ProblemDetails()
+    {
+        var facade = new FakeClientFacade { ListExceptionToThrow = new UnauthorizedAccessException("Not authorized.") };
+        using var factory = CreateFactory(facade, authenticated: true);
+        using var httpClient = factory.CreateClient();
+
+        var response = await httpClient.GetAsync(ClientsApiContract.Route);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        var root = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
+        Assert.Equal("forbidden", root.GetProperty("errorCode").GetString());
+    }
+
+    // --- Detail (CLIENT-030..032) ---
+
+    private static ClientDetailServiceModel BuildDetailResponse() => new()
+    {
+        Client = BuildResponse(),
+        ActiveProjects = [],
+        HistoricalProjects = [],
+        OpenTasks = [],
+        RecentlyCompletedTasks = [],
+    };
+
+    [Fact]
+    public async Task GetDetail_WhenAuthenticatedAndFound_Returns200WithTheFacadesResponseBody()
+    {
+        var expectedResponse = BuildDetailResponse();
+        var facade = new FakeClientFacade { DetailResultToReturn = expectedResponse };
+        using var factory = CreateFactory(facade, authenticated: true);
+        using var httpClient = factory.CreateClient();
+
+        var response = await httpClient.GetAsync($"{ClientsApiContract.Route}/{expectedResponse.Client.Id}");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<ClientDetailServiceModel>();
+        Assert.NotNull(body);
+        Assert.Equal(expectedResponse.Client.Id, body!.Client.Id);
+        Assert.True(facade.DetailWasCalled);
+        Assert.Equal(expectedResponse.Client.Id, facade.ReceivedDetailClientId);
+    }
+
+    [Fact]
+    public async Task GetDetail_WhenFacadeReturnsNull_Returns404ProblemDetails()
+    {
+        var facade = new FakeClientFacade { DetailResultToReturn = null };
+        using var factory = CreateFactory(facade, authenticated: true);
+        using var httpClient = factory.CreateClient();
+
+        var response = await httpClient.GetAsync($"{ClientsApiContract.Route}/{Guid.NewGuid()}");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        var root = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
+        Assert.Equal("resource_not_found", root.GetProperty("errorCode").GetString());
+        Assert.True(facade.DetailWasCalled);
+    }
+
+    [Fact]
+    public async Task GetDetail_WhenNoAuthenticatedActor_Returns401AndNeverCallsFacade()
+    {
+        var facade = new FakeClientFacade { DetailResultToReturn = BuildDetailResponse() };
+        using var factory = CreateFactory(facade, authenticated: false);
+        using var httpClient = factory.CreateClient();
+
+        var response = await httpClient.GetAsync($"{ClientsApiContract.Route}/{Guid.NewGuid()}");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        var root = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
+        Assert.Equal("authentication_required", root.GetProperty("errorCode").GetString());
+        Assert.False(facade.DetailWasCalled);
+    }
+
+    [Fact]
+    public async Task GetDetail_WhenFacadeThrowsUnauthorizedAccessException_Returns403ProblemDetails()
+    {
+        var facade = new FakeClientFacade { DetailExceptionToThrow = new UnauthorizedAccessException("Not authorized.") };
+        using var factory = CreateFactory(facade, authenticated: true);
+        using var httpClient = factory.CreateClient();
+
+        var response = await httpClient.GetAsync($"{ClientsApiContract.Route}/{Guid.NewGuid()}");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        var root = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
+        Assert.Equal("forbidden", root.GetProperty("errorCode").GetString());
+    }
+
+    // --- ChangeLifecycleStatus (CLIENT-010..015, API-001..007, SEC-012..013, DATA-008) ---
+
+    private static ChangeClientLifecycleStatusViewModel ValidLifecycleRequest(
+        ClientLifecycleStatusContract newStatus = ClientLifecycleStatusContract.Active,
+        string expectedConcurrencyToken = "dGVzdA==") => new()
+        {
+            NewStatus = newStatus,
+            ExpectedConcurrencyToken = expectedConcurrencyToken,
+        };
+
+    private static string LifecycleRoute(Guid clientId) => $"{ClientsApiContract.Route}/{clientId}/lifecycle-status";
+
+    [Fact]
+    public async Task ChangeLifecycleStatus_WhenAuthenticatedAndValid_Returns200WithTheFacadesResponseBody()
+    {
+        var expectedResponse = BuildResponse() with { LifecycleStatus = ClientLifecycleStatusContract.Active };
+        var facade = new FakeClientFacade { LifecycleResultToReturn = expectedResponse };
+        using var factory = CreateFactory(facade, authenticated: true);
+        using var httpClient = factory.CreateClient();
+
+        var response = await httpClient.PatchAsJsonAsync(LifecycleRoute(expectedResponse.Id), ValidLifecycleRequest());
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<ClientServiceModel>();
+        Assert.NotNull(body);
+        Assert.Equal(expectedResponse.Id, body!.Id);
+        Assert.Equal(ClientLifecycleStatusContract.Active, body.LifecycleStatus);
+        Assert.True(facade.LifecycleWasCalled);
+        Assert.Equal(ClientLifecycleStatusContract.Active, facade.ReceivedLifecycleRequest?.NewStatus);
+        Assert.Equal("dGVzdA==", facade.ReceivedLifecycleRequest?.ExpectedConcurrencyToken);
+    }
+
+    [Fact]
+    public async Task ChangeLifecycleStatus_WhenFacadeReturnsNull_Returns404ProblemDetails()
+    {
+        var facade = new FakeClientFacade { LifecycleResultToReturn = null };
+        using var factory = CreateFactory(facade, authenticated: true);
+        using var httpClient = factory.CreateClient();
+
+        var response = await httpClient.PatchAsJsonAsync(LifecycleRoute(Guid.NewGuid()), ValidLifecycleRequest());
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        var root = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
+        Assert.Equal("resource_not_found", root.GetProperty("errorCode").GetString());
+        Assert.True(facade.LifecycleWasCalled);
+    }
+
+    // --- Invalid transition (CLIENT-010..015 - ClientLifecycleTransitionRules rejection) ---
+
+    [Fact]
+    public async Task ChangeLifecycleStatus_WhenFacadeThrowsInvalidOperationException_Returns400ValidationProblemDetails()
+    {
+        var facade = new FakeClientFacade
+        {
+            LifecycleExceptionToThrow = new InvalidOperationException(
+                "Client lifecycle status cannot transition from 'Archived' to 'Active'."),
+        };
+        using var factory = CreateFactory(facade, authenticated: true);
+        using var httpClient = factory.CreateClient();
+
+        var response = await httpClient.PatchAsJsonAsync(LifecycleRoute(Guid.NewGuid()), ValidLifecycleRequest());
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        var root = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
+        Assert.Equal("validation_failed", root.GetProperty("errorCode").GetString());
+        Assert.True(root.GetProperty("errors").TryGetProperty("NewStatus", out _));
+    }
+
+    // --- Stale version conflict (DATA-008) ---
+
+    [Fact]
+    public async Task ChangeLifecycleStatus_WhenFacadeThrowsClientConcurrencyConflictException_Returns409ProblemDetails()
+    {
+        var facade = new FakeClientFacade
+        {
+            LifecycleExceptionToThrow = new ClientConcurrencyConflictException(Guid.NewGuid()),
+        };
+        using var factory = CreateFactory(facade, authenticated: true);
+        using var httpClient = factory.CreateClient();
+
+        var response = await httpClient.PatchAsJsonAsync(LifecycleRoute(Guid.NewGuid()), ValidLifecycleRequest());
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        var root = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
+        Assert.Equal("concurrency_conflict", root.GetProperty("errorCode").GetString());
+    }
+
+    // --- Unauthenticated (401) ---
+
+    [Fact]
+    public async Task ChangeLifecycleStatus_WhenNoAuthenticatedActor_Returns401AndNeverCallsFacade()
+    {
+        var facade = new FakeClientFacade { LifecycleResultToReturn = BuildResponse() };
+        using var factory = CreateFactory(facade, authenticated: false);
+        using var httpClient = factory.CreateClient();
+
+        var response = await httpClient.PatchAsJsonAsync(LifecycleRoute(Guid.NewGuid()), ValidLifecycleRequest());
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        var root = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
+        Assert.Equal("authentication_required", root.GetProperty("errorCode").GetString());
+        Assert.False(facade.LifecycleWasCalled);
+    }
+
+    // --- Forbidden (403 - Facade/IClientAuthorization policy rejection, SEC-012/013) ---
+
+    [Fact]
+    public async Task ChangeLifecycleStatus_WhenFacadeThrowsUnauthorizedAccessException_Returns403ProblemDetails()
+    {
+        var facade = new FakeClientFacade { LifecycleExceptionToThrow = new UnauthorizedAccessException("Not authorized.") };
+        using var factory = CreateFactory(facade, authenticated: true);
+        using var httpClient = factory.CreateClient();
+
+        var response = await httpClient.PatchAsJsonAsync(LifecycleRoute(Guid.NewGuid()), ValidLifecycleRequest());
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        var root = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
+        Assert.Equal("forbidden", root.GetProperty("errorCode").GetString());
+    }
+
+    // --- Validation (SEC-022; automatic [ApiController] model-state 400) ---
+
+    [Fact]
+    public async Task ChangeLifecycleStatus_WhenExpectedConcurrencyTokenIsMissing_Returns400ValidationProblemDetailsAndNeverCallsFacade()
+    {
+        var facade = new FakeClientFacade { LifecycleResultToReturn = BuildResponse() };
+        using var factory = CreateFactory(facade, authenticated: true);
+        using var httpClient = factory.CreateClient();
+
+        var response = await httpClient.PatchAsJsonAsync(
+            LifecycleRoute(Guid.NewGuid()), ValidLifecycleRequest() with { ExpectedConcurrencyToken = null! });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        var root = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
+        Assert.Equal("validation_failed", root.GetProperty("errorCode").GetString());
+        Assert.False(facade.LifecycleWasCalled);
+    }
+
     private static WebApplicationFactory<Program> CreateFactory(FakeClientFacade facade, bool authenticated)
     {
         Environment.SetEnvironmentVariable(
@@ -227,6 +596,74 @@ public class ClientsControllerTests
             }
 
             return Task.FromResult(ResultToReturn);
+        }
+
+        public PagedResponse<ClientServiceModel> ListResultToReturn { get; init; } = null!;
+
+        public Exception? ListExceptionToThrow { get; init; }
+
+        public bool ListWasCalled { get; private set; }
+
+        public ListClientsRequest? ReceivedListRequest { get; private set; }
+
+        public Task<PagedResponse<ClientServiceModel>> ListAsync(
+            ListClientsRequest request, CancellationToken cancellationToken)
+        {
+            ListWasCalled = true;
+            ReceivedListRequest = request;
+
+            if (ListExceptionToThrow is not null)
+            {
+                throw ListExceptionToThrow;
+            }
+
+            return Task.FromResult(ListResultToReturn);
+        }
+
+        public ClientDetailServiceModel? DetailResultToReturn { get; init; }
+
+        public Exception? DetailExceptionToThrow { get; init; }
+
+        public bool DetailWasCalled { get; private set; }
+
+        public Guid? ReceivedDetailClientId { get; private set; }
+
+        public Task<ClientDetailServiceModel?> GetDetailAsync(Guid clientId, CancellationToken cancellationToken)
+        {
+            DetailWasCalled = true;
+            ReceivedDetailClientId = clientId;
+
+            if (DetailExceptionToThrow is not null)
+            {
+                throw DetailExceptionToThrow;
+            }
+
+            return Task.FromResult(DetailResultToReturn);
+        }
+
+        public ClientServiceModel? LifecycleResultToReturn { get; init; }
+
+        public Exception? LifecycleExceptionToThrow { get; init; }
+
+        public bool LifecycleWasCalled { get; private set; }
+
+        public Guid? ReceivedLifecycleClientId { get; private set; }
+
+        public ChangeClientLifecycleStatusViewModel? ReceivedLifecycleRequest { get; private set; }
+
+        public Task<ClientServiceModel?> ChangeLifecycleStatusAsync(
+            Guid clientId, ChangeClientLifecycleStatusViewModel request, CancellationToken cancellationToken)
+        {
+            LifecycleWasCalled = true;
+            ReceivedLifecycleClientId = clientId;
+            ReceivedLifecycleRequest = request;
+
+            if (LifecycleExceptionToThrow is not null)
+            {
+                throw LifecycleExceptionToThrow;
+            }
+
+            return Task.FromResult(LifecycleResultToReturn);
         }
     }
 

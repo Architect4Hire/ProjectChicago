@@ -1,5 +1,6 @@
 using ProjectChicago.Contracts.Audit;
 using ProjectChicago.Crm.Core.Models.DataModels.Entities;
+using ProjectChicago.Crm.Core.Repositories;
 
 namespace ProjectChicago.Crm.Core.Data;
 
@@ -14,6 +15,23 @@ public interface IClientData
     // Both are persisted in the same database transaction, or neither is.
     Task CreateAsync(Client client, EntityMutationAudited auditFact, CancellationToken cancellationToken);
 
+    // Loads the tracked Client for a lifecycle-status transition (CLIENT-010..015) and verifies
+    // expectedConcurrencyToken (the caller's last-known Client.ConcurrencyToken) matches the
+    // Client's currently persisted RowVersion, rejecting a caller acting on stale data before
+    // Business ever evaluates the transition rules (DATA-008). Returns null when no Client with
+    // the requested Id exists. Throws ClientConcurrencyConflictException when
+    // expectedConcurrencyToken does not match.
+    Task<Client?> GetForLifecycleChangeAsync(
+        Guid clientId, string expectedConcurrencyToken, CancellationToken cancellationToken);
+
+    // Persists the Client instance GetForLifecycleChangeAsync returned - Business has already
+    // called Client.ChangeLifecycleStatus on it - plus the one EntityMutationAudited fact Business
+    // decided to emit for the StatusChanged mutation (AUDIT-001..003), atomically with the same
+    // CrmDbContext/SaveChangesAsync call CreateAsync uses (OUTBOX-001/002). Throws
+    // ClientConcurrencyConflictException if a concurrent write reached the database between the
+    // GetForLifecycleChangeAsync read and this save (DATA-008).
+    Task SaveLifecycleChangeAsync(Client client, EntityMutationAudited auditFact, CancellationToken cancellationToken);
+
     // Returns existing Clients whose Name/PrimaryEmail/PrimaryPhone matches one of the supplied,
     // already-normalized values (CLIENT-004). This is a read, not part of the create transaction -
     // Business calls it before building the new Client so the candidate does not match itself.
@@ -25,4 +43,17 @@ public interface IClientData
         string? normalizedEmail,
         string? normalizedPhone,
         CancellationToken cancellationToken);
+
+    // Returns one bounded, sorted page of Clients plus the total matching count (CLIENT-020..024).
+    // Thin passthrough to IClientRepository.ListAsync - Business has already translated the wire
+    // ListClientsRequest into filter, resolving defaults/bounds/LifecycleStatus translation before
+    // it reaches this seam (onion-boundaries.md: "Business owns ... translation between Facade and
+    // Data models").
+    Task<ClientListResult> ListAsync(ClientListFilter filter, CancellationToken cancellationToken);
+
+    // Returns the consolidated Client detail view (CLIENT-030..032), or null when no Client with
+    // the requested Id exists. Thin passthrough to IClientRepository.GetDetailAsync - this is a
+    // pure read with no transaction/outbox composition, so Data adds nothing beyond keeping
+    // Business repository-agnostic (onion-boundaries.md).
+    Task<ClientDetailQueryResult?> GetDetailAsync(Guid clientId, CancellationToken cancellationToken);
 }

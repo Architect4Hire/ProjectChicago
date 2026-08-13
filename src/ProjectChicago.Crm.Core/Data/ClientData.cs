@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using ProjectChicago.Contracts.Audit;
 using ProjectChicago.Crm.Core.Models.DataModels.Entities;
 using ProjectChicago.Crm.Core.Persistence;
@@ -14,7 +15,10 @@ namespace ProjectChicago.Crm.Core.Data;
 // transaction, so a failure on either side rolls back both (database.md Transactions: "Domain state
 // + outbox record commit in one database transaction"). This type does not validate the Client,
 // decide duplicate-warning policy, decide lifecycle rules, or talk to Service Bus - the relay
-// Function dispatches the row later (messaging.md).
+// Function dispatches the row later (messaging.md). GetForLifecycleChangeAsync/
+// SaveLifecycleChangeAsync follow the same pattern for the CLIENT-010..015 lifecycle-transition
+// use case: this type owns the DATA-008 concurrency-token check and the atomic state+outbox save,
+// never the transition-graph decision (ClientLifecycleTransitionRules, in Business).
 public sealed class ClientData : IClientData
 {
     // Matches the ContractType convention already established for this contract elsewhere in the
@@ -41,6 +45,62 @@ public sealed class ClientData : IClientData
         await _dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
 
+    public async Task<Client?> GetForLifecycleChangeAsync(
+        Guid clientId, string expectedConcurrencyToken, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(expectedConcurrencyToken))
+        {
+            throw new ArgumentException(
+                "expectedConcurrencyToken cannot be null or whitespace.", nameof(expectedConcurrencyToken));
+        }
+
+        var client = await _clientRepository.GetForUpdateAsync(clientId, cancellationToken).ConfigureAwait(false);
+        if (client is null)
+        {
+            return null;
+        }
+
+        if (!ParseConcurrencyToken(expectedConcurrencyToken).AsSpan().SequenceEqual(client.RowVersion))
+        {
+            throw new ClientConcurrencyConflictException(clientId);
+        }
+
+        return client;
+    }
+
+    public async Task SaveLifecycleChangeAsync(Client client, EntityMutationAudited auditFact, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(client);
+        ArgumentNullException.ThrowIfNull(auditFact);
+
+        _dbContext.OutboxMessages.Add(BuildOutboxMessage(auditFact));
+
+        try
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (DbUpdateConcurrencyException ex)
+        {
+            // A concurrent write reached the database between GetForLifecycleChangeAsync's read
+            // and this save - the same DATA-008 conflict GetForLifecycleChangeAsync's own token
+            // check catches when the race is wider, translated the same way for Business.
+            throw new ClientConcurrencyConflictException(client.Id, ex);
+        }
+    }
+
+    private static byte[] ParseConcurrencyToken(string token)
+    {
+        try
+        {
+            return Convert.FromBase64String(token);
+        }
+        catch (FormatException ex)
+        {
+            throw new ArgumentException(
+                "expectedConcurrencyToken must be a base64-encoded value.", nameof(token), ex);
+        }
+    }
+
     // Thin passthrough to ClientRepository - no transaction/policy work belongs here, this exists
     // only so Business can stay repository-agnostic (onion-boundaries.md).
     public Task<IReadOnlyList<Client>> FindDuplicateCandidatesAsync(
@@ -49,6 +109,17 @@ public sealed class ClientData : IClientData
         string? normalizedPhone,
         CancellationToken cancellationToken) =>
         _clientRepository.FindDuplicateCandidatesAsync(normalizedName, normalizedEmail, normalizedPhone, cancellationToken);
+
+    // Thin passthrough to ClientRepository, same as FindDuplicateCandidatesAsync above - no
+    // transaction/policy work belongs here, this exists only so Business can stay
+    // repository-agnostic (onion-boundaries.md).
+    public Task<ClientListResult> ListAsync(ClientListFilter filter, CancellationToken cancellationToken) =>
+        _clientRepository.ListAsync(filter, cancellationToken);
+
+    // Thin passthrough to ClientRepository.GetDetailAsync (CLIENT-030..032) - same
+    // repository-agnostic-Business rationale as the passthroughs above.
+    public Task<ClientDetailQueryResult?> GetDetailAsync(Guid clientId, CancellationToken cancellationToken) =>
+        _clientRepository.GetDetailAsync(clientId, cancellationToken);
 
     private static OutboxMessage BuildOutboxMessage(EntityMutationAudited auditFact)
     {

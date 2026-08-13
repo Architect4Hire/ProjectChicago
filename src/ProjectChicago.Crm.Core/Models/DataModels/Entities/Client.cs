@@ -108,6 +108,25 @@ public sealed class Client
         };
     }
 
+    // CLIENT-010..012: mutates the current lifecycle status in place. Whether newStatus is a
+    // legal transition from the current status is a Business-layer policy decision
+    // (ClientLifecycleTransitionRules) made before this method is ever called - this method only
+    // enforces the same low-level invariants Create does (a defined enum value, a UTC timestamp,
+    // an identified modifier), never transition-graph rules.
+    public void ChangeLifecycleStatus(ClientLifecycleStatus newStatus, string modifiedBy, DateTime modifiedAtUtc)
+    {
+        if (!Enum.IsDefined(newStatus))
+        {
+            throw new ArgumentException("Lifecycle status must be a defined ClientLifecycleStatus value.", nameof(newStatus));
+        }
+
+        var validModifiedAtUtc = RequireUtc(modifiedAtUtc, nameof(modifiedAtUtc));
+
+        LifecycleStatus = newStatus;
+        LastModifiedBy = RequireText(modifiedBy, nameof(modifiedBy));
+        LastModifiedAtUtc = validModifiedAtUtc;
+    }
+
     private static string RequireText(string? value, string paramName) =>
         string.IsNullOrWhiteSpace(value)
             ? throw new ArgumentException("Value cannot be null or whitespace.", paramName)

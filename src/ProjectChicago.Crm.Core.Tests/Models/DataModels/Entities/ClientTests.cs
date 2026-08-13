@@ -221,4 +221,72 @@ public class ClientTests
 
         Assert.Equal("createdAtUtc", exception.ParamName);
     }
+
+    // --- ChangeLifecycleStatus (CLIENT-010..015) ---
+    //
+    // These are the low-level invariants ChangeLifecycleStatus itself enforces. Whether a
+    // particular status-to-status transition is allowed is a Business-layer policy decision
+    // (ClientLifecycleTransitionRules) exercised in ClientBusinessTests, not here - this entity
+    // method accepts any defined status change and never inspects the previous status.
+
+    [Fact]
+    public void ChangeLifecycleStatus_UpdatesStatusAndLastModifiedMetadata()
+    {
+        var client = CreateValidClient(lifecycleStatus: ClientLifecycleStatus.Lead);
+        var modifiedAtUtc = CreatedAtUtc.AddDays(1);
+
+        client.ChangeLifecycleStatus(ClientLifecycleStatus.Active, "modifier-1", modifiedAtUtc);
+
+        Assert.Equal(ClientLifecycleStatus.Active, client.LifecycleStatus);
+        Assert.Equal("modifier-1", client.LastModifiedBy);
+        Assert.Equal(modifiedAtUtc, client.LastModifiedAtUtc);
+    }
+
+    [Fact]
+    public void ChangeLifecycleStatus_DoesNotChangeCreatedMetadata()
+    {
+        var client = CreateValidClient(lifecycleStatus: ClientLifecycleStatus.Lead);
+
+        client.ChangeLifecycleStatus(ClientLifecycleStatus.Active, "modifier-1", CreatedAtUtc.AddDays(1));
+
+        Assert.Equal(CreatedAtUtc, client.CreatedAtUtc);
+        Assert.Equal("creator-1", client.CreatedBy);
+    }
+
+    [Fact]
+    public void ChangeLifecycleStatus_WithAnUndefinedStatus_Throws()
+    {
+        var client = CreateValidClient();
+
+        var exception = Assert.Throws<ArgumentException>(
+            () => client.ChangeLifecycleStatus((ClientLifecycleStatus)999, "modifier-1", CreatedAtUtc.AddDays(1)));
+
+        Assert.Equal("newStatus", exception.ParamName);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void ChangeLifecycleStatus_WithNullOrWhitespaceModifiedBy_Throws(string? modifiedBy)
+    {
+        var client = CreateValidClient();
+
+        var exception = Assert.Throws<ArgumentException>(
+            () => client.ChangeLifecycleStatus(ClientLifecycleStatus.Active, modifiedBy!, CreatedAtUtc.AddDays(1)));
+
+        Assert.Equal("modifiedBy", exception.ParamName);
+    }
+
+    [Fact]
+    public void ChangeLifecycleStatus_WithLocalModifiedAtUtc_Throws()
+    {
+        var client = CreateValidClient();
+        var localTime = DateTime.SpecifyKind(CreatedAtUtc.AddDays(1), DateTimeKind.Local);
+
+        var exception = Assert.Throws<ArgumentException>(
+            () => client.ChangeLifecycleStatus(ClientLifecycleStatus.Active, "modifier-1", localTime));
+
+        Assert.Equal("modifiedAtUtc", exception.ParamName);
+    }
 }
