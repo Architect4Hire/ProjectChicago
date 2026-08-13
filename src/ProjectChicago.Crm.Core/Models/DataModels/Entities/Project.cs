@@ -122,6 +122,80 @@ public sealed class Project
         };
     }
 
+    // PROJECT-010..014: transitions Project status and records completion timestamp when moving to
+    // Completed status. Allowed transitions: Planned→Active, Planned→Cancelled, Active→OnHold,
+    // Active→Completed (requires acknowledgement of open Tasks), OnHold→Active, OnHold→Cancelled,
+    // Completed/Cancelled→Archived. All other transitions are rejected.
+    // Business layer validates open Tasks before calling this when target is Completed.
+    public void TransitionStatus(
+        ProjectStatus targetStatus,
+        string modifiedBy,
+        DateTime modifiedAtUtc,
+        DateTime? completionTimestampUtc = null)
+    {
+        var validModifiedAtUtc = RequireUtc(modifiedAtUtc, nameof(modifiedAtUtc));
+
+        if (!IsValidTransition(Status, targetStatus))
+        {
+            throw new InvalidOperationException(
+                $"Cannot transition Project status from {Status} to {targetStatus}.");
+        }
+
+        if (targetStatus == ProjectStatus.Completed)
+        {
+            var validCompletionTimestampUtc = completionTimestampUtc.HasValue
+                ? RequireUtc(completionTimestampUtc.Value, nameof(completionTimestampUtc))
+                : throw new ArgumentException(
+                    "Completing a Project requires an actual completion timestamp (PROJECT-012).",
+                    nameof(completionTimestampUtc));
+
+            ActualCompletionDateUtc = validCompletionTimestampUtc;
+        }
+        else if (targetStatus != ProjectStatus.Archived && Status == ProjectStatus.Completed)
+        {
+            // Only Archived can transition away from Completed, and it preserves the completion timestamp.
+            throw new InvalidOperationException(
+                $"A Completed Project can only transition to Archived, not {targetStatus}.");
+        }
+
+        Status = targetStatus;
+        LastModifiedBy = RequireText(modifiedBy, nameof(modifiedBy));
+        LastModifiedAtUtc = validModifiedAtUtc;
+    }
+
+    // PROJECT-014: archive is non-destructive; archived Projects retain all history and can transition
+    // from either Completed or Cancelled status.
+    public void Archive(string modifiedBy, DateTime modifiedAtUtc)
+    {
+        if (Status != ProjectStatus.Completed && Status != ProjectStatus.Cancelled)
+        {
+            throw new InvalidOperationException(
+                $"Only Completed or Cancelled Projects can be archived. Current status: {Status}.");
+        }
+
+        var validModifiedAtUtc = RequireUtc(modifiedAtUtc, nameof(modifiedAtUtc));
+        Status = ProjectStatus.Archived;
+        LastModifiedBy = RequireText(modifiedBy, nameof(modifiedBy));
+        LastModifiedAtUtc = validModifiedAtUtc;
+    }
+
+    private static bool IsValidTransition(ProjectStatus current, ProjectStatus target)
+    {
+        // PROJECT-010: allowed status transitions. All others are rejected.
+        return (current, target) switch
+        {
+            (ProjectStatus.Planned, ProjectStatus.Active) => true,
+            (ProjectStatus.Planned, ProjectStatus.Cancelled) => true,
+            (ProjectStatus.Active, ProjectStatus.OnHold) => true,
+            (ProjectStatus.Active, ProjectStatus.Completed) => true,
+            (ProjectStatus.OnHold, ProjectStatus.Active) => true,
+            (ProjectStatus.OnHold, ProjectStatus.Cancelled) => true,
+            (ProjectStatus.Completed, ProjectStatus.Archived) => true,
+            (ProjectStatus.Cancelled, ProjectStatus.Archived) => true,
+            _ => false,
+        };
+    }
+
     private static string RequireText(string? value, string paramName) =>
         string.IsNullOrWhiteSpace(value)
             ? throw new ArgumentException("Value cannot be null or whitespace.", paramName)

@@ -15,6 +15,11 @@ public sealed class CrmDbContextFactory : IDesignTimeDbContextFactory<CrmDbConte
 {
     public CrmDbContext CreateDbContext(string[] args)
     {
+        return CreateDbContext();
+    }
+
+    public CrmDbContext CreateDbContext()
+    {
         var optionsBuilder = new DbContextOptionsBuilder<CrmDbContext>()
             .UseSqlServer("Server=.;Database=CrmDb;Trusted_Connection=True;TrustServerCertificate=True;");
 
