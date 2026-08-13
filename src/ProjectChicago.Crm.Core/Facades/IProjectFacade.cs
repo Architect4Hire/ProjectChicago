@@ -48,4 +48,15 @@ public interface IProjectFacade
         Guid projectId,
         ChangeProjectStatusViewModel request,
         CancellationToken cancellationToken);
+
+    // Verifies SEC-012/013 authorization (Projects.Write) for the resolved actor, validates that
+    // projectId is not Guid.Empty and that request has valid ExpectedConcurrencyToken, and delegates
+    // to Business for the DATA-008 concurrency check, persistence, and mapping. Returns null when no
+    // Project with the requested Id exists - this Facade does not decide 404 semantics; that mapping
+    // belongs to the Controller. Throws UnauthorizedAccessException when the resolved actor lacks
+    // the Projects.Write policy, System.ComponentModel.DataAnnotations.ValidationException when
+    // projectId is empty or request fails transport validation, InvalidOperationException when the
+    // expectedConcurrencyToken is stale (DATA-008, 409 Conflict).
+    Task<ProjectServiceModel?> ArchiveAsync(
+        Guid projectId, ArchiveProjectViewModel request, CancellationToken cancellationToken);
 }

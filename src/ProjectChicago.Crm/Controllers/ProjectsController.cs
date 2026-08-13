@@ -18,6 +18,7 @@ namespace ProjectChicago.Crm.Controllers;
 // and PROJECT-001..002 business rules live in Facade/Business - this controller injects no
 // Business/Data/Repository/DbContext and never publishes directly (RESTRICTION).
 [ApiController]
+[Route("")]
 public sealed class ProjectsController : ControllerBase
 {
     private readonly IProjectFacade _projectFacade;
@@ -201,6 +202,60 @@ public sealed class ProjectsController : ControllerBase
                 });
 
             return BadRequest(problem);
+        }
+    }
+
+    // DELETE /api/projects/{projectId}/archive (PROJECT-014, API-001..007, SEC-012..013,
+    // DATA-008, ERROR-001..005). Transport-only: binds the route projectId and wire request,
+    // applies the coarse "is there an authenticated actor at all" check, calls the single
+    // IProjectFacade use case, and maps its typed result/exception to the standard HTTP/ProblemDetails
+    // shape (onion-boundaries.md; add-endpoint skill step 3). No field-by-field request/response
+    // mapping lives here - IProjectFacade accepts and returns the wire contract types directly,
+    // and ProjectContractMappingExtensions (Business) owns the translation to/from Business models.
+    // Fine-grained SEC-012/013 policy authorization ("Projects.Write") and DATA-008 concurrency
+    // conflict detection all live in Facade/Business - this controller injects no Business/Data/
+    // Repository/DbContext and never publishes directly (RESTRICTION).
+    [Route("api/projects/{projectId}/archive")]
+    [HttpDelete(Name = ProjectsApiContract.ArchiveOperationId)]
+    [ProducesResponseType(typeof(ProjectServiceModel), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<ProjectServiceModel>> Archive(
+        Guid projectId,
+        [FromBody] ArchiveProjectViewModel request,
+        CancellationToken cancellationToken)
+    {
+        if (User.Identity is not { IsAuthenticated: true })
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            // PROJECT-014: the Facade validates the request, checks authorization for
+            // Projects.Write capability, validates the projectId, and delegates to
+            // IProjectBusiness for persistence and mapping into ProjectServiceModel.
+            // Returns 404 when the Project does not exist.
+            var response = await _projectFacade.ArchiveAsync(projectId, request, cancellationToken)
+                .ConfigureAwait(false);
+
+            return response is null ? NotFound() : Ok(response);
+        }
+        catch (ProjectConcurrencyConflictException)
+        {
+            // DATA-008: optimistic concurrency conflict (RowVersion mismatch). The client supplied
+            // an expectedConcurrencyToken that no longer matches the current Project state.
+            var requestContext = HttpRequestContextFactory.Create(HttpContext);
+            return Conflict(ApiProblemDetailsFactory.ConcurrencyConflict(requestContext));
+        }
+        catch (InvalidOperationException ex)
+        {
+            // PROJECT-014: archive operation rejected by business rules.
+            var requestContext = HttpRequestContextFactory.Create(HttpContext);
+            return Conflict(ApiProblemDetailsFactory.ConcurrencyConflict(requestContext, ex.Message));
         }
     }
 }

@@ -90,4 +90,23 @@ public static class ProjectsApiContract
     // Authorization for Projects.TransitionStatus uses Projects.Write policy (PROJECT-010..014:
     // a user authorized to transition Project status and complete Projects with acknowledgement).
     public const string TransitionStatusRequiredAuthorizationPolicy = "Projects.Write";
+
+    // Archive Project operation (PROJECT-014, API-001..007, SEC-012..013, DATA-008). Method + route:
+    // DELETE api/projects/{projectId}/archive (API-003; Project archival is a destructive operation,
+    // so DELETE is the appropriate verb per API-003). Request: ArchiveProjectViewModel body bound
+    // from the request JSON. Success: 200 OK, ProjectServiceModel body (the archived Project state).
+    // Validation: 400 ValidationProblemDetails for malformed/out-of-bounds request fields
+    // (SEC-022, DATA-008 token validation). Invalid projectId in the route parameter is detected by
+    // MVC binding and produces a 400 as well. Not found: 404 when the Project referenced by
+    // projectId does not exist. Unauthenticated: 401 ProblemDetails. Unauthorized: 403
+    // ProblemDetails when the caller lacks Projects.Write policy (SEC-012/013). Concurrency: 409
+    // Conflict when expectedConcurrencyToken (DATA-008) does not match the Project's current
+    // RowVersion. The client must refresh and retry. Unexpected: 500 ProblemDetails.
+    public const string ArchiveRoute = "api/projects/{projectId}/archive";
+
+    public const string ArchiveOperationId = "Projects_Archive";
+
+    // Authorization for Projects.Archive uses Projects.Write policy (PROJECT-014: a user authorized
+    // to archive Projects).
+    public const string ArchiveRequiredAuthorizationPolicy = "Projects.Write";
 }

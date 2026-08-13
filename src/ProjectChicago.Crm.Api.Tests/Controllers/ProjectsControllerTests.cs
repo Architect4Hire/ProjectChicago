@@ -743,6 +743,198 @@ public class ProjectsControllerTests
         Assert.Equal("validation_failed", root.GetProperty("errorCode").GetString());
     }
 
+    // --- Archive Project (PROJECT-014, API-001..007, SEC-012..013, DATA-008) ---
+
+    [Fact]
+    public async Task Archive_WhenAuthenticatedAndValid_Returns200WithArchivedProjectServiceModel()
+    {
+        var projectId = Guid.NewGuid();
+        var expectedResponse = BuildResponse(projectId: projectId) with
+        {
+            Status = ProjectStatusContract.Archived,
+        };
+        var request = new ArchiveProjectViewModel
+        {
+            ExpectedConcurrencyToken = Convert.ToBase64String([1, 2, 3, 4, 5, 6, 7, 8]),
+        };
+        var facade = new FakeProjectFacade { ArchiveResultToReturn = expectedResponse };
+        using var factory = CreateFactory(facade, authenticated: true);
+        using var httpClient = factory.CreateClient();
+
+        var httpRequest = new HttpRequestMessage(HttpMethod.Delete, $"api/projects/{projectId}/archive")
+        {
+            Content = JsonContent.Create(request),
+        };
+        var response = await httpClient.SendAsync(httpRequest);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<ProjectServiceModel>();
+        Assert.NotNull(body);
+        Assert.Equal(expectedResponse.Id, body!.Id);
+        Assert.Equal(ProjectStatusContract.Archived, body.Status);
+    }
+
+    [Fact]
+    public async Task Archive_PassesTheBoundRequestFieldsToTheFacade()
+    {
+        var projectId = Guid.NewGuid();
+        var facade = new FakeProjectFacade { ArchiveResultToReturn = BuildResponse() };
+        using var factory = CreateFactory(facade, authenticated: true);
+        using var httpClient = factory.CreateClient();
+        var token = Convert.ToBase64String([1, 2, 3, 4, 5, 6, 7, 8]);
+        var request = new ArchiveProjectViewModel
+        {
+            ExpectedConcurrencyToken = token,
+        };
+
+        var httpRequest = new HttpRequestMessage(HttpMethod.Delete, $"api/projects/{projectId}/archive")
+        {
+            Content = JsonContent.Create(request),
+        };
+        await httpClient.SendAsync(httpRequest);
+
+        Assert.True(facade.ArchiveWasCalled);
+        Assert.Equal(projectId, facade.ReceivedArchiveProjectId);
+        Assert.Equal(token, facade.ReceivedArchiveRequest?.ExpectedConcurrencyToken);
+    }
+
+    [Fact]
+    public async Task Archive_WhenExpectedConcurrencyTokenIsMissing_Returns400ValidationProblemDetails()
+    {
+        var projectId = Guid.NewGuid();
+        var facade = new FakeProjectFacade { ArchiveResultToReturn = BuildResponse() };
+        using var factory = CreateFactory(facade, authenticated: true);
+        using var httpClient = factory.CreateClient();
+
+        var httpRequest = new HttpRequestMessage(HttpMethod.Delete, $"api/projects/{projectId}/archive")
+        {
+            Content = JsonContent.Create(new { }),
+        };
+        var response = await httpClient.SendAsync(httpRequest);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        Assert.False(facade.ArchiveWasCalled);
+    }
+
+    [Fact]
+    public async Task Archive_WhenProjectDoesNotExist_Returns404()
+    {
+        var projectId = Guid.NewGuid();
+        var facade = new FakeProjectFacade { ArchiveResultToReturn = null };
+        using var factory = CreateFactory(facade, authenticated: true);
+        using var httpClient = factory.CreateClient();
+        var request = new ArchiveProjectViewModel
+        {
+            ExpectedConcurrencyToken = Convert.ToBase64String([1, 2, 3, 4, 5, 6, 7, 8]),
+        };
+
+        var httpRequest = new HttpRequestMessage(HttpMethod.Delete, $"api/projects/{projectId}/archive")
+        {
+            Content = JsonContent.Create(request),
+        };
+        var response = await httpClient.SendAsync(httpRequest);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Archive_WhenNoAuthenticatedActor_Returns401AndNeverCallsFacade()
+    {
+        var projectId = Guid.NewGuid();
+        var facade = new FakeProjectFacade { ArchiveResultToReturn = BuildResponse() };
+        using var factory = CreateFactory(facade, authenticated: false);
+        using var httpClient = factory.CreateClient();
+        var request = new ArchiveProjectViewModel
+        {
+            ExpectedConcurrencyToken = "token123",
+        };
+
+        var httpRequest = new HttpRequestMessage(HttpMethod.Delete, $"api/projects/{projectId}/archive")
+        {
+            Content = JsonContent.Create(request),
+        };
+        var response = await httpClient.SendAsync(httpRequest);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.False(facade.ArchiveWasCalled);
+    }
+
+    [Fact]
+    public async Task Archive_WhenFacadeThrowsUnauthorizedAccessException_Returns403ProblemDetails()
+    {
+        var projectId = Guid.NewGuid();
+        var facade = new FakeProjectFacade
+        {
+            ExceptionToThrow = new UnauthorizedAccessException("Not authorized."),
+        };
+        using var factory = CreateFactory(facade, authenticated: true);
+        using var httpClient = factory.CreateClient();
+        var request = new ArchiveProjectViewModel
+        {
+            ExpectedConcurrencyToken = "token123",
+        };
+
+        var httpRequest = new HttpRequestMessage(HttpMethod.Delete, $"api/projects/{projectId}/archive")
+        {
+            Content = JsonContent.Create(request),
+        };
+        var response = await httpClient.SendAsync(httpRequest);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+    }
+
+    [Fact]
+    public async Task Archive_WhenConcurrencyTokenIsStale_Returns409Conflict()
+    {
+        var projectId = Guid.NewGuid();
+        var facade = new FakeProjectFacade
+        {
+            ExceptionToThrow = new ProjectConcurrencyConflictException(projectId),
+        };
+        using var factory = CreateFactory(facade, authenticated: true);
+        using var httpClient = factory.CreateClient();
+        var request = new ArchiveProjectViewModel
+        {
+            ExpectedConcurrencyToken = "stale-token",
+        };
+
+        var httpRequest = new HttpRequestMessage(HttpMethod.Delete, $"api/projects/{projectId}/archive")
+        {
+            Content = JsonContent.Create(request),
+        };
+        var response = await httpClient.SendAsync(httpRequest);
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+    }
+
+    [Fact]
+    public async Task Archive_WhenArchiveRejectedByBusiness_Returns409Conflict()
+    {
+        var projectId = Guid.NewGuid();
+        var facade = new FakeProjectFacade
+        {
+            ExceptionToThrow = new InvalidOperationException("Cannot archive Project in current state."),
+        };
+        using var factory = CreateFactory(facade, authenticated: true);
+        using var httpClient = factory.CreateClient();
+        var request = new ArchiveProjectViewModel
+        {
+            ExpectedConcurrencyToken = "token123",
+        };
+
+        var httpRequest = new HttpRequestMessage(HttpMethod.Delete, $"api/projects/{projectId}/archive")
+        {
+            Content = JsonContent.Create(request),
+        };
+        var response = await httpClient.SendAsync(httpRequest);
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+    }
+
     // --- Test setup ---
 
     private const string CrmDbConnectionStringEnvironmentVariableName = "ConnectionStrings__CrmDb";
@@ -777,6 +969,8 @@ public class ProjectsControllerTests
 
         public ProjectServiceModel? TransitionStatusResultToReturn { get; init; }
 
+        public ProjectServiceModel? ArchiveResultToReturn { get; init; }
+
         public Exception? ExceptionToThrow { get; init; }
 
         public bool WasCalled { get; private set; }
@@ -787,6 +981,8 @@ public class ProjectsControllerTests
 
         public bool TransitionStatusWasCalled { get; private set; }
 
+        public bool ArchiveWasCalled { get; private set; }
+
         public CreateProjectViewModel? ReceivedRequest { get; private set; }
 
         public ListProjectsRequest? ReceivedListRequest { get; private set; }
@@ -796,6 +992,10 @@ public class ProjectsControllerTests
         public Guid ReceivedTransitionStatusProjectId { get; private set; }
 
         public ChangeProjectStatusViewModel? ReceivedTransitionStatusRequest { get; private set; }
+
+        public Guid ReceivedArchiveProjectId { get; private set; }
+
+        public ArchiveProjectViewModel? ReceivedArchiveRequest { get; private set; }
 
         public Task<ProjectServiceModel> CreateAsync(
             CreateProjectViewModel request, CancellationToken cancellationToken)
@@ -859,6 +1059,21 @@ public class ProjectsControllerTests
             }
 
             return Task.FromResult(TransitionStatusResultToReturn);
+        }
+
+        public Task<ProjectServiceModel?> ArchiveAsync(
+            Guid projectId, ArchiveProjectViewModel request, CancellationToken cancellationToken)
+        {
+            ArchiveWasCalled = true;
+            ReceivedArchiveProjectId = projectId;
+            ReceivedArchiveRequest = request;
+
+            if (ExceptionToThrow is not null)
+            {
+                throw ExceptionToThrow;
+            }
+
+            return Task.FromResult(ArchiveResultToReturn);
         }
     }
 

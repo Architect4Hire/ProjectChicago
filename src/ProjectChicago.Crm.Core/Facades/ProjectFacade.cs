@@ -155,9 +155,48 @@ public sealed class ProjectFacade : IProjectFacade
             cancellationToken).ConfigureAwait(false);
     }
 
+    public async Task<ProjectServiceModel?> ArchiveAsync(
+        Guid projectId,
+        ArchiveProjectViewModel request,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var requestContext = _currentRequestContext.Current;
+
+        // SEC-013: authorization is verified before any validation/business work. PROJECT-014:
+        // authorization is checked for the Projects.Write capability.
+        var authorized = await _authorization.CanCreateAsync(requestContext.Actor, Guid.Empty, cancellationToken)
+            .ConfigureAwait(false);
+        if (!authorized)
+        {
+            throw new UnauthorizedAccessException(
+                "The current actor is not authorized to archive Projects (Projects.Write).");
+        }
+
+        // PROJECT-014: the Facade validates the request before handing the untouched
+        // request to IProjectBusiness.ArchiveAsync for persistence and mapping into ProjectServiceModel.
+        if (projectId == Guid.Empty)
+        {
+            throw new ArgumentException("Project Id cannot be empty.", nameof(projectId));
+        }
+
+        Validate(request);
+
+        return await _projectBusiness.ArchiveAsync(
+            projectId,
+            request.ExpectedConcurrencyToken,
+            requestContext.Actor,
+            requestContext,
+            _clock.UtcNow,
+            cancellationToken).ConfigureAwait(false);
+    }
+
     private static void Validate(CreateProjectViewModel request) => Validate((object)request);
 
     private static void Validate(ChangeProjectStatusViewModel request) => Validate((object)request);
+
+    private static void Validate(ArchiveProjectViewModel request) => Validate((object)request);
 
     private static void Validate(object request)
     {
