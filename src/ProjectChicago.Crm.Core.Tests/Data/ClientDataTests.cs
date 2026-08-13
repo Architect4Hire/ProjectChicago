@@ -442,4 +442,276 @@ public class ClientDataTests : IClassFixture<MsSqlContainerFixture>
 
         Assert.Null(result);
     }
+
+    // --- GetForUpdateAsync / SaveUpdateAsync (CLIENT-002, AUDIT-001..008, OUTBOX-001/002, DATA-008) ---
+
+    [Fact]
+    public async Task GetForUpdateAsync_ReturnsTheTrackedClientWhenItExists()
+    {
+        var db = nameof(GetForUpdateAsync_ReturnsTheTrackedClientWhenItExists);
+        await using var context = await CreateContextAsync(db);
+        var data = new ClientData(context, new ClientRepository(context));
+        var clientId = Guid.NewGuid();
+        var client = CreateClient(clientId, "Acme Corporation");
+        await data.CreateAsync(client, CreateAuditFact(clientId), CancellationToken.None);
+
+        await using var updateContext = await CreateContextAsync(db);
+        var updateData = new ClientData(updateContext, new ClientRepository(updateContext));
+        var concurrencyToken = Convert.ToBase64String(client.RowVersion);
+
+        var result = await updateData.GetForUpdateAsync(clientId, concurrencyToken, CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal("Acme Corporation", result!.Name);
+    }
+
+    [Fact]
+    public async Task GetForUpdateAsync_WhenTheClientDoesNotExist_ReturnsNull()
+    {
+        var db = nameof(GetForUpdateAsync_WhenTheClientDoesNotExist_ReturnsNull);
+        await using var context = await CreateContextAsync(db);
+        var data = new ClientData(context, new ClientRepository(context));
+
+        var result = await data.GetForUpdateAsync(Guid.NewGuid(), "dGVzdA==", CancellationToken.None);
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task GetForUpdateAsync_WhenConcurrencyTokenDoesNotMatch_ThrowsClientConcurrencyConflictException()
+    {
+        var db = nameof(GetForUpdateAsync_WhenConcurrencyTokenDoesNotMatch_ThrowsClientConcurrencyConflictException);
+        await using var context = await CreateContextAsync(db);
+        var data = new ClientData(context, new ClientRepository(context));
+        var clientId = Guid.NewGuid();
+        await data.CreateAsync(CreateClient(clientId), CreateAuditFact(clientId), CancellationToken.None);
+
+        await using var updateContext = await CreateContextAsync(db);
+        var updateData = new ClientData(updateContext, new ClientRepository(updateContext));
+
+        await Assert.ThrowsAsync<ClientConcurrencyConflictException>(
+            () => updateData.GetForUpdateAsync(clientId, "c3RhbGUtdG9rZW4=", CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task SaveUpdateAsync_PersistsTheClientAndOneOutboxMessage_InTheSameCommit()
+    {
+        var db = nameof(SaveUpdateAsync_PersistsTheClientAndOneOutboxMessage_InTheSameCommit);
+        await using var context = await CreateContextAsync(db);
+        var data = new ClientData(context, new ClientRepository(context));
+        var clientId = Guid.NewGuid();
+        var client = CreateClient(clientId, "Original Name");
+        var concurrencyToken = Convert.ToBase64String(client.RowVersion);
+        await data.CreateAsync(client, CreateAuditFact(clientId), CancellationToken.None);
+
+        await using var updateContext = await CreateContextAsync(db);
+        var updateData = new ClientData(updateContext, new ClientRepository(updateContext));
+        var retrieved = await updateData.GetForUpdateAsync(clientId, concurrencyToken, CancellationToken.None);
+        retrieved!.UpdateProfile(
+            name: "Updated Name",
+            primaryContactName: retrieved.PrimaryContactName,
+            primaryEmail: retrieved.PrimaryEmail,
+            primaryPhone: retrieved.PrimaryPhone,
+            website: retrieved.Website,
+            addressLine: retrieved.AddressLine,
+            city: retrieved.City,
+            stateOrProvince: retrieved.StateOrProvince,
+            postalCode: retrieved.PostalCode,
+            country: retrieved.Country,
+            description: retrieved.Description,
+            ownerUserId: retrieved.OwnerUserId,
+            modifiedBy: "user-2",
+            modifiedAtUtc: CreatedAtUtc.AddDays(1));
+
+        var auditFact = new EntityMutationAudited
+        {
+            EventId = Guid.NewGuid().ToString(),
+            OccurredAtUtc = new DateTimeOffset(CreatedAtUtc.AddDays(1)),
+            SourceService = AuditSourceServices.Crm,
+            EntityType = AuditEntityTypes.Client,
+            EntityId = clientId,
+            Action = AuditActions.Updated,
+            ActorId = "user-2",
+            ActorType = AuditActorTypes.User,
+            TraceId = Guid.NewGuid().ToString("N"),
+            CorrelationId = Guid.NewGuid().ToString(),
+            CausationId = Guid.NewGuid().ToString(),
+            ChangedFields = [nameof(Client.Name)],
+            PreviousValues = new Dictionary<string, string> { [nameof(Client.Name)] = "Original Name" },
+            NewValues = new Dictionary<string, string> { [nameof(Client.Name)] = "Updated Name" },
+        };
+
+        await updateData.SaveUpdateAsync(retrieved, auditFact, CancellationToken.None);
+
+        await using var verifyContext = await CreateContextAsync(db);
+        var persistedClient = await verifyContext.Clients.SingleAsync(c => c.Id == clientId);
+        Assert.Equal("Updated Name", persistedClient.Name);
+        Assert.Equal("user-2", persistedClient.LastModifiedBy);
+
+        var persistedOutbox = await verifyContext.OutboxMessages.SingleAsync(m => m.Id == Guid.Parse(auditFact.EventId));
+        Assert.Equal("Audit.EntityMutationAudited", persistedOutbox.ContractType);
+        Assert.Equal(AuditActions.Updated, persistedOutbox.ContractType);
+        Assert.Equal(OutboxMessageStatus.Pending, persistedOutbox.Status);
+    }
+
+    [Fact]
+    public async Task SaveUpdateAsync_PreservesAuditMetadata_OnTheOutboxRow()
+    {
+        var db = nameof(SaveUpdateAsync_PreservesAuditMetadata_OnTheOutboxRow);
+        await using var context = await CreateContextAsync(db);
+        var data = new ClientData(context, new ClientRepository(context));
+        var clientId = Guid.NewGuid();
+        var client = CreateClient(clientId);
+        var concurrencyToken = Convert.ToBase64String(client.RowVersion);
+        await data.CreateAsync(client, CreateAuditFact(clientId), CancellationToken.None);
+
+        await using var updateContext = await CreateContextAsync(db);
+        var updateData = new ClientData(updateContext, new ClientRepository(updateContext));
+        var retrieved = await updateData.GetForUpdateAsync(clientId, concurrencyToken, CancellationToken.None);
+        retrieved!.UpdateProfile(
+            name: "Updated Name",
+            primaryContactName: retrieved.PrimaryContactName,
+            primaryEmail: retrieved.PrimaryEmail,
+            primaryPhone: retrieved.PrimaryPhone,
+            website: retrieved.Website,
+            addressLine: retrieved.AddressLine,
+            city: retrieved.City,
+            stateOrProvince: retrieved.StateOrProvince,
+            postalCode: retrieved.PostalCode,
+            country: retrieved.Country,
+            description: retrieved.Description,
+            ownerUserId: retrieved.OwnerUserId,
+            modifiedBy: "user-2",
+            modifiedAtUtc: CreatedAtUtc.AddDays(1));
+
+        var correlationId = Guid.NewGuid().ToString();
+        var traceId = Guid.NewGuid().ToString("N");
+        var causationId = Guid.NewGuid().ToString();
+        var auditFact = new EntityMutationAudited
+        {
+            EventId = Guid.NewGuid().ToString(),
+            OccurredAtUtc = new DateTimeOffset(CreatedAtUtc.AddDays(1)),
+            SourceService = AuditSourceServices.Crm,
+            EntityType = AuditEntityTypes.Client,
+            EntityId = clientId,
+            Action = AuditActions.Updated,
+            ActorId = "user-2",
+            ActorType = AuditActorTypes.User,
+            TraceId = traceId,
+            CorrelationId = correlationId,
+            CausationId = causationId,
+            ChangedFields = [nameof(Client.Name)],
+        };
+
+        await updateData.SaveUpdateAsync(retrieved, auditFact, CancellationToken.None);
+
+        await using var verifyContext = await CreateContextAsync(db);
+        var persistedOutbox = await verifyContext.OutboxMessages.SingleAsync(m => m.Id == Guid.Parse(auditFact.EventId));
+        Assert.Equal(correlationId, persistedOutbox.CorrelationId);
+        Assert.Equal(causationId, persistedOutbox.CausationId);
+        Assert.Equal(traceId, persistedOutbox.TraceId);
+
+        var envelope = EventEnvelopeSerializer.Deserialize<EntityMutationAudited>(
+            persistedOutbox.Payload, [EntityMutationAudited.CurrentVersion]);
+        Assert.Equal(correlationId, envelope.CorrelationId);
+        Assert.Equal(traceId, envelope.TraceId);
+        Assert.Equal(causationId, envelope.CausationId);
+    }
+
+    [Fact]
+    public async Task SaveUpdateAsync_WhenConcurrencyConflict_ThrowsClientConcurrencyConflictException()
+    {
+        // This test verifies that SaveUpdateAsync detects concurrency conflicts when the RowVersion
+        // has changed between GetForUpdateAsync and SaveUpdateAsync. The actual concurrency detection
+        // is tested through the DbUpdateConcurrencyException catch block in SaveUpdateAsync, which is
+        // complex to simulate in a real-SQL integration test due to RowVersion timestamps. The client
+        // is responsible for reading the current RowVersion before modification, and if another write
+        // changes it, EF's automatic concurrency check detects it at save time.
+        var db = nameof(SaveUpdateAsync_WhenConcurrencyConflict_ThrowsClientConcurrencyConflictException);
+        await using var context = await CreateContextAsync(db);
+        var data = new ClientData(context, new ClientRepository(context));
+        var clientId = Guid.NewGuid();
+        var client = CreateClient(clientId);
+        await data.CreateAsync(client, CreateAuditFact(clientId), CancellationToken.None);
+
+        // Retrieve with valid token
+        await using var readContext = await CreateContextAsync(db);
+        var readData = new ClientData(readContext, new ClientRepository(readContext));
+        var retrieved = await readData.GetForUpdateAsync(clientId, Convert.ToBase64String(client.RowVersion), CancellationToken.None);
+        retrieved!.UpdateProfile(
+            name: "Updated",
+            primaryContactName: retrieved.PrimaryContactName,
+            primaryEmail: retrieved.PrimaryEmail,
+            primaryPhone: retrieved.PrimaryPhone,
+            website: retrieved.Website,
+            addressLine: retrieved.AddressLine,
+            city: retrieved.City,
+            stateOrProvince: retrieved.StateOrProvince,
+            postalCode: retrieved.PostalCode,
+            country: retrieved.Country,
+            description: retrieved.Description,
+            ownerUserId: retrieved.OwnerUserId,
+            modifiedBy: "user-2",
+            modifiedAtUtc: CreatedAtUtc.AddDays(1));
+
+        // Simulate another update changing the RowVersion
+        await using var conflictContext = await CreateContextAsync(db);
+        var conflictData = new ClientData(conflictContext, new ClientRepository(conflictContext));
+        var conflictClient = await conflictData.GetForUpdateAsync(clientId, Convert.ToBase64String(client.RowVersion), CancellationToken.None);
+        conflictClient!.UpdateProfile(
+            name: "Conflict Update",
+            primaryContactName: conflictClient.PrimaryContactName,
+            primaryEmail: conflictClient.PrimaryEmail,
+            primaryPhone: conflictClient.PrimaryPhone,
+            website: conflictClient.Website,
+            addressLine: conflictClient.AddressLine,
+            city: conflictClient.City,
+            stateOrProvince: conflictClient.StateOrProvince,
+            postalCode: conflictClient.PostalCode,
+            country: conflictClient.Country,
+            description: conflictClient.Description,
+            ownerUserId: conflictClient.OwnerUserId,
+            modifiedBy: "user-3",
+            modifiedAtUtc: CreatedAtUtc.AddDays(1));
+
+        await conflictData.SaveUpdateAsync(
+            conflictClient,
+            new EntityMutationAudited
+            {
+                EventId = Guid.NewGuid().ToString(),
+                OccurredAtUtc = new DateTimeOffset(CreatedAtUtc.AddDays(1)),
+                SourceService = AuditSourceServices.Crm,
+                EntityType = AuditEntityTypes.Client,
+                EntityId = clientId,
+                Action = AuditActions.Updated,
+                ActorId = "user-3",
+                ActorType = AuditActorTypes.User,
+                TraceId = Guid.NewGuid().ToString("N"),
+                CorrelationId = Guid.NewGuid().ToString(),
+                CausationId = Guid.NewGuid().ToString(),
+                ChangedFields = [nameof(Client.Name)],
+            },
+            CancellationToken.None);
+
+        // Now try to save the first retrieved entity after its RowVersion has been changed by the conflict update
+        await Assert.ThrowsAsync<ClientConcurrencyConflictException>(
+            () => readData.SaveUpdateAsync(
+                retrieved,
+                new EntityMutationAudited
+                {
+                    EventId = Guid.NewGuid().ToString(),
+                    OccurredAtUtc = new DateTimeOffset(CreatedAtUtc.AddDays(1)),
+                    SourceService = AuditSourceServices.Crm,
+                    EntityType = AuditEntityTypes.Client,
+                    EntityId = clientId,
+                    Action = AuditActions.Updated,
+                    ActorId = "user-2",
+                    ActorType = AuditActorTypes.User,
+                    TraceId = Guid.NewGuid().ToString("N"),
+                    CorrelationId = Guid.NewGuid().ToString(),
+                    CausationId = Guid.NewGuid().ToString(),
+                    ChangedFields = [nameof(Client.Name)],
+                },
+                CancellationToken.None));
+    }
 }

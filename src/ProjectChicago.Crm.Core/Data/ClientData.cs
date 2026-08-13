@@ -121,6 +121,11 @@ public sealed class ClientData : IClientData
     public Task<ClientDetailQueryResult?> GetDetailAsync(Guid clientId, CancellationToken cancellationToken) =>
         _clientRepository.GetDetailAsync(clientId, cancellationToken);
 
+    // Thin passthrough to ClientRepository.HasActiveProjectsAsync (CLIENT-015) - same
+    // repository-agnostic-Business rationale as the other read-only passthroughs.
+    public Task<bool> HasActiveProjectsAsync(Guid clientId, CancellationToken cancellationToken) =>
+        _clientRepository.HasActiveProjectsAsync(clientId, cancellationToken);
+
     private static OutboxMessage BuildOutboxMessage(EntityMutationAudited auditFact)
     {
         // The fact's own EventId becomes both the outbox row's identity and, later, the Service Bus
@@ -161,4 +166,124 @@ public sealed class ClientData : IClientData
             : throw new ArgumentException(
                 $"EntityMutationAudited.EventId '{eventId}' must be a GUID - it becomes the OutboxMessage.Id and the Service Bus native MessageId used for Audit inbox idempotency (OUTBOX-004, ASYNC-005).",
                 nameof(eventId));
+
+    public async Task<Client?> GetForArchiveAsync(
+        Guid clientId, string expectedConcurrencyToken, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(expectedConcurrencyToken))
+        {
+            throw new ArgumentException(
+                "expectedConcurrencyToken cannot be null or whitespace.", nameof(expectedConcurrencyToken));
+        }
+
+        var client = await _clientRepository.GetForUpdateAsync(clientId, cancellationToken).ConfigureAwait(false);
+        if (client is null)
+        {
+            return null;
+        }
+
+        if (!ParseConcurrencyToken(expectedConcurrencyToken).AsSpan().SequenceEqual(client.RowVersion))
+        {
+            throw new ClientConcurrencyConflictException(clientId);
+        }
+
+        return client;
+    }
+
+    public async Task SaveArchiveAsync(Client client, EntityMutationAudited auditFact, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(client);
+        ArgumentNullException.ThrowIfNull(auditFact);
+
+        _dbContext.OutboxMessages.Add(BuildOutboxMessage(auditFact));
+
+        try
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (DbUpdateConcurrencyException ex)
+        {
+            throw new ClientConcurrencyConflictException(client.Id, ex);
+        }
+    }
+
+    public async Task<Client?> GetForRestoreAsync(
+        Guid clientId, string expectedConcurrencyToken, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(expectedConcurrencyToken))
+        {
+            throw new ArgumentException(
+                "expectedConcurrencyToken cannot be null or whitespace.", nameof(expectedConcurrencyToken));
+        }
+
+        var client = await _clientRepository.GetForUpdateAsync(clientId, cancellationToken).ConfigureAwait(false);
+        if (client is null)
+        {
+            return null;
+        }
+
+        if (!ParseConcurrencyToken(expectedConcurrencyToken).AsSpan().SequenceEqual(client.RowVersion))
+        {
+            throw new ClientConcurrencyConflictException(clientId);
+        }
+
+        return client;
+    }
+
+    public async Task SaveRestoreAsync(Client client, EntityMutationAudited auditFact, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(client);
+        ArgumentNullException.ThrowIfNull(auditFact);
+
+        _dbContext.OutboxMessages.Add(BuildOutboxMessage(auditFact));
+
+        try
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (DbUpdateConcurrencyException ex)
+        {
+            throw new ClientConcurrencyConflictException(client.Id, ex);
+        }
+    }
+
+    public async Task<Client?> GetForUpdateAsync(
+        Guid clientId, string expectedConcurrencyToken, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(expectedConcurrencyToken))
+        {
+            throw new ArgumentException(
+                "expectedConcurrencyToken cannot be null or whitespace.", nameof(expectedConcurrencyToken));
+        }
+
+        var client = await _clientRepository.GetForUpdateAsync(clientId, cancellationToken).ConfigureAwait(false);
+        if (client is null)
+        {
+            return null;
+        }
+
+        if (!ParseConcurrencyToken(expectedConcurrencyToken).AsSpan().SequenceEqual(client.RowVersion))
+        {
+            throw new ClientConcurrencyConflictException(clientId);
+        }
+
+        return client;
+    }
+
+    public async Task SaveUpdateAsync(Client client, EntityMutationAudited auditFact, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(client);
+        ArgumentNullException.ThrowIfNull(auditFact);
+
+        _dbContext.OutboxMessages.Add(BuildOutboxMessage(auditFact));
+
+        try
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (DbUpdateConcurrencyException ex)
+        {
+            throw new ClientConcurrencyConflictException(client.Id, ex);
+        }
+    }
 }

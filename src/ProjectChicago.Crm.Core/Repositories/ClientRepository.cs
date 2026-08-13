@@ -232,4 +232,12 @@ public sealed class ClientRepository : IClientRepository
             RecentlyCompletedTasks = recentlyCompletedTasks,
         };
     }
+
+    public async Task<bool> HasActiveProjectsAsync(Guid clientId, CancellationToken cancellationToken)
+    {
+        return await _dbContext.Projects
+            .AsNoTracking()
+            .AnyAsync(p => p.ClientId == clientId && ActiveProjectStatuses.Contains(p.Status), cancellationToken)
+            .ConfigureAwait(false);
+    }
 }

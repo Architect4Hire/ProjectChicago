@@ -43,4 +43,26 @@ public interface IClientAuthorization
     // mechanism-neutral shape as the other members - actor is always the already-authenticated
     // ActorContext resolved from ICurrentRequestContext, never trusted from ordinary client input.
     Task<bool> CanChangeLifecycleStatusAsync(ActorContext actor, CancellationToken cancellationToken);
+
+    // Returns whether actor is authorized to archive a Client (CLIENT-013/014, SEC-012/SEC-013).
+    // Evaluates ClientsApiContract.RequiredAuthorizationPolicy ("Clients.Write") - archiving is a
+    // mutation of the Client resource. Same mechanism-neutral shape as the other members - actor is
+    // always the already-authenticated ActorContext resolved from ICurrentRequestContext, never
+    // trusted from ordinary client input.
+    Task<bool> CanArchiveAsync(ActorContext actor, CancellationToken cancellationToken);
+
+    // Returns whether actor is authorized to restore an archived Client (CLIENT-013/014,
+    // SEC-012/SEC-013). Evaluates ClientsApiContract.RequiredAuthorizationPolicy ("Clients.Write") -
+    // restoring is a mutation of the Client resource. Same mechanism-neutral shape as the other
+    // members - actor is always the already-authenticated ActorContext resolved from
+    // ICurrentRequestContext, never trusted from ordinary client input.
+    Task<bool> CanRestoreAsync(ActorContext actor, CancellationToken cancellationToken);
+
+    // Returns whether actor is authorized to update a Client's profile fields (CLIENT-002,
+    // SEC-012/SEC-013: "every mutation operation shall verify the user's authorization before
+    // changing data"). Evaluates ClientsApiContract.RequiredAuthorizationPolicy ("Clients.Write") -
+    // updating profile fields is a mutation of the Client resource. Same mechanism-neutral shape as
+    // the other members - actor is always the already-authenticated ActorContext resolved from
+    // ICurrentRequestContext, never trusted from ordinary client input.
+    Task<bool> CanUpdateAsync(ActorContext actor, CancellationToken cancellationToken);
 }

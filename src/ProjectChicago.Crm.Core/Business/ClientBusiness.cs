@@ -167,6 +167,156 @@ public sealed class ClientBusiness : IClientBusiness
         return detail?.ToClientDetailServiceModel();
     }
 
+    public async Task<ClientServiceModel?> ArchiveAsync(
+        Guid clientId,
+        string expectedConcurrencyToken,
+        ActorContext actor,
+        RequestContext requestContext,
+        DateTime archivedAtUtc,
+        CancellationToken cancellationToken)
+    {
+        // GetForArchiveAsync throws ClientConcurrencyConflictException itself when
+        // expectedConcurrencyToken is stale (DATA-008), so a caller acting on an old read never
+        // reaches the CLIENT-015 active-project check below with data it never actually saw.
+        var client = await _clientData.GetForArchiveAsync(
+            clientId, expectedConcurrencyToken, cancellationToken).ConfigureAwait(false);
+        if (client is null)
+        {
+            return null;
+        }
+
+        // CLIENT-015: A Client containing active Projects shall not be permanently removed from the
+        // system. Since Archive is non-destructive (CLIENT-014), we enforce that archiving is only
+        // allowed when there are no active Projects.
+        var hasActiveProjects = await _clientData.HasActiveProjectsAsync(clientId, cancellationToken)
+            .ConfigureAwait(false);
+        if (hasActiveProjects)
+        {
+            throw new InvalidOperationException(
+                "A Client containing active Projects cannot be archived (CLIENT-015).");
+        }
+
+        var previousStatus = client.LifecycleStatus;
+        client.ChangeLifecycleStatus(ClientLifecycleStatus.Archived, ResolveModifiedBy(actor), archivedAtUtc);
+
+        var auditFact = BuildArchiveAuditFact(client, previousStatus, actor, requestContext);
+
+        await _clientData.SaveArchiveAsync(client, auditFact, cancellationToken).ConfigureAwait(false);
+
+        return client.ToServiceModel([]);
+    }
+
+    public async Task<ClientServiceModel?> RestoreAsync(
+        Guid clientId,
+        ClientLifecycleStatusContract restoredStatus,
+        string expectedConcurrencyToken,
+        ActorContext actor,
+        RequestContext requestContext,
+        DateTime restoredAtUtc,
+        CancellationToken cancellationToken)
+    {
+        var coreRestoredStatus = restoredStatus.ToCoreLifecycleStatus();
+
+        // GetForRestoreAsync throws ClientConcurrencyConflictException itself when
+        // expectedConcurrencyToken is stale (DATA-008), so a caller acting on an old read never
+        // reaches the Archived-status check below with data it never actually saw.
+        var client = await _clientData.GetForRestoreAsync(
+            clientId, expectedConcurrencyToken, cancellationToken).ConfigureAwait(false);
+        if (client is null)
+        {
+            return null;
+        }
+
+        // Restore is only valid when transitioning from Archived status to a non-Archived status.
+        // This is distinct from ChangeLifecycleStatusAsync which uses the general transition rules.
+        if (client.LifecycleStatus != ClientLifecycleStatus.Archived)
+        {
+            throw new InvalidOperationException(
+                $"Client restore can only be performed on Archived Clients. Current status: '{client.LifecycleStatus}'.");
+        }
+
+        if (coreRestoredStatus == ClientLifecycleStatus.Archived)
+        {
+            throw new InvalidOperationException(
+                "Restore cannot transition a Client to Archived status. Use Archive for that operation.");
+        }
+
+        var previousStatus = client.LifecycleStatus;
+        client.ChangeLifecycleStatus(coreRestoredStatus, ResolveModifiedBy(actor), restoredAtUtc);
+
+        var auditFact = BuildRestoreAuditFact(client, previousStatus, actor, requestContext);
+
+        await _clientData.SaveRestoreAsync(client, auditFact, cancellationToken).ConfigureAwait(false);
+
+        return client.ToServiceModel([]);
+    }
+
+    public async Task<ClientServiceModel?> UpdateAsync(
+        Guid clientId,
+        UpdateClientViewModel request,
+        string expectedConcurrencyToken,
+        ActorContext actor,
+        RequestContext requestContext,
+        DateTime modifiedAtUtc,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        // GetForUpdateAsync throws ClientConcurrencyConflictException itself when
+        // expectedConcurrencyToken is stale (DATA-008), so a caller acting on an old read never
+        // reaches the update below with data it never actually saw.
+        var client = await _clientData.GetForUpdateAsync(
+            clientId, expectedConcurrencyToken, cancellationToken).ConfigureAwait(false);
+        if (client is null)
+        {
+            return null;
+        }
+
+        // Capture before values for audit (AUDIT-002)
+        var beforeValues = CaptureBeforeValues(client);
+
+        // Apply updates only to fields provided in the request (null means caller did not include field)
+        var updatedName = request.Name is not null ? NormalizeRequired(request.Name, nameof(request.Name)) : client.Name;
+        var updatedContactName = request.PrimaryContactName is not null ? NormalizeOptional(request.PrimaryContactName) : client.PrimaryContactName;
+        var updatedEmail = request.PrimaryEmail is not null ? NormalizeEmail(request.PrimaryEmail) : client.PrimaryEmail;
+        var updatedPhone = request.PrimaryPhone is not null ? NormalizeOptional(request.PrimaryPhone) : client.PrimaryPhone;
+        var updatedWebsite = request.Website is not null ? NormalizeOptional(request.Website) : client.Website;
+        var updatedAddress = request.AddressLine is not null ? NormalizeOptional(request.AddressLine) : client.AddressLine;
+        var updatedCity = request.City is not null ? NormalizeOptional(request.City) : client.City;
+        var updatedStateOrProvince = request.StateOrProvince is not null ? NormalizeOptional(request.StateOrProvince) : client.StateOrProvince;
+        var updatedPostalCode = request.PostalCode is not null ? NormalizeOptional(request.PostalCode) : client.PostalCode;
+        var updatedCountry = request.Country is not null ? NormalizeOptional(request.Country) : client.Country;
+        var updatedDescription = request.Description is not null ? NormalizeOptional(request.Description) : client.Description;
+        var updatedOwnerUserId = request.OwnerUserId is not null ? NormalizeRequired(request.OwnerUserId, nameof(request.OwnerUserId)) : client.OwnerUserId;
+
+        var modifiedBy = ResolveModifiedBy(actor);
+        client.UpdateProfile(
+            name: updatedName,
+            primaryContactName: updatedContactName,
+            primaryEmail: updatedEmail,
+            primaryPhone: updatedPhone,
+            website: updatedWebsite,
+            addressLine: updatedAddress,
+            city: updatedCity,
+            stateOrProvince: updatedStateOrProvince,
+            postalCode: updatedPostalCode,
+            country: updatedCountry,
+            description: updatedDescription,
+            ownerUserId: updatedOwnerUserId,
+            modifiedBy: modifiedBy,
+            modifiedAtUtc: modifiedAtUtc);
+
+        // Capture after values and build changed fields list
+        var afterValues = CaptureAfterValues(client);
+        var changedFields = BuildChangedFieldsForUpdate(beforeValues, afterValues);
+
+        var auditFact = BuildUpdateAuditFact(client, beforeValues, afterValues, changedFields, actor, requestContext);
+
+        await _clientData.SaveUpdateAsync(client, auditFact, cancellationToken).ConfigureAwait(false);
+
+        return client.ToServiceModel([]);
+    }
+
     private static EntityMutationAudited BuildAuditFact(Client client, ActorContext actor, RequestContext requestContext)
     {
         return new EntityMutationAudited
@@ -238,6 +388,68 @@ public sealed class ClientBusiness : IClientBusiness
             EntityType = AuditEntityTypes.Client,
             EntityId = client.Id,
             Action = AuditActions.StatusChanged,
+            ActorId = actor.ActorId,
+            ActorType = ResolveAuditActorType(actor.ActorType),
+            TraceId = requestContext.TraceId,
+            CorrelationId = requestContext.CorrelationId,
+            CausationId = requestContext.CausationId,
+            ChangedFields = [nameof(Client.LifecycleStatus)],
+            PreviousValues = new Dictionary<string, string>
+            {
+                [nameof(Client.LifecycleStatus)] = previousStatus.ToString(),
+            },
+            NewValues = new Dictionary<string, string>
+            {
+                [nameof(Client.LifecycleStatus)] = client.LifecycleStatus.ToString(),
+            },
+        };
+    }
+
+    // AUDIT-002's Previous/New values for archive operations. LifecycleStatus's enum-member-name
+    // form is never sensitive (AuditSensitiveFieldNames), so both values are safe to disclose
+    // (AUDIT-008). Archive transitions to the Archived status.
+    private static EntityMutationAudited BuildArchiveAuditFact(
+        Client client, ClientLifecycleStatus previousStatus, ActorContext actor, RequestContext requestContext)
+    {
+        return new EntityMutationAudited
+        {
+            EventId = Guid.NewGuid().ToString(),
+            OccurredAtUtc = new DateTimeOffset(client.LastModifiedAtUtc, TimeSpan.Zero),
+            SourceService = AuditSourceServices.Crm,
+            EntityType = AuditEntityTypes.Client,
+            EntityId = client.Id,
+            Action = AuditActions.Archived,
+            ActorId = actor.ActorId,
+            ActorType = ResolveAuditActorType(actor.ActorType),
+            TraceId = requestContext.TraceId,
+            CorrelationId = requestContext.CorrelationId,
+            CausationId = requestContext.CausationId,
+            ChangedFields = [nameof(Client.LifecycleStatus)],
+            PreviousValues = new Dictionary<string, string>
+            {
+                [nameof(Client.LifecycleStatus)] = previousStatus.ToString(),
+            },
+            NewValues = new Dictionary<string, string>
+            {
+                [nameof(Client.LifecycleStatus)] = client.LifecycleStatus.ToString(),
+            },
+        };
+    }
+
+    // AUDIT-002's Previous/New values for restore operations. LifecycleStatus's enum-member-name
+    // form is never sensitive (AuditSensitiveFieldNames), so both values are safe to disclose
+    // (AUDIT-008). Restore transitions from Archived to a new status.
+    private static EntityMutationAudited BuildRestoreAuditFact(
+        Client client, ClientLifecycleStatus previousStatus, ActorContext actor, RequestContext requestContext)
+    {
+        return new EntityMutationAudited
+        {
+            EventId = Guid.NewGuid().ToString(),
+            OccurredAtUtc = new DateTimeOffset(client.LastModifiedAtUtc, TimeSpan.Zero),
+            SourceService = AuditSourceServices.Crm,
+            EntityType = AuditEntityTypes.Client,
+            EntityId = client.Id,
+            Action = AuditActions.Restored,
             ActorId = actor.ActorId,
             ActorType = ResolveAuditActorType(actor.ActorType),
             TraceId = requestContext.TraceId,
@@ -336,4 +548,118 @@ public sealed class ClientBusiness : IClientBusiness
     // email is normalized to lowercase so "Jane@Acme.example" and "jane@acme.example" are treated
     // as the same address.
     private static string? NormalizeEmail(string? value) => NormalizeOptional(value)?.ToLowerInvariant();
+
+    // Captures the current state of all editable Client fields for comparison with post-update state
+    // (AUDIT-002: before/after values).
+    private static Dictionary<string, string?> CaptureBeforeValues(Client client)
+    {
+        return new Dictionary<string, string?>
+        {
+            [nameof(Client.Name)] = client.Name,
+            [nameof(Client.PrimaryContactName)] = client.PrimaryContactName,
+            [nameof(Client.PrimaryEmail)] = client.PrimaryEmail,
+            [nameof(Client.PrimaryPhone)] = client.PrimaryPhone,
+            [nameof(Client.Website)] = client.Website,
+            [nameof(Client.AddressLine)] = client.AddressLine,
+            [nameof(Client.City)] = client.City,
+            [nameof(Client.StateOrProvince)] = client.StateOrProvince,
+            [nameof(Client.PostalCode)] = client.PostalCode,
+            [nameof(Client.Country)] = client.Country,
+            [nameof(Client.Description)] = client.Description,
+            [nameof(Client.OwnerUserId)] = client.OwnerUserId,
+        };
+    }
+
+    // Captures the updated state of all editable Client fields for comparison with pre-update state
+    // (AUDIT-002: before/after values).
+    private static Dictionary<string, string?> CaptureAfterValues(Client client)
+    {
+        return new Dictionary<string, string?>
+        {
+            [nameof(Client.Name)] = client.Name,
+            [nameof(Client.PrimaryContactName)] = client.PrimaryContactName,
+            [nameof(Client.PrimaryEmail)] = client.PrimaryEmail,
+            [nameof(Client.PrimaryPhone)] = client.PrimaryPhone,
+            [nameof(Client.Website)] = client.Website,
+            [nameof(Client.AddressLine)] = client.AddressLine,
+            [nameof(Client.City)] = client.City,
+            [nameof(Client.StateOrProvince)] = client.StateOrProvince,
+            [nameof(Client.PostalCode)] = client.PostalCode,
+            [nameof(Client.Country)] = client.Country,
+            [nameof(Client.Description)] = client.Description,
+            [nameof(Client.OwnerUserId)] = client.OwnerUserId,
+        };
+    }
+
+    // Determines which fields changed between before and after (AUDIT-002: ChangedFields).
+    // Field names only, never values (AUDIT-008).
+    private static List<string> BuildChangedFieldsForUpdate(
+        Dictionary<string, string?> beforeValues,
+        Dictionary<string, string?> afterValues)
+    {
+        var changedFields = new List<string>();
+
+        foreach (var key in beforeValues.Keys)
+        {
+            if (!string.Equals(beforeValues[key], afterValues[key], StringComparison.Ordinal))
+            {
+                changedFields.Add(key);
+            }
+        }
+
+        // Filter through AuditSensitiveFieldNames defensively (AUDIT-008), even though none of
+        // Client's field names are sensitive today - the same guard every publisher is expected to apply.
+        return changedFields.Where(field => !AuditSensitiveFieldNames.IsForbidden(field)).ToList();
+    }
+
+    // AUDIT-002's Updated fact with before/after values for all changed fields. Field values are
+    // safe to disclose here since Client fields are not sensitive (AuditSensitiveFieldNames).
+    // Every changed field is represented in both PreviousValues and NewValues.
+    private static EntityMutationAudited BuildUpdateAuditFact(
+        Client client,
+        Dictionary<string, string?> beforeValues,
+        Dictionary<string, string?> afterValues,
+        List<string> changedFields,
+        ActorContext actor,
+        RequestContext requestContext)
+    {
+        var previousValues = new Dictionary<string, string>();
+        var newValues = new Dictionary<string, string>();
+
+        foreach (var fieldName in changedFields)
+        {
+            var before = beforeValues[fieldName];
+            var after = afterValues[fieldName];
+
+            // Represent before/after as string; null values become null in the dict (which is safe
+            // for JSON serialization via EntityMutationAudited's handling)
+            if (before is not null)
+            {
+                previousValues[fieldName] = before;
+            }
+
+            if (after is not null)
+            {
+                newValues[fieldName] = after;
+            }
+        }
+
+        return new EntityMutationAudited
+        {
+            EventId = Guid.NewGuid().ToString(),
+            OccurredAtUtc = new DateTimeOffset(client.LastModifiedAtUtc, TimeSpan.Zero),
+            SourceService = AuditSourceServices.Crm,
+            EntityType = AuditEntityTypes.Client,
+            EntityId = client.Id,
+            Action = AuditActions.Updated,
+            ActorId = actor.ActorId,
+            ActorType = ResolveAuditActorType(actor.ActorType),
+            TraceId = requestContext.TraceId,
+            CorrelationId = requestContext.CorrelationId,
+            CausationId = requestContext.CausationId,
+            ChangedFields = changedFields,
+            PreviousValues = previousValues.Count > 0 ? previousValues : null,
+            NewValues = newValues.Count > 0 ? newValues : null,
+        };
+    }
 }

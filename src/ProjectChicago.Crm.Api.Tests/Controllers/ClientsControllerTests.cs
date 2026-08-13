@@ -555,6 +555,501 @@ public class ClientsControllerTests
         Assert.False(facade.LifecycleWasCalled);
     }
 
+    // --- Archive (CLIENT-013..015, API-001..007, SEC-012..013, DATA-008) ---
+
+    private static ArchiveClientViewModel ValidArchiveRequest(
+        string expectedConcurrencyToken = "dGVzdA==") => new()
+        {
+            ExpectedConcurrencyToken = expectedConcurrencyToken,
+        };
+
+    private static string ArchiveRoute(Guid clientId) => $"{ClientsApiContract.Route}/{clientId}/archive";
+
+    [Fact]
+    public async Task Archive_WhenAuthenticatedAndValid_Returns200WithTheFacadesResponseBody()
+    {
+        var expectedResponse = BuildResponse() with { LifecycleStatus = ClientLifecycleStatusContract.Archived };
+        var facade = new FakeClientFacade { ArchiveResultToReturn = expectedResponse };
+        using var factory = CreateFactory(facade, authenticated: true);
+        using var httpClient = factory.CreateClient();
+
+        var response = await httpClient.PostAsJsonAsync(ArchiveRoute(expectedResponse.Id), ValidArchiveRequest());
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<ClientServiceModel>();
+        Assert.NotNull(body);
+        Assert.Equal(expectedResponse.Id, body!.Id);
+        Assert.Equal(ClientLifecycleStatusContract.Archived, body.LifecycleStatus);
+        Assert.True(facade.ArchiveWasCalled);
+        Assert.Equal("dGVzdA==", facade.ReceivedArchiveRequest?.ExpectedConcurrencyToken);
+    }
+
+    [Fact]
+    public async Task Archive_WhenFacadeReturnsNull_Returns404ProblemDetails()
+    {
+        var facade = new FakeClientFacade { ArchiveResultToReturn = null };
+        using var factory = CreateFactory(facade, authenticated: true);
+        using var httpClient = factory.CreateClient();
+
+        var response = await httpClient.PostAsJsonAsync(ArchiveRoute(Guid.NewGuid()), ValidArchiveRequest());
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        var root = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
+        Assert.Equal("resource_not_found", root.GetProperty("errorCode").GetString());
+        Assert.True(facade.ArchiveWasCalled);
+    }
+
+    // --- Blocked archive (CLIENT-015: has active Projects) ---
+
+    [Fact]
+    public async Task Archive_WhenFacadeThrowsInvalidOperationException_Returns409Conflict()
+    {
+        var facade = new FakeClientFacade
+        {
+            ArchiveExceptionToThrow = new InvalidOperationException(
+                "Cannot archive a Client with active Projects."),
+        };
+        using var factory = CreateFactory(facade, authenticated: true);
+        using var httpClient = factory.CreateClient();
+
+        var response = await httpClient.PostAsJsonAsync(ArchiveRoute(Guid.NewGuid()), ValidArchiveRequest());
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        var root = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
+        Assert.Equal("concurrency_conflict", root.GetProperty("errorCode").GetString());
+    }
+
+    // --- Stale version conflict (DATA-008) ---
+
+    [Fact]
+    public async Task Archive_WhenFacadeThrowsClientConcurrencyConflictException_Returns409ProblemDetails()
+    {
+        var facade = new FakeClientFacade
+        {
+            ArchiveExceptionToThrow = new ClientConcurrencyConflictException(Guid.NewGuid()),
+        };
+        using var factory = CreateFactory(facade, authenticated: true);
+        using var httpClient = factory.CreateClient();
+
+        var response = await httpClient.PostAsJsonAsync(ArchiveRoute(Guid.NewGuid()), ValidArchiveRequest());
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        var root = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
+        Assert.Equal("concurrency_conflict", root.GetProperty("errorCode").GetString());
+    }
+
+    // --- Unauthenticated (401) ---
+
+    [Fact]
+    public async Task Archive_WhenNoAuthenticatedActor_Returns401AndNeverCallsFacade()
+    {
+        var facade = new FakeClientFacade { ArchiveResultToReturn = BuildResponse() };
+        using var factory = CreateFactory(facade, authenticated: false);
+        using var httpClient = factory.CreateClient();
+
+        var response = await httpClient.PostAsJsonAsync(ArchiveRoute(Guid.NewGuid()), ValidArchiveRequest());
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        var root = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
+        Assert.Equal("authentication_required", root.GetProperty("errorCode").GetString());
+        Assert.False(facade.ArchiveWasCalled);
+    }
+
+    // --- Forbidden (403 - Facade/IClientAuthorization policy rejection, SEC-012..013) ---
+
+    [Fact]
+    public async Task Archive_WhenFacadeThrowsUnauthorizedAccessException_Returns403ProblemDetails()
+    {
+        var facade = new FakeClientFacade { ArchiveExceptionToThrow = new UnauthorizedAccessException("Not authorized.") };
+        using var factory = CreateFactory(facade, authenticated: true);
+        using var httpClient = factory.CreateClient();
+
+        var response = await httpClient.PostAsJsonAsync(ArchiveRoute(Guid.NewGuid()), ValidArchiveRequest());
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        var root = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
+        Assert.Equal("forbidden", root.GetProperty("errorCode").GetString());
+    }
+
+    // --- Validation (SEC-022; automatic [ApiController] model-state 400) ---
+
+    [Fact]
+    public async Task Archive_WhenExpectedConcurrencyTokenIsMissing_Returns400ValidationProblemDetailsAndNeverCallsFacade()
+    {
+        var facade = new FakeClientFacade { ArchiveResultToReturn = BuildResponse() };
+        using var factory = CreateFactory(facade, authenticated: true);
+        using var httpClient = factory.CreateClient();
+
+        var response = await httpClient.PostAsJsonAsync(
+            ArchiveRoute(Guid.NewGuid()), ValidArchiveRequest() with { ExpectedConcurrencyToken = null! });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        var root = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
+        Assert.Equal("validation_failed", root.GetProperty("errorCode").GetString());
+        Assert.False(facade.ArchiveWasCalled);
+    }
+
+    // --- Restore (CLIENT-013..014, API-001..007, SEC-012..013, DATA-008) ---
+
+    private static RestoreClientViewModel ValidRestoreRequest(
+        ClientLifecycleStatusContract restoredStatus = ClientLifecycleStatusContract.Active,
+        string expectedConcurrencyToken = "dGVzdA==") => new()
+        {
+            RestoredStatus = restoredStatus,
+            ExpectedConcurrencyToken = expectedConcurrencyToken,
+        };
+
+    private static string RestoreRoute(Guid clientId) => $"{ClientsApiContract.Route}/{clientId}/restore";
+
+    [Fact]
+    public async Task Restore_WhenAuthenticatedAndValid_Returns200WithTheFacadesResponseBody()
+    {
+        var expectedResponse = BuildResponse() with { LifecycleStatus = ClientLifecycleStatusContract.Active };
+        var facade = new FakeClientFacade { RestoreResultToReturn = expectedResponse };
+        using var factory = CreateFactory(facade, authenticated: true);
+        using var httpClient = factory.CreateClient();
+
+        var response = await httpClient.PostAsJsonAsync(RestoreRoute(expectedResponse.Id), ValidRestoreRequest());
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<ClientServiceModel>();
+        Assert.NotNull(body);
+        Assert.Equal(expectedResponse.Id, body!.Id);
+        Assert.Equal(ClientLifecycleStatusContract.Active, body.LifecycleStatus);
+        Assert.True(facade.RestoreWasCalled);
+        Assert.Equal(ClientLifecycleStatusContract.Active, facade.ReceivedRestoreRequest?.RestoredStatus);
+        Assert.Equal("dGVzdA==", facade.ReceivedRestoreRequest?.ExpectedConcurrencyToken);
+    }
+
+    [Fact]
+    public async Task Restore_WhenFacadeReturnsNull_Returns404ProblemDetails()
+    {
+        var facade = new FakeClientFacade { RestoreResultToReturn = null };
+        using var factory = CreateFactory(facade, authenticated: true);
+        using var httpClient = factory.CreateClient();
+
+        var response = await httpClient.PostAsJsonAsync(RestoreRoute(Guid.NewGuid()), ValidRestoreRequest());
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        var root = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
+        Assert.Equal("resource_not_found", root.GetProperty("errorCode").GetString());
+        Assert.True(facade.RestoreWasCalled);
+    }
+
+    // --- Invalid restore (CLIENT-014: not currently Archived) ---
+
+    [Fact]
+    public async Task Restore_WhenFacadeThrowsInvalidOperationException_Returns400ValidationProblemDetails()
+    {
+        var facade = new FakeClientFacade
+        {
+            RestoreExceptionToThrow = new InvalidOperationException(
+                "Client is not currently Archived."),
+        };
+        using var factory = CreateFactory(facade, authenticated: true);
+        using var httpClient = factory.CreateClient();
+
+        var response = await httpClient.PostAsJsonAsync(RestoreRoute(Guid.NewGuid()), ValidRestoreRequest());
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        var root = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
+        Assert.Equal("validation_failed", root.GetProperty("errorCode").GetString());
+        Assert.True(root.GetProperty("errors").TryGetProperty("RestoredStatus", out _));
+    }
+
+    // --- Stale version conflict (DATA-008) ---
+
+    [Fact]
+    public async Task Restore_WhenFacadeThrowsClientConcurrencyConflictException_Returns409ProblemDetails()
+    {
+        var facade = new FakeClientFacade
+        {
+            RestoreExceptionToThrow = new ClientConcurrencyConflictException(Guid.NewGuid()),
+        };
+        using var factory = CreateFactory(facade, authenticated: true);
+        using var httpClient = factory.CreateClient();
+
+        var response = await httpClient.PostAsJsonAsync(RestoreRoute(Guid.NewGuid()), ValidRestoreRequest());
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        var root = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
+        Assert.Equal("concurrency_conflict", root.GetProperty("errorCode").GetString());
+    }
+
+    // --- Unauthenticated (401) ---
+
+    [Fact]
+    public async Task Restore_WhenNoAuthenticatedActor_Returns401AndNeverCallsFacade()
+    {
+        var facade = new FakeClientFacade { RestoreResultToReturn = BuildResponse() };
+        using var factory = CreateFactory(facade, authenticated: false);
+        using var httpClient = factory.CreateClient();
+
+        var response = await httpClient.PostAsJsonAsync(RestoreRoute(Guid.NewGuid()), ValidRestoreRequest());
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        var root = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
+        Assert.Equal("authentication_required", root.GetProperty("errorCode").GetString());
+        Assert.False(facade.RestoreWasCalled);
+    }
+
+    // --- Forbidden (403 - Facade/IClientAuthorization policy rejection, SEC-012..013) ---
+
+    [Fact]
+    public async Task Restore_WhenFacadeThrowsUnauthorizedAccessException_Returns403ProblemDetails()
+    {
+        var facade = new FakeClientFacade { RestoreExceptionToThrow = new UnauthorizedAccessException("Not authorized.") };
+        using var factory = CreateFactory(facade, authenticated: true);
+        using var httpClient = factory.CreateClient();
+
+        var response = await httpClient.PostAsJsonAsync(RestoreRoute(Guid.NewGuid()), ValidRestoreRequest());
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        var root = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
+        Assert.Equal("forbidden", root.GetProperty("errorCode").GetString());
+    }
+
+    // --- Validation (SEC-022; automatic [ApiController] model-state 400) ---
+
+    [Fact]
+    public async Task Restore_WhenExpectedConcurrencyTokenIsMissing_Returns400ValidationProblemDetailsAndNeverCallsFacade()
+    {
+        var facade = new FakeClientFacade { RestoreResultToReturn = BuildResponse() };
+        using var factory = CreateFactory(facade, authenticated: true);
+        using var httpClient = factory.CreateClient();
+
+        var response = await httpClient.PostAsJsonAsync(
+            RestoreRoute(Guid.NewGuid()), ValidRestoreRequest() with { ExpectedConcurrencyToken = null! });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        var root = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
+        Assert.Equal("validation_failed", root.GetProperty("errorCode").GetString());
+        Assert.False(facade.RestoreWasCalled);
+    }
+
+    [Fact]
+    public async Task Restore_WhenRestoredStatusIsMissing_Returns400ValidationProblemDetailsAndNeverCallsFacade()
+    {
+        var facade = new FakeClientFacade { RestoreResultToReturn = BuildResponse() };
+        using var factory = CreateFactory(facade, authenticated: true);
+        using var httpClient = factory.CreateClient();
+
+        // Sending a request with RestoredStatus missing will fail JSON deserialization in [ApiController]
+        var request = new { expectedConcurrencyToken = "dGVzdA==" };
+        var response = await httpClient.PostAsJsonAsync(RestoreRoute(Guid.NewGuid()), request);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        var root = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
+        Assert.Equal("validation_failed", root.GetProperty("errorCode").GetString());
+        Assert.False(facade.RestoreWasCalled);
+    }
+
+    // --- Update (CLIENT-002, API-001..007, SEC-012..013, DATA-008) ---
+
+    private static UpdateClientViewModel ValidUpdateRequest(string? expectedConcurrencyToken = null) => new()
+    {
+        Name = "Updated Name",
+        PrimaryEmail = "updated@example.com",
+        ExpectedConcurrencyToken = expectedConcurrencyToken ?? "dGVzdA==",
+    };
+
+    private static string UpdateRoute(Guid clientId) => $"{ClientsApiContract.Route}/{clientId}";
+
+    [Fact]
+    public async Task Update_WhenAuthenticatedAndValid_Returns200WithTheFacadesResponseBody()
+    {
+        var clientId = Guid.NewGuid();
+        var expectedResponse = BuildResponse() with { Name = "Updated Name" };
+        var facade = new FakeClientFacade { UpdateResultToReturn = expectedResponse };
+        using var factory = CreateFactory(facade, authenticated: true);
+        using var httpClient = factory.CreateClient();
+
+        var response = await httpClient.PatchAsJsonAsync(UpdateRoute(clientId), ValidUpdateRequest());
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<ClientServiceModel>();
+        Assert.NotNull(body);
+        Assert.Equal("Updated Name", body!.Name);
+        Assert.True(facade.UpdateWasCalled);
+        Assert.Equal(clientId, facade.ReceivedUpdateClientId);
+    }
+
+    [Fact]
+    public async Task Update_PassesTheBoundRequestFieldsToTheFacade()
+    {
+        var clientId = Guid.NewGuid();
+        var facade = new FakeClientFacade { UpdateResultToReturn = BuildResponse() };
+        using var factory = CreateFactory(facade, authenticated: true);
+        using var httpClient = factory.CreateClient();
+
+        var request = new UpdateClientViewModel
+        {
+            Name = "New Name",
+            PrimaryEmail = "new@example.com",
+            City = "New City",
+            ExpectedConcurrencyToken = "token123",
+        };
+        await httpClient.PatchAsJsonAsync(UpdateRoute(clientId), request);
+
+        Assert.True(facade.UpdateWasCalled);
+        Assert.Equal("New Name", facade.ReceivedUpdateRequest?.Name);
+        Assert.Equal("new@example.com", facade.ReceivedUpdateRequest?.PrimaryEmail);
+        Assert.Equal("New City", facade.ReceivedUpdateRequest?.City);
+        Assert.Equal("token123", facade.ReceivedUpdateRequest?.ExpectedConcurrencyToken);
+    }
+
+    [Fact]
+    public async Task Update_WithPartialFieldUpdate_PassesOnlyProvidedFieldsToTheFacade()
+    {
+        var clientId = Guid.NewGuid();
+        var facade = new FakeClientFacade { UpdateResultToReturn = BuildResponse() };
+        using var factory = CreateFactory(facade, authenticated: true);
+        using var httpClient = factory.CreateClient();
+
+        var request = new UpdateClientViewModel
+        {
+            Name = "Only Update Name",
+            ExpectedConcurrencyToken = "dGVzdA==",
+        };
+        await httpClient.PatchAsJsonAsync(UpdateRoute(clientId), request);
+
+        Assert.True(facade.UpdateWasCalled);
+        Assert.Equal("Only Update Name", facade.ReceivedUpdateRequest?.Name);
+        Assert.Null(facade.ReceivedUpdateRequest?.City);
+        Assert.Null(facade.ReceivedUpdateRequest?.PrimaryPhone);
+    }
+
+    [Fact]
+    public async Task Update_WhenFacadeReturnsNull_Returns404ProblemDetails()
+    {
+        var clientId = Guid.NewGuid();
+        var facade = new FakeClientFacade { UpdateResultToReturn = null };
+        using var factory = CreateFactory(facade, authenticated: true);
+        using var httpClient = factory.CreateClient();
+
+        var response = await httpClient.PatchAsJsonAsync(UpdateRoute(clientId), ValidUpdateRequest());
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        var root = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
+        Assert.Equal("not_found", root.GetProperty("errorCode").GetString());
+        Assert.True(facade.UpdateWasCalled);
+    }
+
+    [Fact]
+    public async Task Update_WhenFacadeThrowsClientConcurrencyConflictException_Returns409ProblemDetails()
+    {
+        var clientId = Guid.NewGuid();
+        var facade = new FakeClientFacade
+        {
+            UpdateExceptionToThrow = new ClientConcurrencyConflictException(clientId),
+        };
+        using var factory = CreateFactory(facade, authenticated: true);
+        using var httpClient = factory.CreateClient();
+
+        var response = await httpClient.PatchAsJsonAsync(UpdateRoute(clientId), ValidUpdateRequest());
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        var root = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
+        Assert.Equal("concurrency_conflict", root.GetProperty("errorCode").GetString());
+    }
+
+    [Fact]
+    public async Task Update_WhenNoAuthenticatedActor_Returns401AndNeverCallsFacade()
+    {
+        var clientId = Guid.NewGuid();
+        var facade = new FakeClientFacade { UpdateResultToReturn = BuildResponse() };
+        using var factory = CreateFactory(facade, authenticated: false);
+        using var httpClient = factory.CreateClient();
+
+        var response = await httpClient.PatchAsJsonAsync(UpdateRoute(clientId), ValidUpdateRequest());
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        var root = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
+        Assert.Equal("authentication_required", root.GetProperty("errorCode").GetString());
+        Assert.False(facade.UpdateWasCalled);
+    }
+
+    [Fact]
+    public async Task Update_WhenFacadeThrowsUnauthorizedAccessException_Returns403ProblemDetails()
+    {
+        var clientId = Guid.NewGuid();
+        var facade = new FakeClientFacade { UpdateExceptionToThrow = new UnauthorizedAccessException("Not authorized.") };
+        using var factory = CreateFactory(facade, authenticated: true);
+        using var httpClient = factory.CreateClient();
+
+        var response = await httpClient.PatchAsJsonAsync(UpdateRoute(clientId), ValidUpdateRequest());
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        var root = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
+        Assert.Equal("forbidden", root.GetProperty("errorCode").GetString());
+    }
+
+    [Fact]
+    public async Task Update_WhenEmailIsMalformed_Returns400ValidationProblemDetails()
+    {
+        var clientId = Guid.NewGuid();
+        var facade = new FakeClientFacade { UpdateResultToReturn = BuildResponse() };
+        using var factory = CreateFactory(facade, authenticated: true);
+        using var httpClient = factory.CreateClient();
+
+        var request = ValidUpdateRequest() with { PrimaryEmail = "not-an-email" };
+        var response = await httpClient.PatchAsJsonAsync(UpdateRoute(clientId), request);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.False(facade.UpdateWasCalled);
+    }
+
+    [Fact]
+    public async Task Update_WhenNameIsTooLong_Returns400ValidationProblemDetails()
+    {
+        var clientId = Guid.NewGuid();
+        var facade = new FakeClientFacade { UpdateResultToReturn = BuildResponse() };
+        using var factory = CreateFactory(facade, authenticated: true);
+        using var httpClient = factory.CreateClient();
+
+        var longName = new string('a', 201);
+        var request = ValidUpdateRequest() with { Name = longName };
+        var response = await httpClient.PatchAsJsonAsync(UpdateRoute(clientId), request);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.False(facade.UpdateWasCalled);
+    }
+
+    [Fact]
+    public async Task Update_WhenExpectedConcurrencyTokenIsMissing_Returns400ValidationProblemDetailsAndNeverCallsFacade()
+    {
+        var clientId = Guid.NewGuid();
+        var facade = new FakeClientFacade { UpdateResultToReturn = BuildResponse() };
+        using var factory = CreateFactory(facade, authenticated: true);
+        using var httpClient = factory.CreateClient();
+
+        var response = await httpClient.PatchAsJsonAsync(
+            UpdateRoute(clientId), ValidUpdateRequest() with { ExpectedConcurrencyToken = null! });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        var root = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
+        Assert.Equal("validation_failed", root.GetProperty("errorCode").GetString());
+        Assert.False(facade.UpdateWasCalled);
+    }
+
     private static WebApplicationFactory<Program> CreateFactory(FakeClientFacade facade, bool authenticated)
     {
         Environment.SetEnvironmentVariable(
@@ -664,6 +1159,81 @@ public class ClientsControllerTests
             }
 
             return Task.FromResult(LifecycleResultToReturn);
+        }
+
+        public ClientServiceModel? ArchiveResultToReturn { get; init; }
+
+        public Exception? ArchiveExceptionToThrow { get; init; }
+
+        public bool ArchiveWasCalled { get; private set; }
+
+        public Guid? ReceivedArchiveClientId { get; private set; }
+
+        public ArchiveClientViewModel? ReceivedArchiveRequest { get; private set; }
+
+        public Task<ClientServiceModel?> ArchiveAsync(
+            Guid clientId, ArchiveClientViewModel request, CancellationToken cancellationToken)
+        {
+            ArchiveWasCalled = true;
+            ReceivedArchiveClientId = clientId;
+            ReceivedArchiveRequest = request;
+
+            if (ArchiveExceptionToThrow is not null)
+            {
+                throw ArchiveExceptionToThrow;
+            }
+
+            return Task.FromResult(ArchiveResultToReturn);
+        }
+
+        public ClientServiceModel? RestoreResultToReturn { get; init; }
+
+        public Exception? RestoreExceptionToThrow { get; init; }
+
+        public bool RestoreWasCalled { get; private set; }
+
+        public Guid? ReceivedRestoreClientId { get; private set; }
+
+        public RestoreClientViewModel? ReceivedRestoreRequest { get; private set; }
+
+        public Task<ClientServiceModel?> RestoreAsync(
+            Guid clientId, RestoreClientViewModel request, CancellationToken cancellationToken)
+        {
+            RestoreWasCalled = true;
+            ReceivedRestoreClientId = clientId;
+            ReceivedRestoreRequest = request;
+
+            if (RestoreExceptionToThrow is not null)
+            {
+                throw RestoreExceptionToThrow;
+            }
+
+            return Task.FromResult(RestoreResultToReturn);
+        }
+
+        public ClientServiceModel? UpdateResultToReturn { get; init; }
+
+        public Exception? UpdateExceptionToThrow { get; init; }
+
+        public bool UpdateWasCalled { get; private set; }
+
+        public Guid? ReceivedUpdateClientId { get; private set; }
+
+        public UpdateClientViewModel? ReceivedUpdateRequest { get; private set; }
+
+        public Task<ClientServiceModel?> UpdateAsync(
+            Guid clientId, UpdateClientViewModel request, CancellationToken cancellationToken)
+        {
+            UpdateWasCalled = true;
+            ReceivedUpdateClientId = clientId;
+            ReceivedUpdateRequest = request;
+
+            if (UpdateExceptionToThrow is not null)
+            {
+                throw UpdateExceptionToThrow;
+            }
+
+            return Task.FromResult(UpdateResultToReturn);
         }
     }
 

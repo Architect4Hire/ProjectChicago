@@ -148,9 +148,124 @@ public sealed class ClientFacade : IClientFacade
             cancellationToken).ConfigureAwait(false);
     }
 
+    public async Task<ClientServiceModel?> ArchiveAsync(
+        Guid clientId, ArchiveClientViewModel request, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        if (clientId == Guid.Empty)
+        {
+            throw new ValidationException("Client Id must not be empty.");
+        }
+
+        var requestContext = _currentRequestContext.Current;
+
+        // SEC-013: authorization is verified before any validation/business work runs, mirroring
+        // ChangeLifecycleStatusAsync's authorize-first ordering.
+        var authorized = await _authorization.CanArchiveAsync(requestContext.Actor, cancellationToken).ConfigureAwait(false);
+        if (!authorized)
+        {
+            throw new UnauthorizedAccessException(
+                "The current actor is not authorized to archive a Client (Clients.Write).");
+        }
+
+        Validate(request);
+
+        // CLIENT-013..015/DATA-008: the Facade does not evaluate the active-Projects check or
+        // concurrency-token check itself - it only authorizes and validates transport shape before
+        // handing clientId, the untouched request, and the resolved actor/context/timestamp to
+        // IClientBusiness.ArchiveAsync.
+        return await _clientBusiness.ArchiveAsync(
+            clientId,
+            request.ExpectedConcurrencyToken,
+            requestContext.Actor,
+            requestContext,
+            _clock.UtcNow,
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<ClientServiceModel?> RestoreAsync(
+        Guid clientId, RestoreClientViewModel request, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        if (clientId == Guid.Empty)
+        {
+            throw new ValidationException("Client Id must not be empty.");
+        }
+
+        var requestContext = _currentRequestContext.Current;
+
+        // SEC-013: authorization is verified before any validation/business work runs, mirroring
+        // ArchiveAsync's authorize-first ordering.
+        var authorized = await _authorization.CanRestoreAsync(requestContext.Actor, cancellationToken).ConfigureAwait(false);
+        if (!authorized)
+        {
+            throw new UnauthorizedAccessException(
+                "The current actor is not authorized to restore a Client (Clients.Write).");
+        }
+
+        Validate(request);
+
+        // CLIENT-013..014/DATA-008: the Facade does not evaluate the archive-status check or
+        // concurrency-token check itself - it only authorizes and validates transport shape before
+        // handing clientId, the untouched request, and the resolved actor/context/timestamp to
+        // IClientBusiness.RestoreAsync.
+        return await _clientBusiness.RestoreAsync(
+            clientId,
+            request.RestoredStatus,
+            request.ExpectedConcurrencyToken,
+            requestContext.Actor,
+            requestContext,
+            _clock.UtcNow,
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<ClientServiceModel?> UpdateAsync(
+        Guid clientId, UpdateClientViewModel request, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        if (clientId == Guid.Empty)
+        {
+            throw new ValidationException("Client Id must not be empty.");
+        }
+
+        var requestContext = _currentRequestContext.Current;
+
+        // SEC-013: authorization is verified before any validation/business work runs, mirroring
+        // ChangeLifecycleStatusAsync's authorize-first ordering.
+        var authorized = await _authorization.CanUpdateAsync(requestContext.Actor, cancellationToken).ConfigureAwait(false);
+        if (!authorized)
+        {
+            throw new UnauthorizedAccessException(
+                "The current actor is not authorized to update a Client (Clients.Write).");
+        }
+
+        Validate(request);
+
+        // CLIENT-002/DATA-008: the Facade does not evaluate the concurrency-token check itself -
+        // it only authorizes and validates transport shape before handing clientId, the untouched
+        // request, and the resolved actor/context/timestamp to IClientBusiness.UpdateAsync.
+        return await _clientBusiness.UpdateAsync(
+            clientId,
+            request,
+            request.ExpectedConcurrencyToken,
+            requestContext.Actor,
+            requestContext,
+            _clock.UtcNow,
+            cancellationToken).ConfigureAwait(false);
+    }
+
     private static void Validate(CreateClientViewModel request) => Validate((object)request);
 
     private static void Validate(ChangeClientLifecycleStatusViewModel request) => Validate((object)request);
+
+    private static void Validate(ArchiveClientViewModel request) => Validate((object)request);
+
+    private static void Validate(RestoreClientViewModel request) => Validate((object)request);
+
+    private static void Validate(UpdateClientViewModel request) => Validate((object)request);
 
     private static void Validate(ListClientsRequest request) => Validate((object)request);
 

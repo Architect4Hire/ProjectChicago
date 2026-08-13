@@ -90,6 +90,24 @@ public static class ClientsApiContract
     // Relative to Route: "api/clients/{clientId}/lifecycle-status".
     public const string LifecycleStatusRouteSuffix = "{clientId:guid}/lifecycle-status";
 
+    public const string ArchiveOperationId = "Clients_Archive";
+
+    // Relative to Route: "api/clients/{clientId}/archive".
+    public const string ArchiveRouteSuffix = "{clientId:guid}/archive";
+
+    public const string RestoreOperationId = "Clients_Restore";
+
+    // Relative to Route: "api/clients/{clientId}/restore".
+    public const string RestoreRouteSuffix = "{clientId:guid}/restore";
+
+    public const string UpdateOperationId = "Clients_Update";
+
+    // Relative to Route: "api/clients/{clientId}" for a general profile update (CLIENT-002).
+    // PATCH is appropriate for a partial, field-selective update where callers omit fields they
+    // are not modifying (a true partial update, distinct from lifecycle/archive operations which
+    // transition the Client's state).
+    public const string UpdateRouteSuffix = "{clientId:guid}";
+
     // Named per security.md's "<CRM capability>.<Verb>" convention (its own examples - Accounts.*
     // - are illustrative; this repository's entity is named Client, so the capability follows that
     // naming). Policy registration/enforcement is controller/composition-root work, out of scope

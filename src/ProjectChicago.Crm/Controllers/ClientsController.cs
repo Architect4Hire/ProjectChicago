@@ -162,4 +162,144 @@ public sealed class ClientsController : ControllerBase
             return Conflict(ApiProblemDetailsFactory.ConcurrencyConflict(requestContext));
         }
     }
+
+    // Same 401-vs-403 split as the other actions. 404 is decided here the same way GetDetail
+    // decides it: IClientFacade.ArchiveAsync returns null when no Client with the requested Id
+    // exists. One additional outcome is specific to this mutation and is not classified anywhere in
+    // the shared ApiExceptionHandler (backend.md: that handler "must not grow its switch with
+    // bespoke business exception types" - domain/data-specific translation belongs here, at the
+    // boundary that owns this one use case):
+    //  - InvalidOperationException: Business rejected the archive because the Client has active
+    //    Projects (CLIENT-015). Mapped as a 409 conflict - the state prevents the requested
+    //    operation, not a race with another request.
+    //  - ClientConcurrencyConflictException: request.ExpectedConcurrencyToken did not match the
+    //    Client's currently persisted version (DATA-008). Mapped as a 409 conflict.
+    [HttpPost(ClientsApiContract.ArchiveRouteSuffix, Name = ClientsApiContract.ArchiveOperationId)]
+    [ProducesResponseType(typeof(ClientServiceModel), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<ClientServiceModel>> Archive(
+        Guid clientId,
+        [FromBody] ArchiveClientViewModel request,
+        CancellationToken cancellationToken)
+    {
+        if (User.Identity is not { IsAuthenticated: true })
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            var response = await _clientFacade.ArchiveAsync(clientId, request, cancellationToken)
+                .ConfigureAwait(false);
+
+            return response is null ? NotFound() : Ok(response);
+        }
+        catch (InvalidOperationException ex)
+        {
+            var requestContext = HttpRequestContextFactory.Create(HttpContext);
+            return Conflict(ApiProblemDetailsFactory.ConcurrencyConflict(requestContext, ex.Message));
+        }
+        catch (ClientConcurrencyConflictException)
+        {
+            var requestContext = HttpRequestContextFactory.Create(HttpContext);
+            return Conflict(ApiProblemDetailsFactory.ConcurrencyConflict(requestContext));
+        }
+    }
+
+    // Same 401-vs-403 split as the other actions. 404 is decided here the same way GetDetail
+    // decides it: IClientFacade.RestoreAsync returns null when no Client with the requested Id
+    // exists. One additional outcome is specific to this mutation and is not classified anywhere in
+    // the shared ApiExceptionHandler (backend.md: that handler "must not grow its switch with
+    // bespoke business exception types" - domain/data-specific translation belongs here, at the
+    // boundary that owns this one use case):
+    //  - InvalidOperationException: Business rejected the restore because the Client is not
+    //    currently Archived (CLIENT-014), or the RestoredStatus is invalid. Mapped as a 400 field
+    //    error - the request itself is invalid given the Client's current state.
+    //  - ClientConcurrencyConflictException: request.ExpectedConcurrencyToken did not match the
+    //    Client's currently persisted version (DATA-008). Mapped as a 409 conflict.
+    [HttpPost(ClientsApiContract.RestoreRouteSuffix, Name = ClientsApiContract.RestoreOperationId)]
+    [ProducesResponseType(typeof(ClientServiceModel), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<ClientServiceModel>> Restore(
+        Guid clientId,
+        [FromBody] RestoreClientViewModel request,
+        CancellationToken cancellationToken)
+    {
+        if (User.Identity is not { IsAuthenticated: true })
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            var response = await _clientFacade.RestoreAsync(clientId, request, cancellationToken)
+                .ConfigureAwait(false);
+
+            return response is null ? NotFound() : Ok(response);
+        }
+        catch (InvalidOperationException ex)
+        {
+            var requestContext = HttpRequestContextFactory.Create(HttpContext);
+            var problem = ApiProblemDetailsFactory.Validation(
+                requestContext,
+                fieldErrors: new Dictionary<string, string[]>
+                {
+                    [nameof(RestoreClientViewModel.RestoredStatus)] = [ex.Message],
+                });
+
+            return BadRequest(problem);
+        }
+        catch (ClientConcurrencyConflictException)
+        {
+            var requestContext = HttpRequestContextFactory.Create(HttpContext);
+            return Conflict(ApiProblemDetailsFactory.ConcurrencyConflict(requestContext));
+        }
+    }
+
+    // Same 401-vs-403 split as the other actions. 404 is decided here the same way GetDetail
+    // decides it: IClientFacade.UpdateAsync returns null when no Client with the requested Id
+    // exists. One additional outcome is specific to this mutation and is not classified anywhere in
+    // the shared ApiExceptionHandler (backend.md: that handler "must not grow its switch with
+    // bespoke business exception types" - domain/data-specific translation belongs here, at the
+    // boundary that owns this one use case):
+    //  - ClientConcurrencyConflictException: request.ExpectedConcurrencyToken did not match the
+    //    Client's currently persisted version (DATA-008). Mapped as a 409 conflict.
+    [HttpPatch(ClientsApiContract.UpdateRouteSuffix, Name = ClientsApiContract.UpdateOperationId)]
+    [ProducesResponseType(typeof(ClientServiceModel), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<ClientServiceModel>> Update(
+        Guid clientId,
+        [FromBody] UpdateClientViewModel request,
+        CancellationToken cancellationToken)
+    {
+        if (User.Identity is not { IsAuthenticated: true })
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            var response = await _clientFacade.UpdateAsync(clientId, request, cancellationToken)
+                .ConfigureAwait(false);
+
+            return response is null ? NotFound() : Ok(response);
+        }
+        catch (ClientConcurrencyConflictException)
+        {
+            var requestContext = HttpRequestContextFactory.Create(HttpContext);
+            return Conflict(ApiProblemDetailsFactory.ConcurrencyConflict(requestContext));
+        }
+    }
 }

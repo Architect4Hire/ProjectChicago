@@ -45,4 +45,9 @@ public interface IClientRepository
     // already identified the record it wants to see, archived or not (DATA-021: archived records
     // remain available for historical relationships).
     Task<ClientDetailQueryResult?> GetDetailAsync(Guid clientId, CancellationToken cancellationToken);
+
+    // Returns true when the Client with the given Id has one or more active Projects
+    // (CLIENT-015: archival restriction). Active is determined by ProjectStatus matching one of
+    // the same Planned/Active/OnHold statuses used in GetDetailAsync's summary.
+    Task<bool> HasActiveProjectsAsync(Guid clientId, CancellationToken cancellationToken);
 }

@@ -54,4 +54,54 @@ public interface IClientBusiness
     // null when no Client with the requested Id exists - Business does not decide 404 semantics,
     // that is a future Controller's concern.
     Task<ClientDetailServiceModel?> GetDetailAsync(Guid clientId, CancellationToken cancellationToken);
+
+    // Archives a Client by transitioning its lifecycle status to Archived (CLIENT-013/014).
+    // Enforces CLIENT-015: a Client with active Projects cannot be archived. Loads the current
+    // Client, verifies DATA-008 optimistic concurrency against expectedConcurrencyToken, checks
+    // that no active Projects exist, mutates the Client to Archived status, builds the AUDIT-001..003
+    // Archived audit fact, and persists both atomically through IClientData. Returns null when no
+    // Client with the requested Id exists. Throws InvalidOperationException when the Client has
+    // active Projects, and ClientConcurrencyConflictException when expectedConcurrencyToken does
+    // not match the Client's current state.
+    Task<ClientServiceModel?> ArchiveAsync(
+        Guid clientId,
+        string expectedConcurrencyToken,
+        ActorContext actor,
+        RequestContext requestContext,
+        DateTime archivedAtUtc,
+        CancellationToken cancellationToken);
+
+    // Restores an archived Client to a specified lifecycle status (CLIENT-013/014). Loads the
+    // current Client, verifies DATA-008 optimistic concurrency against expectedConcurrencyToken,
+    // verifies the Client is currently Archived, mutates the Client to the new status, builds the
+    // AUDIT-001..003 Restored audit fact, and persists both atomically through IClientData. Returns
+    // null when no Client with the requested Id exists. Throws InvalidOperationException when the
+    // Client is not currently Archived or when the target status is not a valid lifecycle status for
+    // restoration, and ClientConcurrencyConflictException when expectedConcurrencyToken does not
+    // match the Client's current state.
+    Task<ClientServiceModel?> RestoreAsync(
+        Guid clientId,
+        ClientLifecycleStatusContract restoredStatus,
+        string expectedConcurrencyToken,
+        ActorContext actor,
+        RequestContext requestContext,
+        DateTime restoredAtUtc,
+        CancellationToken cancellationToken);
+
+    // Updates a Client's editable profile fields (CLIENT-002): name, contact info, address,
+    // website, description, and owner. Does not change lifecycle status (ChangeLifecycleStatusAsync is
+    // separate) or archive state. Normalizes all string inputs (trim), loads the current Client,
+    // verifies DATA-008 optimistic concurrency against expectedConcurrencyToken, mutates only the
+    // provided (non-null) fields, builds the AUDIT-001..003 Updated audit fact with before/after
+    // change-set, and persists both atomically through IClientData. Returns null when no Client with
+    // the requested Id exists. Throws ClientConcurrencyConflictException when expectedConcurrencyToken
+    // does not match the Client's current state.
+    Task<ClientServiceModel?> UpdateAsync(
+        Guid clientId,
+        UpdateClientViewModel request,
+        string expectedConcurrencyToken,
+        ActorContext actor,
+        RequestContext requestContext,
+        DateTime modifiedAtUtc,
+        CancellationToken cancellationToken);
 }

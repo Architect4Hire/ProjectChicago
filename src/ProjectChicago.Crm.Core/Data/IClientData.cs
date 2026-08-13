@@ -56,4 +56,57 @@ public interface IClientData
     // pure read with no transaction/outbox composition, so Data adds nothing beyond keeping
     // Business repository-agnostic (onion-boundaries.md).
     Task<ClientDetailQueryResult?> GetDetailAsync(Guid clientId, CancellationToken cancellationToken);
+
+    // Loads the tracked Client for archive (CLIENT-013..015) and verifies expectedConcurrencyToken
+    // (the caller's last-known Client.RowVersion) matches the Client's currently persisted value,
+    // rejecting a caller acting on stale data before Business ever applies the archive operation
+    // (DATA-008). Returns null when no Client with the requested Id exists. Throws
+    // ClientConcurrencyConflictException when expectedConcurrencyToken does not match.
+    Task<Client?> GetForArchiveAsync(
+        Guid clientId, string expectedConcurrencyToken, CancellationToken cancellationToken);
+
+    // Persists the Client instance GetForArchiveAsync returned - Business has already called
+    // Client.ChangeLifecycleStatus to transition to Archived - plus the one EntityMutationAudited
+    // fact Business decided to emit for the Archived mutation (AUDIT-001..003), atomically with the
+    // same CrmDbContext/SaveChangesAsync call other mutations use (OUTBOX-001/002). Throws
+    // ClientConcurrencyConflictException if a concurrent write reached the database between
+    // GetForArchiveAsync's read and this save (DATA-008).
+    Task SaveArchiveAsync(Client client, EntityMutationAudited auditFact, CancellationToken cancellationToken);
+
+    // Loads the tracked Client for restore (CLIENT-013..015) and verifies expectedConcurrencyToken
+    // (the caller's last-known Client.RowVersion) matches the Client's currently persisted value,
+    // rejecting a caller acting on stale data before Business ever applies the restore operation
+    // (DATA-008). Returns null when no Client with the requested Id exists. Throws
+    // ClientConcurrencyConflictException when expectedConcurrencyToken does not match.
+    Task<Client?> GetForRestoreAsync(
+        Guid clientId, string expectedConcurrencyToken, CancellationToken cancellationToken);
+
+    // Persists the Client instance GetForRestoreAsync returned - Business has already called
+    // Client.ChangeLifecycleStatus to transition from Archived to a new status - plus the one
+    // EntityMutationAudited fact Business decided to emit for the Restored mutation (AUDIT-001..003),
+    // atomically with the same CrmDbContext/SaveChangesAsync call other mutations use (OUTBOX-001/002).
+    // Throws ClientConcurrencyConflictException if a concurrent write reached the database between
+    // GetForRestoreAsync's read and this save (DATA-008).
+    Task SaveRestoreAsync(Client client, EntityMutationAudited auditFact, CancellationToken cancellationToken);
+
+    // Returns true when the Client with the given Id has one or more active Projects
+    // (CLIENT-015: archival restriction). Thin passthrough to IClientRepository.HasActiveProjectsAsync -
+    // this is a read with no transaction composition, so Data adds nothing beyond keeping Business
+    // repository-agnostic (onion-boundaries.md).
+    Task<bool> HasActiveProjectsAsync(Guid clientId, CancellationToken cancellationToken);
+
+    // Loads the tracked Client for profile update (CLIENT-002) and verifies expectedConcurrencyToken
+    // (the caller's last-known Client.RowVersion) matches the Client's currently persisted value,
+    // rejecting a caller acting on stale data before Business ever applies the update (DATA-008).
+    // Returns null when no Client with the requested Id exists. Throws ClientConcurrencyConflictException
+    // when expectedConcurrencyToken does not match.
+    Task<Client?> GetForUpdateAsync(
+        Guid clientId, string expectedConcurrencyToken, CancellationToken cancellationToken);
+
+    // Persists the Client instance GetForUpdateAsync returned - Business has already called
+    // Client.UpdateProfile on it - plus the one EntityMutationAudited fact Business decided to emit
+    // for the Updated mutation (AUDIT-001..003), atomically with the same CrmDbContext/SaveChangesAsync
+    // call other mutations use (OUTBOX-001/002). Throws ClientConcurrencyConflictException if a
+    // concurrent write reached the database between GetForUpdateAsync's read and this save (DATA-008).
+    Task SaveUpdateAsync(Client client, EntityMutationAudited auditFact, CancellationToken cancellationToken);
 }

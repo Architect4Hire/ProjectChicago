@@ -127,6 +127,44 @@ public sealed class Client
         LastModifiedAtUtc = validModifiedAtUtc;
     }
 
+    // CLIENT-002: mutates the editable contact/address/description/owner fields in place. Does not
+    // touch lifecycle status (ChangeLifecycleStatus is separate) or archive state. All parameters
+    // are already-normalized/validated by Business before this method is called; this method only
+    // enforces low-level invariants (UTC timestamp, identified modifier), never domain rules.
+    public void UpdateProfile(
+        string? name,
+        string? primaryContactName,
+        string? primaryEmail,
+        string? primaryPhone,
+        string? website,
+        string? addressLine,
+        string? city,
+        string? stateOrProvince,
+        string? postalCode,
+        string? country,
+        string? description,
+        string ownerUserId,
+        string modifiedBy,
+        DateTime modifiedAtUtc)
+    {
+        var validModifiedAtUtc = RequireUtc(modifiedAtUtc, nameof(modifiedAtUtc));
+
+        Name = RequireText(name, nameof(name));
+        PrimaryContactName = primaryContactName;
+        PrimaryEmail = primaryEmail;
+        PrimaryPhone = primaryPhone;
+        Website = website;
+        AddressLine = addressLine;
+        City = city;
+        StateOrProvince = stateOrProvince;
+        PostalCode = postalCode;
+        Country = country;
+        Description = description;
+        OwnerUserId = RequireText(ownerUserId, nameof(ownerUserId));
+        LastModifiedBy = RequireText(modifiedBy, nameof(modifiedBy));
+        LastModifiedAtUtc = validModifiedAtUtc;
+    }
+
     private static string RequireText(string? value, string paramName) =>
         string.IsNullOrWhiteSpace(value)
             ? throw new ArgumentException("Value cannot be null or whitespace.", paramName)

@@ -118,6 +118,66 @@ public class ClientFacadeTests
             return Task.FromResult(DetailResultToReturn);
         }
 
+        public Task<ClientServiceModel?> ArchiveAsync(
+            Guid clientId,
+            string expectedConcurrencyToken,
+            ActorContext actor,
+            RequestContext requestContext,
+            DateTime archivedAtUtc,
+            CancellationToken cancellationToken)
+        {
+            // Minimal fake implementation for test purposes - never used in ClientFacadeTests
+            return Task.FromResult<ClientServiceModel?>(null);
+        }
+
+        public Task<ClientServiceModel?> RestoreAsync(
+            Guid clientId,
+            ClientLifecycleStatusContract restoredStatus,
+            string expectedConcurrencyToken,
+            ActorContext actor,
+            RequestContext requestContext,
+            DateTime restoredAtUtc,
+            CancellationToken cancellationToken)
+        {
+            // Minimal fake implementation for test purposes - never used in ClientFacadeTests
+            return Task.FromResult<ClientServiceModel?>(null);
+        }
+
+        public Guid? UpdateClientIdReceived { get; private set; }
+
+        public UpdateClientViewModel? UpdateRequestReceived { get; private set; }
+
+        public string? UpdateExpectedConcurrencyTokenReceived { get; private set; }
+
+        public ActorContext? UpdateActorReceived { get; private set; }
+
+        public RequestContext? UpdateRequestContextReceived { get; private set; }
+
+        public DateTime? UpdateModifiedAtUtcReceived { get; private set; }
+
+        public bool UpdateWasCalled { get; private set; }
+
+        public ClientServiceModel? UpdateResultToReturn { get; set; }
+
+        public Task<ClientServiceModel?> UpdateAsync(
+            Guid clientId,
+            UpdateClientViewModel request,
+            string expectedConcurrencyToken,
+            ActorContext actor,
+            RequestContext requestContext,
+            DateTime modifiedAtUtc,
+            CancellationToken cancellationToken)
+        {
+            UpdateWasCalled = true;
+            UpdateClientIdReceived = clientId;
+            UpdateRequestReceived = request;
+            UpdateExpectedConcurrencyTokenReceived = expectedConcurrencyToken;
+            UpdateActorReceived = actor;
+            UpdateRequestContextReceived = requestContext;
+            UpdateModifiedAtUtcReceived = modifiedAtUtc;
+            return Task.FromResult(UpdateResultToReturn);
+        }
+
         private static PagedResponse<ClientServiceModel> BuildDefaultListResult() => new()
         {
             Items = [],
@@ -186,6 +246,39 @@ public class ClientFacadeTests
         {
             LifecycleWasCalled = true;
             ReceivedLifecycleActor = actor;
+            return Task.FromResult(AuthorizedResult);
+        }
+
+        public ActorContext? ReceivedArchiveActor { get; private set; }
+
+        public bool ArchiveWasCalled { get; private set; }
+
+        public Task<bool> CanArchiveAsync(ActorContext actor, CancellationToken cancellationToken)
+        {
+            ArchiveWasCalled = true;
+            ReceivedArchiveActor = actor;
+            return Task.FromResult(AuthorizedResult);
+        }
+
+        public ActorContext? ReceivedRestoreActor { get; private set; }
+
+        public bool RestoreWasCalled { get; private set; }
+
+        public Task<bool> CanRestoreAsync(ActorContext actor, CancellationToken cancellationToken)
+        {
+            RestoreWasCalled = true;
+            ReceivedRestoreActor = actor;
+            return Task.FromResult(AuthorizedResult);
+        }
+
+        public ActorContext? ReceivedUpdateActor { get; private set; }
+
+        public bool UpdateWasCalled { get; private set; }
+
+        public Task<bool> CanUpdateAsync(ActorContext actor, CancellationToken cancellationToken)
+        {
+            UpdateWasCalled = true;
+            ReceivedUpdateActor = actor;
             return Task.FromResult(AuthorizedResult);
         }
     }
@@ -796,5 +889,141 @@ public class ClientFacadeTests
 
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => facade.ChangeLifecycleStatusAsync(Guid.NewGuid(), CreateLifecycleRequest(), CancellationToken.None));
+    }
+
+    // --- UpdateAsync (CLIENT-002, SEC-012..013, DATA-008) ---
+
+    private static UpdateClientViewModel CreateUpdateRequest(string? expectedConcurrencyToken = null) => new()
+    {
+        Name = "Updated Name",
+        PrimaryEmail = "updated@example.com",
+        ExpectedConcurrencyToken = expectedConcurrencyToken ?? "dGVzdA==",
+    };
+
+    [Fact]
+    public async Task UpdateAsync_WhenAuthorizedAndValid_ReturnsTheBusinessResultUnchanged()
+    {
+        var expectedResult = new ClientServiceModel
+        {
+            Id = Guid.NewGuid(),
+            Name = "Updated Name",
+            LifecycleStatus = ClientLifecycleStatusContract.Lead,
+            OwnerUserId = "owner-1",
+            CreatedAtUtc = FixedUtcNow,
+            CreatedBy = "user-1",
+            LastModifiedAtUtc = FixedUtcNow,
+            LastModifiedBy = "user-1",
+            ConcurrencyToken = Convert.ToBase64String([1, 2, 3, 4, 5, 6, 7, 8]),
+        };
+        var facade = BuildFacade(out var business, out _);
+        business.UpdateResultToReturn = expectedResult;
+
+        var result = await facade.UpdateAsync(Guid.NewGuid(), CreateUpdateRequest(), CancellationToken.None);
+
+        Assert.Same(expectedResult, result);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_PassesTheClientIdRequestFieldsAndResolvedActorRequestContextAndClockToBusiness()
+    {
+        var clientId = Guid.NewGuid();
+        var actor = ActorContext.ForUser("actor-9");
+        var request = CreateUpdateRequest();
+        var facade = BuildFacade(out var business, out _, actor: actor);
+        business.UpdateResultToReturn = new ClientServiceModel
+        {
+            Id = Guid.NewGuid(),
+            Name = "Acme Corporation",
+            LifecycleStatus = ClientLifecycleStatusContract.Lead,
+            OwnerUserId = "owner-1",
+            CreatedAtUtc = FixedUtcNow,
+            CreatedBy = "user-1",
+            LastModifiedAtUtc = FixedUtcNow,
+            LastModifiedBy = "user-1",
+            ConcurrencyToken = Convert.ToBase64String([1, 2, 3, 4, 5, 6, 7, 8]),
+        };
+
+        await facade.UpdateAsync(clientId, request, CancellationToken.None);
+
+        Assert.True(business.UpdateWasCalled);
+        Assert.Equal(clientId, business.UpdateClientIdReceived);
+        Assert.Same(request, business.UpdateRequestReceived);
+        Assert.Equal(request.ExpectedConcurrencyToken, business.UpdateExpectedConcurrencyTokenReceived);
+        Assert.Equal(actor, business.UpdateActorReceived);
+        Assert.Equal(FixedUtcNow, business.UpdateModifiedAtUtcReceived);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ChecksAuthorizationForTheResolvedActor()
+    {
+        var actor = ActorContext.ForUser("actor-8");
+        var facade = BuildFacade(out _, out var authorization, actor: actor);
+
+        await facade.UpdateAsync(Guid.NewGuid(), CreateUpdateRequest(), CancellationToken.None);
+
+        Assert.True(authorization.UpdateWasCalled);
+        Assert.Equal(actor, authorization.ReceivedUpdateActor);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_WhenBusinessReturnsNull_ReturnsNull()
+    {
+        var facade = BuildFacade(out var business, out _);
+        business.UpdateResultToReturn = null;
+
+        var result = await facade.UpdateAsync(Guid.NewGuid(), CreateUpdateRequest(), CancellationToken.None);
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_WhenClientIdIsEmpty_ThrowsValidationExceptionAndNeverChecksAuthorization()
+    {
+        var facade = BuildFacade(out var business, out var authorization);
+
+        await Assert.ThrowsAsync<ValidationException>(
+            () => facade.UpdateAsync(Guid.Empty, CreateUpdateRequest(), CancellationToken.None));
+
+        Assert.False(authorization.UpdateWasCalled);
+        Assert.False(business.UpdateWasCalled);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task UpdateAsync_WhenExpectedConcurrencyTokenIsMissing_ThrowsValidationExceptionAndNeverCallsBusiness(
+        string token)
+    {
+        var facade = BuildFacade(out var business, out _);
+        var request = CreateUpdateRequest(expectedConcurrencyToken: token);
+
+        await Assert.ThrowsAsync<ValidationException>(
+            () => facade.UpdateAsync(Guid.NewGuid(), request, CancellationToken.None));
+
+        Assert.False(business.UpdateWasCalled);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_WhenActorIsNotAuthorized_ThrowsUnauthorizedAccessExceptionAndNeverCallsBusiness()
+    {
+        var facade = BuildFacade(out var business, out var authorization, authorized: false);
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(
+            () => facade.UpdateAsync(Guid.NewGuid(), CreateUpdateRequest(), CancellationToken.None));
+
+        Assert.True(authorization.UpdateWasCalled);
+        Assert.False(business.UpdateWasCalled);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_WhenActorIsNotAuthorized_ChecksAuthorizationBeforeValidatingTheRequest()
+    {
+        // authorized: false paired with an otherwise-invalid request (missing concurrency token) proves
+        // authorization is evaluated first (SEC-013).
+        var facade = BuildFacade(out _, out _, authorized: false);
+        var request = CreateUpdateRequest(expectedConcurrencyToken: "");
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(
+            () => facade.UpdateAsync(Guid.NewGuid(), request, CancellationToken.None));
     }
 }

@@ -52,4 +52,45 @@ public interface IClientFacade
     // classified by the Controller into the 400/403/404/409 ProblemDetails shape (ERROR-003).
     Task<ClientServiceModel?> ChangeLifecycleStatusAsync(
         Guid clientId, ChangeClientLifecycleStatusViewModel request, CancellationToken cancellationToken);
+
+    // Verifies SEC-012/013 authorization (Clients.Write) for the resolved actor, validates that
+    // clientId is not Guid.Empty and that request has valid ExpectedConcurrencyToken, and delegates
+    // to Business for the CLIENT-015 check (blocks if active Projects exist), the DATA-008 concurrency
+    // check, persistence, and mapping. Returns null when no Client with the requested Id exists - this
+    // Facade does not decide 404 semantics; that mapping belongs to the Controller. Throws
+    // UnauthorizedAccessException when the resolved actor lacks the Clients.Write policy,
+    // System.ComponentModel.DataAnnotations.ValidationException when clientId is empty or request
+    // fails transport validation, InvalidOperationException when Business detects active Projects
+    // (CLIENT-015), or ClientConcurrencyConflictException when request.ExpectedConcurrencyToken does
+    // not match the Client's current state (DATA-008) - all classified by the Controller into the
+    // 400/403/404/409 ProblemDetails shape (ERROR-003).
+    Task<ClientServiceModel?> ArchiveAsync(
+        Guid clientId, ArchiveClientViewModel request, CancellationToken cancellationToken);
+
+    // Verifies SEC-012/013 authorization (Clients.Write) for the resolved actor, validates that
+    // clientId is not Guid.Empty and that request has valid fields, and delegates to Business for
+    // the archive-status check, the DATA-008 concurrency check, persistence, and mapping. Returns
+    // null when no Client with the requested Id exists - this Facade does not decide 404 semantics;
+    // that mapping belongs to the Controller. Throws UnauthorizedAccessException when the resolved
+    // actor lacks the Clients.Write policy, System.ComponentModel.DataAnnotations.ValidationException
+    // when clientId is empty, RestoredStatus is undefined, or request fails transport validation,
+    // InvalidOperationException when Business detects the Client is not currently Archived (CLIENT-014),
+    // or ClientConcurrencyConflictException when request.ExpectedConcurrencyToken does not match the
+    // Client's current state (DATA-008) - all classified by the Controller into the 400/403/404/409
+    // ProblemDetails shape (ERROR-003).
+    Task<ClientServiceModel?> RestoreAsync(
+        Guid clientId, RestoreClientViewModel request, CancellationToken cancellationToken);
+
+    // Verifies SEC-012/013 authorization (Clients.Write) for the resolved actor, validates that
+    // clientId is not Guid.Empty and that request has valid ExpectedConcurrencyToken, and delegates
+    // to Business for normalization, the DATA-008 concurrency check, persistence, and mapping.
+    // Returns null when no Client with the requested Id exists - this Facade does not decide 404
+    // semantics; that mapping belongs to the Controller. Throws UnauthorizedAccessException when the
+    // resolved actor lacks the Clients.Write policy, System.ComponentModel.DataAnnotations.
+    // ValidationException when clientId is empty or request fails transport validation, or
+    // ClientConcurrencyConflictException when request.ExpectedConcurrencyToken does not match the
+    // Client's current state (DATA-008) - all classified by the Controller into the 400/403/404/409
+    // ProblemDetails shape (ERROR-003).
+    Task<ClientServiceModel?> UpdateAsync(
+        Guid clientId, UpdateClientViewModel request, CancellationToken cancellationToken);
 }
