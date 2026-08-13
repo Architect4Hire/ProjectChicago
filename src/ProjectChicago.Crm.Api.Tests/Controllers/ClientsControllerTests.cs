@@ -10,23 +10,19 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using ProjectChicago.Crm.Contracts.Clients;
 using ProjectChicago.Crm.Core.Facades;
-using ProjectChicago.Crm.Core.Models.DataModels.Entities;
 using Xunit;
-using CreateClientRequestCore = ProjectChicago.Crm.Core.Models.ServiceModels.CreateClientRequest;
-using CoreClientCreationResult = ProjectChicago.Crm.Core.Models.ServiceModels.ClientCreationResult;
-using CoreDuplicateCandidate = ProjectChicago.Crm.Core.Models.ServiceModels.ClientDuplicateCandidate;
-using CoreDuplicateMatchField = ProjectChicago.Crm.Core.Models.ServiceModels.ClientDuplicateMatchField;
 
 namespace ProjectChicago.Crm.Api.Tests.Controllers;
 
 // End-to-end HTTP tests for POST /api/clients (CLIENT-001..004, API-001..007, SEC-010..013,
 // ERROR-001..005) against the real Crm Program.cs composition root - proves ClientsController's
-// transport mapping/status-code behavior, not Facade/Business/Data (those are covered by
-// ProjectChicago.Crm.Core.Tests). IClientFacade is replaced with a hand-written fake per test
-// (mirrors ClientFacadeTests' fake style; no mocking library is used in this repository), since the
-// production Facade->Business->Data->Repository->DbContext chain and its IClientAuthorization/IClock
-// adapters are not wired in Program.cs yet (composition-root work explicitly out of scope for this
-// controller-only microstep).
+// transport behavior (status codes, Location header, pass-through of the Facade's response body),
+// not the request/response field mapping (that lives in ClientContractMappingExtensions and is
+// covered by ProjectChicago.Crm.Core.Tests). IClientFacade is replaced with a hand-written fake per
+// test (mirrors ClientFacadeTests' fake style; no mocking library is used in this repository), since
+// the production Facade->Business->Data->Repository->DbContext chain and its
+// IClientAuthorization/IClock adapters are not wired in Program.cs yet (composition-root work
+// explicitly out of scope for this controller-only microstep).
 public class ClientsControllerTests
 {
     private const string CrmDbConnectionStringEnvironmentVariable = "ConnectionStrings__CrmDb";
@@ -39,49 +35,51 @@ public class ClientsControllerTests
         PrimaryEmail = "jane@acme.example",
     };
 
-    private static Client BuildPersistedClient(string name = "Acme Corporation", string ownerUserId = "owner-1") =>
-        Client.Create(
-            id: Guid.NewGuid(),
-            name: name,
-            lifecycleStatus: ClientLifecycleStatus.Lead,
-            ownerUserId: ownerUserId,
-            createdBy: "actor-1",
-            createdAtUtc: FixedUtcNow);
+    private static ClientResponse BuildResponse(
+        string name = "Acme Corporation",
+        string ownerUserId = "owner-1",
+        IReadOnlyList<ClientDuplicateWarning>? possibleDuplicates = null) => new()
+    {
+        Id = Guid.NewGuid(),
+        Name = name,
+        OwnerUserId = ownerUserId,
+        LifecycleStatus = ClientLifecycleStatusContract.Lead,
+        CreatedAtUtc = FixedUtcNow,
+        CreatedBy = "actor-1",
+        LastModifiedAtUtc = FixedUtcNow,
+        LastModifiedBy = "actor-1",
+        ConcurrencyToken = Convert.ToBase64String([1, 2, 3, 4, 5, 6, 7, 8]),
+        PossibleDuplicates = possibleDuplicates ?? [],
+    };
 
     // --- Success (CLIENT-001..003) ---
 
     [Fact]
-    public async Task Create_WhenAuthenticatedAndValid_Returns201WithLocationAndMappedBody()
+    public async Task Create_WhenAuthenticatedAndValid_Returns201WithLocationAndTheFacadesResponseBody()
     {
-        var client = BuildPersistedClient();
-        var facade = new FakeClientFacade
-        {
-            ResultToReturn = new CoreClientCreationResult { Client = client },
-        };
+        var expectedResponse = BuildResponse();
+        var facade = new FakeClientFacade { ResultToReturn = expectedResponse };
         using var factory = CreateFactory(facade, authenticated: true);
         using var httpClient = factory.CreateClient();
 
         var response = await httpClient.PostAsJsonAsync(ClientsApiContract.Route, ValidRequest());
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-        Assert.Equal($"{ClientsApiContract.Route}/{client.Id}", response.Headers.Location?.ToString());
+        Assert.Equal($"{ClientsApiContract.Route}/{expectedResponse.Id}", response.Headers.Location?.ToString());
 
         var body = await response.Content.ReadFromJsonAsync<ClientResponse>();
         Assert.NotNull(body);
-        Assert.Equal(client.Id, body!.Id);
-        Assert.Equal(client.Name, body.Name);
-        Assert.Equal(client.OwnerUserId, body.OwnerUserId);
-        Assert.Equal(ClientLifecycleStatusContract.Lead, body.LifecycleStatus);
+        Assert.Equal(expectedResponse.Id, body!.Id);
+        Assert.Equal(expectedResponse.Name, body.Name);
+        Assert.Equal(expectedResponse.OwnerUserId, body.OwnerUserId);
+        Assert.Equal(expectedResponse.LifecycleStatus, body.LifecycleStatus);
         Assert.Empty(body.PossibleDuplicates);
     }
 
     [Fact]
     public async Task Create_PassesTheBoundRequestFieldsToTheFacade()
     {
-        var facade = new FakeClientFacade
-        {
-            ResultToReturn = new CoreClientCreationResult { Client = BuildPersistedClient() },
-        };
+        var facade = new FakeClientFacade { ResultToReturn = BuildResponse() };
         using var factory = CreateFactory(facade, authenticated: true);
         using var httpClient = factory.CreateClient();
 
@@ -95,24 +93,19 @@ public class ClientsControllerTests
     // --- Duplicate-policy result (CLIENT-004: warns, never blocks) ---
 
     [Fact]
-    public async Task Create_WhenBusinessReturnsPossibleDuplicates_Returns201WithDuplicatesInBody()
+    public async Task Create_WhenFacadeReturnsPossibleDuplicates_Returns201WithDuplicatesInBody()
     {
-        var client = BuildPersistedClient();
         var facade = new FakeClientFacade
         {
-            ResultToReturn = new CoreClientCreationResult
-            {
-                Client = client,
-                PossibleDuplicates =
-                [
-                    new CoreDuplicateCandidate
-                    {
-                        ClientId = Guid.NewGuid(),
-                        Name = "Acme Corp",
-                        MatchedOn = [CoreDuplicateMatchField.Name, CoreDuplicateMatchField.PrimaryEmail],
-                    },
-                ],
-            },
+            ResultToReturn = BuildResponse(possibleDuplicates:
+            [
+                new ClientDuplicateWarning
+                {
+                    ClientId = Guid.NewGuid(),
+                    Name = "Acme Corp",
+                    MatchedOn = [ClientDuplicateMatchField.Name, ClientDuplicateMatchField.PrimaryEmail],
+                },
+            ]),
         };
         using var factory = CreateFactory(facade, authenticated: true);
         using var httpClient = factory.CreateClient();
@@ -132,7 +125,7 @@ public class ClientsControllerTests
     [Fact]
     public async Task Create_WhenNameIsMissing_Returns400ValidationProblemDetailsAndNeverCallsFacade()
     {
-        var facade = new FakeClientFacade { ResultToReturn = new CoreClientCreationResult { Client = BuildPersistedClient() } };
+        var facade = new FakeClientFacade { ResultToReturn = BuildResponse() };
         using var factory = CreateFactory(facade, authenticated: true);
         using var httpClient = factory.CreateClient();
 
@@ -148,7 +141,7 @@ public class ClientsControllerTests
     [Fact]
     public async Task Create_WhenPrimaryEmailIsMalformed_Returns400ValidationProblemDetails()
     {
-        var facade = new FakeClientFacade { ResultToReturn = new CoreClientCreationResult { Client = BuildPersistedClient() } };
+        var facade = new FakeClientFacade { ResultToReturn = BuildResponse() };
         using var factory = CreateFactory(facade, authenticated: true);
         using var httpClient = factory.CreateClient();
 
@@ -163,7 +156,7 @@ public class ClientsControllerTests
     [Fact]
     public async Task Create_WhenNoAuthenticatedActor_Returns401AndNeverCallsFacade()
     {
-        var facade = new FakeClientFacade { ResultToReturn = new CoreClientCreationResult { Client = BuildPersistedClient() } };
+        var facade = new FakeClientFacade { ResultToReturn = BuildResponse() };
         using var factory = CreateFactory(facade, authenticated: false);
         using var httpClient = factory.CreateClient();
 
@@ -215,15 +208,15 @@ public class ClientsControllerTests
     // used in this repository).
     private sealed class FakeClientFacade : IClientFacade
     {
-        public CoreClientCreationResult ResultToReturn { get; init; } = null!;
+        public ClientResponse ResultToReturn { get; init; } = null!;
 
         public Exception? ExceptionToThrow { get; init; }
 
         public bool WasCalled { get; private set; }
 
-        public CreateClientRequestCore? ReceivedRequest { get; private set; }
+        public CreateClientRequest? ReceivedRequest { get; private set; }
 
-        public Task<CoreClientCreationResult> CreateAsync(CreateClientRequestCore request, CancellationToken cancellationToken)
+        public Task<ClientResponse> CreateAsync(CreateClientRequest request, CancellationToken cancellationToken)
         {
             WasCalled = true;
             ReceivedRequest = request;

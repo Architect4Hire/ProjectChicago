@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
+using ProjectChicago.Crm.Contracts.Clients;
 using ProjectChicago.Crm.Core.Business;
-using ProjectChicago.Crm.Core.Models.ServiceModels;
 using ProjectChicago.Shared.Correlation;
 
 namespace ProjectChicago.Crm.Core.Facades;
@@ -10,7 +10,10 @@ namespace ProjectChicago.Crm.Core.Facades;
 // the SEC-012/013 authorization check, and CLIENT-002 contextual request validation, before
 // delegating to IClientBusiness for CLIENT-004 duplicate-warning evaluation and persistence. No EF,
 // cache, HttpContext, or Service Bus dependency - those belong to Data/Repository, the HTTP host,
-// and the outbox relay respectively (RESTRICTION: Facade does not access Data/EF).
+// and the outbox relay respectively (RESTRICTION: Facade does not access Data/EF). Wire<->Business
+// model translation is not this layer's job either - ClientContractMappingExtensions (Business)
+// owns both the CreateClientRequest -> CreateClientCommand and ClientCreationResult -> ClientResponse
+// mappings; this Facade only supplies the actor/context/timestamp the command mapping needs.
 public sealed class ClientFacade : IClientFacade
 {
     private readonly IClientBusiness _clientBusiness;
@@ -30,7 +33,7 @@ public sealed class ClientFacade : IClientFacade
         _clock = clock ?? throw new ArgumentNullException(nameof(clock));
     }
 
-    public async Task<ClientCreationResult> CreateAsync(CreateClientRequest request, CancellationToken cancellationToken)
+    public async Task<ClientResponse> CreateAsync(CreateClientRequest request, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
 
@@ -47,31 +50,15 @@ public sealed class ClientFacade : IClientFacade
 
         Validate(request);
 
-        var command = new CreateClientCommand
-        {
-            Name = request.Name,
-            PrimaryContactName = request.PrimaryContactName,
-            PrimaryEmail = request.PrimaryEmail,
-            PrimaryPhone = request.PrimaryPhone,
-            Website = request.Website,
-            AddressLine = request.AddressLine,
-            City = request.City,
-            StateOrProvince = request.StateOrProvince,
-            PostalCode = request.PostalCode,
-            Country = request.Country,
-            LifecycleStatus = request.LifecycleStatus,
-            Description = request.Description,
-            OwnerUserId = request.OwnerUserId,
-            Actor = requestContext.Actor,
-            RequestContext = requestContext,
-            CreatedAtUtc = _clock.UtcNow,
-        };
+        var command = request.ToCommand(requestContext.Actor, requestContext, _clock.UtcNow);
 
         // CLIENT-004: Business decides/evaluates duplicate warnings and returns them on the result.
-        // The Facade does not inspect or block on PossibleDuplicates - it only passes the result
-        // through unchanged, so a duplicate warning is surfaced to the caller, never silently
-        // merged or dropped.
-        return await _clientBusiness.CreateAsync(command, cancellationToken).ConfigureAwait(false);
+        // The Facade does not inspect or block on PossibleDuplicates - it only passes the mapped
+        // response through unchanged, so a duplicate warning is surfaced to the caller, never
+        // silently merged or dropped.
+        var result = await _clientBusiness.CreateAsync(command, cancellationToken).ConfigureAwait(false);
+
+        return result.ToResponse();
     }
 
     private static void Validate(CreateClientRequest request)

@@ -1,10 +1,13 @@
 using System.ComponentModel.DataAnnotations;
+using ProjectChicago.Crm.Contracts.Clients;
 using ProjectChicago.Crm.Core.Business;
 using ProjectChicago.Crm.Core.Facades;
 using ProjectChicago.Crm.Core.Models.DataModels.Entities;
 using ProjectChicago.Crm.Core.Models.ServiceModels;
 using ProjectChicago.Shared.Correlation;
 using Xunit;
+using CoreDuplicateMatchField = ProjectChicago.Crm.Core.Models.ServiceModels.ClientDuplicateMatchField;
+using ContractDuplicateMatchField = ProjectChicago.Crm.Contracts.Clients.ClientDuplicateMatchField;
 
 namespace ProjectChicago.Crm.Core.Tests.Facades;
 
@@ -12,7 +15,10 @@ namespace ProjectChicago.Crm.Core.Tests.Facades;
 // Facade/Business/Data behavior at the layer that owns the rule"). IClientBusiness,
 // IClientAuthorization, ICurrentRequestContext, and IClock are faked rather than backed by real
 // infrastructure - proving the Facade's own authorization-call/validation/orchestration rules do
-// not require EF, HTTP, or a real clock (RESTRICTION: this scope never touches Data/EF).
+// not require EF, HTTP, or a real clock (RESTRICTION: this scope never touches Data/EF). The
+// wire<->Business mapping itself (ClientContractMappingExtensions) is exercised incidentally here
+// and directly by its own tests - CreateAsync's contract is "authorize, validate, delegate,
+// translate", not the mapping details.
 public class ClientFacadeTests
 {
     private sealed class FakeClientBusiness : IClientBusiness
@@ -74,7 +80,7 @@ public class ClientFacadeTests
         string name = "Acme Corporation",
         string ownerUserId = "owner-1",
         string? primaryEmail = "Jane@Acme.example",
-        ClientLifecycleStatus? lifecycleStatus = null) => new()
+        ClientLifecycleStatusContract? lifecycleStatus = null) => new()
     {
         Name = name,
         OwnerUserId = ownerUserId,
@@ -105,24 +111,25 @@ public class ClientFacadeTests
     // --- Valid create ---
 
     [Fact]
-    public async Task CreateAsync_WhenAuthorizedAndValid_ReturnsBusinessResult()
+    public async Task CreateAsync_WhenAuthorizedAndValid_ReturnsTheMappedBusinessResult()
     {
-        var expected = new ClientCreationResult
-        {
-            Client = Client.Create(
-                id: Guid.NewGuid(),
-                name: "Acme Corporation",
-                lifecycleStatus: ClientLifecycleStatus.Lead,
-                ownerUserId: "owner-1",
-                createdBy: "user-1",
-                createdAtUtc: FixedUtcNow),
-        };
+        var client = Client.Create(
+            id: Guid.NewGuid(),
+            name: "Acme Corporation",
+            lifecycleStatus: ClientLifecycleStatus.Lead,
+            ownerUserId: "owner-1",
+            createdBy: "user-1",
+            createdAtUtc: FixedUtcNow);
+        var expected = new ClientCreationResult { Client = client };
         var facade = BuildFacade(out var business, out _, businessResult: expected);
 
         var result = await facade.CreateAsync(CreateRequest(), CancellationToken.None);
 
-        Assert.Same(expected, result);
         Assert.True(business.WasCalled);
+        Assert.Equal(client.Id, result.Id);
+        Assert.Equal(client.Name, result.Name);
+        Assert.Equal(ClientLifecycleStatusContract.Lead, result.LifecycleStatus);
+        Assert.Empty(result.PossibleDuplicates);
     }
 
     [Fact]
@@ -193,7 +200,7 @@ public class ClientFacadeTests
     public async Task CreateAsync_WhenLifecycleStatusIsUndefined_ThrowsValidationExceptionAndNeverCallsBusiness()
     {
         var facade = BuildFacade(out var business, out _);
-        var request = CreateRequest() with { LifecycleStatus = (ClientLifecycleStatus)999 };
+        var request = CreateRequest() with { LifecycleStatus = (ClientLifecycleStatusContract)999 };
 
         await Assert.ThrowsAsync<ValidationException>(
             () => facade.CreateAsync(request, CancellationToken.None));
@@ -210,7 +217,7 @@ public class ClientFacadeTests
         {
             ClientId = Guid.NewGuid(),
             Name = "Acme Corporation",
-            MatchedOn = [ClientDuplicateMatchField.Name],
+            MatchedOn = [CoreDuplicateMatchField.Name],
         };
         var resultWithDuplicates = new ClientCreationResult
         {
@@ -231,7 +238,7 @@ public class ClientFacadeTests
         Assert.True(business.WasCalled);
         var returnedDuplicate = Assert.Single(result.PossibleDuplicates);
         Assert.Equal(duplicate.ClientId, returnedDuplicate.ClientId);
-        Assert.Contains(ClientDuplicateMatchField.Name, returnedDuplicate.MatchedOn);
+        Assert.Contains(ContractDuplicateMatchField.Name, returnedDuplicate.MatchedOn);
     }
 
     // --- Unauthorized path (SEC-010..013) ---

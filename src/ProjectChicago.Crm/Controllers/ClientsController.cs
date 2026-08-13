@@ -1,11 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using ProjectChicago.Crm.Contracts.Clients;
 using ProjectChicago.Crm.Core.Facades;
-using CoreLifecycleStatus = ProjectChicago.Crm.Core.Models.DataModels.Entities.ClientLifecycleStatus;
-using CoreDuplicateCandidate = ProjectChicago.Crm.Core.Models.ServiceModels.ClientDuplicateCandidate;
-using CoreDuplicateMatchField = ProjectChicago.Crm.Core.Models.ServiceModels.ClientDuplicateMatchField;
-using CoreCreateClientRequest = ProjectChicago.Crm.Core.Models.ServiceModels.CreateClientRequest;
-using CoreClientCreationResult = ProjectChicago.Crm.Core.Models.ServiceModels.ClientCreationResult;
 
 namespace ProjectChicago.Crm.Controllers;
 
@@ -13,9 +8,11 @@ namespace ProjectChicago.Crm.Controllers;
 // binds the wire request, applies the coarse "is there an authenticated actor at all" check
 // documented by ClientsApiContract's 401 case, calls the single IClientFacade use case, and maps its
 // typed result/exception to the standard HTTP/ProblemDetails shape (onion-boundaries.md; add-endpoint
-// skill step 3). Fine-grained SEC-012/013 policy authorization ("Clients.Write") and CLIENT-002/004
-// business rules live in Facade/Business - this controller injects no Business/Data/Repository/
-// DbContext and never publishes directly (RESTRICTION).
+// skill step 3). No field-by-field request/response mapping lives here - IClientFacade accepts and
+// returns the wire contract types directly, and ClientContractMappingExtensions (Business) owns the
+// translation to/from Business models. Fine-grained SEC-012/013 policy authorization ("Clients.Write")
+// and CLIENT-002/004 business rules live in Facade/Business - this controller injects no
+// Business/Data/Repository/DbContext and never publishes directly (RESTRICTION).
 [ApiController]
 [Route(ClientsApiContract.Route)]
 public sealed class ClientsController : ControllerBase
@@ -48,93 +45,8 @@ public sealed class ClientsController : ControllerBase
             return Unauthorized();
         }
 
-        var result = await _clientFacade.CreateAsync(ToCoreRequest(request), cancellationToken).ConfigureAwait(false);
-
-        var response = ToResponse(result);
+        var response = await _clientFacade.CreateAsync(request, cancellationToken).ConfigureAwait(false);
 
         return Created(new Uri($"{ClientsApiContract.Route}/{response.Id}", UriKind.Relative), response);
     }
-
-    private static CoreCreateClientRequest ToCoreRequest(CreateClientRequest request) => new()
-    {
-        Name = request.Name,
-        PrimaryContactName = request.PrimaryContactName,
-        PrimaryEmail = request.PrimaryEmail,
-        PrimaryPhone = request.PrimaryPhone,
-        Website = request.Website,
-        AddressLine = request.AddressLine,
-        City = request.City,
-        StateOrProvince = request.StateOrProvince,
-        PostalCode = request.PostalCode,
-        Country = request.Country,
-        LifecycleStatus = request.LifecycleStatus is { } status ? ToCoreLifecycleStatus(status) : null,
-        Description = request.Description,
-        OwnerUserId = request.OwnerUserId,
-    };
-
-    private static ClientResponse ToResponse(CoreClientCreationResult result)
-    {
-        var client = result.Client;
-
-        return new ClientResponse
-        {
-            Id = client.Id,
-            Name = client.Name,
-            PrimaryContactName = client.PrimaryContactName,
-            PrimaryEmail = client.PrimaryEmail,
-            PrimaryPhone = client.PrimaryPhone,
-            Website = client.Website,
-            AddressLine = client.AddressLine,
-            City = client.City,
-            StateOrProvince = client.StateOrProvince,
-            PostalCode = client.PostalCode,
-            Country = client.Country,
-            LifecycleStatus = ToContractLifecycleStatus(client.LifecycleStatus),
-            Description = client.Description,
-            OwnerUserId = client.OwnerUserId,
-            CreatedAtUtc = client.CreatedAtUtc,
-            CreatedBy = client.CreatedBy,
-            LastModifiedAtUtc = client.LastModifiedAtUtc,
-            LastModifiedBy = client.LastModifiedBy,
-            ConcurrencyToken = Convert.ToBase64String(client.RowVersion),
-            PossibleDuplicates = result.PossibleDuplicates.Select(ToDuplicateWarning).ToList(),
-        };
-    }
-
-    private static ClientDuplicateWarning ToDuplicateWarning(CoreDuplicateCandidate candidate) => new()
-    {
-        ClientId = candidate.ClientId,
-        Name = candidate.Name,
-        MatchedOn = candidate.MatchedOn.Select(ToContractMatchField).ToList(),
-    };
-
-    private static CoreLifecycleStatus ToCoreLifecycleStatus(ClientLifecycleStatusContract status) => status switch
-    {
-        ClientLifecycleStatusContract.Lead => CoreLifecycleStatus.Lead,
-        ClientLifecycleStatusContract.Prospect => CoreLifecycleStatus.Prospect,
-        ClientLifecycleStatusContract.Active => CoreLifecycleStatus.Active,
-        ClientLifecycleStatusContract.OnHold => CoreLifecycleStatus.OnHold,
-        ClientLifecycleStatusContract.Inactive => CoreLifecycleStatus.Inactive,
-        ClientLifecycleStatusContract.Archived => CoreLifecycleStatus.Archived,
-        _ => throw new ArgumentOutOfRangeException(nameof(status), status, "Unmapped ClientLifecycleStatusContract value."),
-    };
-
-    private static ClientLifecycleStatusContract ToContractLifecycleStatus(CoreLifecycleStatus status) => status switch
-    {
-        CoreLifecycleStatus.Lead => ClientLifecycleStatusContract.Lead,
-        CoreLifecycleStatus.Prospect => ClientLifecycleStatusContract.Prospect,
-        CoreLifecycleStatus.Active => ClientLifecycleStatusContract.Active,
-        CoreLifecycleStatus.OnHold => ClientLifecycleStatusContract.OnHold,
-        CoreLifecycleStatus.Inactive => ClientLifecycleStatusContract.Inactive,
-        CoreLifecycleStatus.Archived => ClientLifecycleStatusContract.Archived,
-        _ => throw new ArgumentOutOfRangeException(nameof(status), status, "Unmapped ClientLifecycleStatus value."),
-    };
-
-    private static ClientDuplicateMatchField ToContractMatchField(CoreDuplicateMatchField matchField) => matchField switch
-    {
-        CoreDuplicateMatchField.Name => ClientDuplicateMatchField.Name,
-        CoreDuplicateMatchField.PrimaryEmail => ClientDuplicateMatchField.PrimaryEmail,
-        CoreDuplicateMatchField.PrimaryPhone => ClientDuplicateMatchField.PrimaryPhone,
-        _ => throw new ArgumentOutOfRangeException(nameof(matchField), matchField, "Unmapped ClientDuplicateMatchField value."),
-    };
 }

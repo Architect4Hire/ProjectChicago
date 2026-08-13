@@ -1,11 +1,14 @@
-using ProjectChicago.Crm.Core.Models.ServiceModels;
+using ProjectChicago.Crm.Contracts.Clients;
 
 namespace ProjectChicago.Crm.Core.Facades;
 
 // Public application/use-case seam for Client creation (CLIENT-001..004, SEC-010..013;
 // onion-boundaries.md: "Facades are the only application entry point callable by controllers").
-// Not yet called by a controller - this microstep implements the Facade only (CLIENT create
-// scope).
+// Accepts and returns the wire contract types directly (rather than a separate Facade-only
+// request/result shape) so ClientsController stays transport-only: it binds the request, calls
+// this one method, and maps the returned ClientResponse straight into a 201 - no field-by-field
+// mapping of its own. CreateAsync itself delegates the wire<->Business translation to
+// ClientContractMappingExtensions, which lives in Business alongside the rules it feeds.
 public interface IClientFacade
 {
     // Verifies SEC-012/013 authorization, runs CLIENT-002 contextual validation on request, and
@@ -14,5 +17,5 @@ public interface IClientFacade
     // Clients.Write policy, or System.ComponentModel.DataAnnotations.ValidationException when
     // request fails validation - both already classified by ApiExceptionHandler into the 403/400
     // ProblemDetails shape (ERROR-003).
-    Task<ClientCreationResult> CreateAsync(CreateClientRequest request, CancellationToken cancellationToken);
+    Task<ClientResponse> CreateAsync(CreateClientRequest request, CancellationToken cancellationToken);
 }

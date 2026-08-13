@@ -45,9 +45,15 @@ For a mutation, name the resulting business fact(s) in plain past tense before d
 
 Create/reuse:
 
-- transport request/ViewModel in the API contract area;
-- `.Core` ServiceModel/use-case input that is not tied to HTTP if the operation is also callable from a Function;
-- mapper between transport and service model when non-trivial.
+- transport request/response DTOs, living in the owning `.Core` project (e.g.
+  `<Service>.Core/Contracts/<Area>`) rather than the HTTP host project, so Business can reference
+  them directly without creating a Core→API-host reference cycle;
+- a `.Core` ServiceModel/Command/Result shape for the use case's actual business input/output
+  (distinct from the transport DTO) when the operation is also callable from a Function, or when
+  the transport DTO needs actor/context/timestamp fields a caller must never supply itself;
+- extension-method mappers between the transport DTO and the service model, defined in the
+  `<domain-project>/<Area>/Business` folder (e.g. `<Area>ContractMappingExtensions`) — never inline
+  in the controller.
 
 Transport model validation catches shape/format. Domain/state rules stay in Business.
 
@@ -57,9 +63,13 @@ Implement the smallest action that:
 
 1. binds request;
 2. obtains authenticated actor/tenant/correlation context through established abstractions;
-3. maps to service input;
-4. calls one Facade method;
-5. maps typed result/error to public HTTP response.
+3. calls one Facade method, passing the bound transport DTO straight through;
+4. maps typed result/error to public HTTP response.
+
+The controller does not construct the service input or read fields off the result to build the
+response body — `IFacade.CreateAsync(...)` (or equivalent) accepts and returns the transport DTOs
+directly, so the controller only wraps the returned DTO in the right `ActionResult` (`Created`,
+`Ok`, etc.).
 
 Do not:
 
@@ -67,30 +77,37 @@ Do not:
 - inject `ServiceBusClient`;
 - open a transaction;
 - implement lifecycle rules;
-- query another service.
+- query another service;
+- map request fields into a service model, or map a service result into the response DTO, itself.
 
 ## 4. Facade — use-case boundary
 
-Add a focused facade method.
+Add a focused facade method that accepts and returns the transport DTOs.
 
 Facade may:
 
-- run validator(s);
+- run validator(s) against the transport DTO;
 - normalize safe input;
 - check/cache service-owned read-through values;
+- resolve actor/correlation/clock context and pass it into the Business-owned
+  `ToCommand(...)` mapping extension method to build the service input;
 - coordinate Business methods in the same service;
-- invalidate service-owned cache after successful mutations.
+- invalidate service-owned cache after successful mutations;
+- call the Business-owned `ToResponse()`/equivalent mapping extension method on the Business
+  result before returning it to the controller.
 
 Facade must not:
 
 - issue EF queries directly;
 - send Service Bus messages;
 - become a second repository/data layer;
-- call another service's Core.
+- call another service's Core;
+- hand-roll the field-by-field DTO↔service-model translation inline — that belongs in the
+  Business-owned mapping extension methods, even though the Facade is what calls them.
 
 Return a typed service result rather than using exceptions for expected domain rejection when the codebase has an established result/error pattern.
 
-## 5. Business — rules and event decision
+## 5. Business — rules, mapping, and event decision
 
 Business owns:
 
@@ -98,7 +115,11 @@ Business owns:
 - current-state/business preconditions;
 - calculations/decisions;
 - translation between service state and persistence requests;
-- creation of integration-event fact(s) when other bounded services need to know the committed outcome.
+- the transport-DTO↔service-model mapping extension methods (`ToCommand`, `ToResponse`, etc.) that
+  the Facade calls — keep the core rule-owning `CreateAsync(command)`-style method operating on
+  plain service models only, so it stays testable without the transport DTO in scope;
+- creation of integration-event fact(s) when other bounded services need to know the committed
+  outcome.
 
 Business does not publish the event. It returns/attaches the event to the Data operation in the project's established style.
 
@@ -201,9 +222,9 @@ Run/delegate:
 ## Completion checklist
 
 - [ ] Owning service is explicit.
-- [ ] Controller is transport-only.
-- [ ] Facade validates/orchestrates only.
-- [ ] Business owns rules/event decision.
+- [ ] Controller is transport-only and does no request/response field mapping.
+- [ ] Facade validates/orchestrates only; DTO↔service-model mapping happens through Business-owned extension methods, not inline in Facade.
+- [ ] Business owns rules/event decision, and the mapping extension methods live in its folder.
 - [ ] Data owns transaction.
 - [ ] Repository uses only owning SQL Server DbContext.
 - [ ] State + outbox are atomic when event emitted.

@@ -71,6 +71,7 @@ public sealed record CreateClientRequest
     public string? Country { get; init; }
 
     [JsonPropertyName("lifecycleStatus")]
+    [EnumDataType(typeof(ClientLifecycleStatusContract))]
     public ClientLifecycleStatusContract? LifecycleStatus { get; init; }
 
     [JsonPropertyName("description")]

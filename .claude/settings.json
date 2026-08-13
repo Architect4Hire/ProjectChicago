@@ -11,7 +11,11 @@
       "Bash(dotnet build *)",
       "Bash(dotnet add *)",
       "Bash(npm create *)",
-      "Bash(npx create-vite@latest . --template react-ts --yes)"
+      "Bash(npx create-vite@latest . --template react-ts --yes)",
+      "Bash(mkdir -p src/ProjectChicago.Crm.Core/Contracts/Clients src/ProjectChicago.Crm.Core/Contracts/Common)",
+      "Bash(git mv *)",
+      "Bash(rmdir src/ProjectChicago.Crm/Contracts/Clients src/ProjectChicago.Crm/Contracts/Common src/ProjectChicago.Crm/Contracts)",
+      "Edit(/.claude/skills/add-endpoint/**)"
     ]
   },
   "hooks": {

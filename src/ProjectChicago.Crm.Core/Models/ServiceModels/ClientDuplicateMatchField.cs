@@ -1,9 +1,9 @@
 namespace ProjectChicago.Crm.Core.Models.ServiceModels;
 
-// Core-owned mirror of ProjectChicago.Crm.Contracts.Clients.ClientDuplicateMatchField (CLIENT-004).
-// Kept separate so Business never depends on the API host's transport contracts (reference
-// direction: the HTTP host references .Core, not the reverse) - a future Facade/mapping microstep
-// translates this into the wire contract.
+// Domain-owned mirror of ProjectChicago.Crm.Contracts.Clients.ClientDuplicateMatchField
+// (CLIENT-004). Kept as a separate type so Business's own duplicate-matching decision stays
+// independent of the wire enum's serialized shape (api-contracts.md: DTOs are separate from
+// domain/persistence models) - ClientContractMappingExtensions translates between the two.
 public enum ClientDuplicateMatchField
 {
     Name = 0,
