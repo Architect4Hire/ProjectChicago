@@ -17,6 +17,13 @@ builder.AddSqlServerDbContext<CrmDbContext>("CrmDb");
 builder.Services.AddHttpRequestContext();
 builder.Services.AddApiExceptionHandling();
 
+// MVC controllers are the only HTTP application edge (onion-boundaries.md: "Use ASP.NET Core MVC
+// controllers ...; do not add minimal API routes"). AddOpenApi/MapOpenApi satisfies API-006 - every
+// public API contract is documented through OpenAPI, keyed by each action's stable OperationId
+// (e.g. ClientsApiContract.CreateOperationId).
+builder.Services.AddControllers();
+builder.Services.AddOpenApi();
+
 var app = builder.Build();
 
 app.UseExceptionHandler();
@@ -27,6 +34,9 @@ app.UseExceptionHandler();
 app.UseStatusCodePages();
 
 app.MapDefaultEndpoints();
+
+app.MapOpenApi();
+app.MapControllers();
 
 app.Run();
 

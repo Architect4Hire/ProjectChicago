@@ -24,4 +24,34 @@ public class ClientsApiContractTests
     {
         Assert.Equal("Clients.Write", ClientsApiContract.RequiredAuthorizationPolicy);
     }
+
+    [Fact]
+    public void ListOperationId_IsStable()
+    {
+        Assert.Equal("Clients_List", ClientsApiContract.ListOperationId);
+    }
+
+    [Fact]
+    public void RequiredReadAuthorizationPolicy_IsStable()
+    {
+        Assert.Equal("Clients.Read", ClientsApiContract.RequiredReadAuthorizationPolicy);
+    }
+
+    [Fact]
+    public void DefaultPage_IsOne()
+    {
+        Assert.Equal(1, ClientsApiContract.DefaultPage);
+    }
+
+    [Fact]
+    public void DefaultPageSize_IsWithinMaxPageSize()
+    {
+        Assert.InRange(ClientsApiContract.DefaultPageSize, 1, ClientsApiContract.MaxPageSize);
+    }
+
+    [Fact]
+    public void MaxPageSize_IsPositiveAndBounded()
+    {
+        Assert.True(ClientsApiContract.MaxPageSize > 0);
+    }
 }

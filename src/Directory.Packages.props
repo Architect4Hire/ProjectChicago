@@ -35,6 +35,11 @@
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.10" />
   </ItemGroup>
 
+  <!-- OpenAPI document generation for MVC controller HTTP hosts (API-006). -->
+  <ItemGroup>
+    <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.11" />
+  </ItemGroup>
+
   <!-- Azure Service Bus SDK (Shared publisher mechanism) -->
   <ItemGroup>
     <PackageVersion Include="Azure.Messaging.ServiceBus" Version="7.20.2" />
