@@ -130,6 +130,38 @@ public sealed class ProjectData : IProjectData
         }
     }
 
+    public async Task EditAsync(
+        Project project,
+        string modifiedBy,
+        DateTime modifiedAtUtc,
+        string expectedConcurrencyToken,
+        EntityMutationAudited auditFact,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(project);
+        ArgumentNullException.ThrowIfNull(expectedConcurrencyToken);
+        ArgumentNullException.ThrowIfNull(auditFact);
+
+        // Project entity has already updated its fields; Data only handles persistence and concurrency.
+        var concurrencyToken = Convert.FromBase64String(expectedConcurrencyToken);
+        _dbContext.Entry(project).OriginalValues[nameof(Project.RowVersion)] = concurrencyToken;
+
+        _dbContext.Projects.Update(project);
+        _dbContext.OutboxMessages.Add(BuildOutboxMessage(auditFact));
+
+        try
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (DbUpdateConcurrencyException ex)
+        {
+            // DATA-008: a concurrent write reached the database between this method's caller's read
+            // and this save - the same conflict manifests as a stale expectedConcurrencyToken, translated
+            // the same way for Business.
+            throw new ProjectConcurrencyConflictException(project.Id, ex);
+        }
+    }
+
     private static OutboxMessage BuildOutboxMessage(EntityMutationAudited auditFact)
     {
         // The fact's own EventId becomes both the outbox row's identity and, later, the Service Bus

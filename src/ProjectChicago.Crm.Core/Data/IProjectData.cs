@@ -56,4 +56,16 @@ public interface IProjectData
         string expectedConcurrencyToken,
         EntityMutationAudited auditFact,
         CancellationToken cancellationToken);
+
+    // Edits a Project's ordinary detail fields (PROJECT-002, DATA-008). Business has already
+    // normalized input and decided which fields changed; Data persists the mutation + audit fact
+    // atomically and enforces optimistic concurrency (DATA-008). Throws DbUpdateConcurrencyException
+    // if the concurrency token mismatches.
+    Task EditAsync(
+        Project project,
+        string modifiedBy,
+        DateTime modifiedAtUtc,
+        string expectedConcurrencyToken,
+        EntityMutationAudited auditFact,
+        CancellationToken cancellationToken);
 }

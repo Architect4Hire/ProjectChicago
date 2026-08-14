@@ -22,14 +22,13 @@ public class ProjectFacadeListTests
         var mockCurrentContext = new Mock<ICurrentRequestContext>();
         var mockClock = new Mock<IClock>();
 
-        var actor = new ActorContext { ActorId = "user1", ActorType = ActorType.User };
-        var requestContext = new RequestContext
-        {
-            Actor = actor,
-            TraceId = "trace123",
-            CorrelationId = "corr123",
-            CausationId = "caus123",
-        };
+        var actor = ActorContext.ForUser("user1");
+        var requestContext = RequestContext.FromPropagated(
+            traceId: "trace123",
+            correlationId: "corr123",
+            causationId: "caus123",
+            requestId: "req123",
+            actor: actor);
         mockCurrentContext.Setup(c => c.Current).Returns(requestContext);
 
         mockAuthorization.Setup(a => a.CanListAsync(It.IsAny<ActorContext>(), It.IsAny<CancellationToken>()))
@@ -56,14 +55,13 @@ public class ProjectFacadeListTests
         var mockCurrentContext = new Mock<ICurrentRequestContext>();
         var mockClock = new Mock<IClock>();
 
-        var actor = new ActorContext { ActorId = "user1", ActorType = ActorType.User };
-        var requestContext = new RequestContext
-        {
-            Actor = actor,
-            TraceId = "trace123",
-            CorrelationId = "corr123",
-            CausationId = "caus123",
-        };
+        var actor = ActorContext.ForUser("user1");
+        var requestContext = RequestContext.FromPropagated(
+            traceId: "trace123",
+            correlationId: "corr123",
+            causationId: "caus123",
+            requestId: "req123",
+            actor: actor);
         mockCurrentContext.Setup(c => c.Current).Returns(requestContext);
 
         mockAuthorization.Setup(a => a.CanListAsync(It.IsAny<ActorContext>(), It.IsAny<CancellationToken>()))
@@ -103,14 +101,13 @@ public class ProjectFacadeListTests
         var mockCurrentContext = new Mock<ICurrentRequestContext>();
         var mockClock = new Mock<IClock>();
 
-        var actor = new ActorContext { ActorId = "user1", ActorType = ActorType.User };
-        var requestContext = new RequestContext
-        {
-            Actor = actor,
-            TraceId = "trace123",
-            CorrelationId = "corr123",
-            CausationId = "caus123",
-        };
+        var actor = ActorContext.ForUser("user1");
+        var requestContext = RequestContext.FromPropagated(
+            traceId: "trace123",
+            correlationId: "corr123",
+            causationId: "caus123",
+            requestId: "req123",
+            actor: actor);
         mockCurrentContext.Setup(c => c.Current).Returns(requestContext);
 
         mockAuthorization.Setup(a => a.CanListAsync(It.IsAny<ActorContext>(), It.IsAny<CancellationToken>()))
@@ -138,14 +135,13 @@ public class ProjectFacadeListTests
         var mockCurrentContext = new Mock<ICurrentRequestContext>();
         var mockClock = new Mock<IClock>();
 
-        var actor = new ActorContext { ActorId = "user1", ActorType = ActorType.User };
-        var requestContext = new RequestContext
-        {
-            Actor = actor,
-            TraceId = "trace123",
-            CorrelationId = "corr123",
-            CausationId = "caus123",
-        };
+        var actor = ActorContext.ForUser("user1");
+        var requestContext = RequestContext.FromPropagated(
+            traceId: "trace123",
+            correlationId: "corr123",
+            causationId: "caus123",
+            requestId: "req123",
+            actor: actor);
         mockCurrentContext.Setup(c => c.Current).Returns(requestContext);
 
         mockAuthorization.Setup(a => a.CanListAsync(It.IsAny<ActorContext>(), It.IsAny<CancellationToken>()))

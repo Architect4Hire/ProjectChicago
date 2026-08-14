@@ -102,8 +102,8 @@ public class ProjectRepositoryDetailTests
         // Open tasks are all non-Completed, non-Cancelled (ToDoTask, InProgressTask, BlockedTask, BacklogTask)
         Assert.Equal(4, result!.OpenTasks.Count);
         Assert.Single(result.CompletedTasks);
-        Assert.All(result.OpenTasks, t => Assert.NotEqual(TaskItemStatus.Completed, t.Status.ToCorePriority()));
-        Assert.All(result.OpenTasks, t => Assert.NotEqual(TaskItemStatus.Cancelled, t.Status.ToCorePriority()));
+        Assert.All(result.OpenTasks, t => Assert.NotEqual(TaskItemStatus.Completed, t.Status));
+        Assert.All(result.OpenTasks, t => Assert.NotEqual(TaskItemStatus.Cancelled, t.Status));
     }
 
     [Fact(DisplayName = "GetDetailAsync orders open tasks by due date")]
@@ -124,7 +124,7 @@ public class ProjectRepositoryDetailTests
         var task2 = CreateTaskItem(project.Id, "Task Due Today", TaskItemStatus.ToDo, dueDateUtc: today.ToUniversalTime());
         var task3 = CreateTaskItem(project.Id, "No Due Date", TaskItemStatus.ToDo, dueDateUtc: null);
 
-        await dbContext.TaskItems.AddRangeAsync(task1, task2, task3);
+        await dbContext.Tasks.AddRangeAsync(task1, task2, task3);
         await dbContext.SaveChangesAsync();
 
         var repository = new ProjectRepository(dbContext);
@@ -159,7 +159,7 @@ public class ProjectRepositoryDetailTests
         var task2 = CreateTaskItem(project.Id, "Completed Today", TaskItemStatus.Completed, now);
         var task3 = CreateTaskItem(project.Id, "Completed 2 Days Ago", TaskItemStatus.Completed, now.AddDays(-2));
 
-        await dbContext.TaskItems.AddRangeAsync(task1, task2, task3);
+        await dbContext.Tasks.AddRangeAsync(task1, task2, task3);
         await dbContext.SaveChangesAsync();
 
         var repository = new ProjectRepository(dbContext);

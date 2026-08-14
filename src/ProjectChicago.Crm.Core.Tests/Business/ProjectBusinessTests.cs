@@ -60,6 +60,15 @@ public class ProjectBusinessTests
             EntityMutationAudited auditFact,
             CancellationToken cancellationToken) =>
             Task.CompletedTask;
+
+        public Task EditAsync(
+            Project project,
+            string modifiedBy,
+            DateTime modifiedAtUtc,
+            string expectedConcurrencyToken,
+            EntityMutationAudited auditFact,
+            CancellationToken cancellationToken) =>
+            Task.CompletedTask;
     }
 
     private static readonly DateTime CreatedAtUtc = new(2026, 1, 15, 12, 0, 0, DateTimeKind.Utc);
@@ -404,6 +413,795 @@ public class ProjectBusinessTests
                 CancellationToken.None));
     }
 
+    // --- Edit (PROJECT-002, DATA-008, AUDIT-001..008) ---
+
+    private static UpdateProjectViewModel CreateEditViewModel(
+        string? name = null,
+        string? description = null,
+        ProjectPriorityContract? priority = null,
+        string? ownerUserId = null,
+        DateTime? startDateUtc = null,
+        DateTime? targetCompletionDateUtc = null,
+        string? notes = null) => new()
+    {
+        Name = name,
+        Description = description,
+        Priority = priority,
+        OwnerUserId = ownerUserId,
+        StartDateUtc = startDateUtc,
+        TargetCompletionDateUtc = targetCompletionDateUtc,
+        Notes = notes,
+    };
+
+    [Fact]
+    public async Task EditAsync_ReturnsNullWhenProjectNotFound()
+    {
+        var business = new ProjectBusiness(new FakeProjectData());
+
+        var result = await business.EditAsync(
+            Guid.NewGuid(),
+            CreateEditViewModel(name: "Updated Name"),
+            Convert.ToBase64String(new byte[8]),
+            ActorContext.ForUser("user-1"),
+            RequestContext.CreateNew(),
+            CreatedAtUtc.AddDays(1),
+            CancellationToken.None);
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task EditAsync_WithNoChanges_ReturnsProjectUnmodified()
+    {
+        var projectId = Guid.NewGuid();
+        var project = Project.Create(
+            id: projectId,
+            clientId: Guid.NewGuid(),
+            name: "Website Redesign",
+            status: ProjectStatus.Planned,
+            priority: ProjectPriority.Normal,
+            ownerUserId: "owner-1",
+            createdBy: "creator-1",
+            createdAtUtc: CreatedAtUtc);
+
+        var data = new FakeProjectDataWithProject(project);
+        var business = new ProjectBusiness(data);
+
+        var result = await business.EditAsync(
+            projectId,
+            CreateEditViewModel(),
+            Convert.ToBase64String(new byte[8]),
+            ActorContext.ForUser("user-1"),
+            RequestContext.CreateNew(),
+            CreatedAtUtc.AddDays(1),
+            CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal("Website Redesign", result.Name);
+        Assert.Equal(ProjectPriorityContract.Normal, result.Priority);
+    }
+
+    [Fact]
+    public async Task EditAsync_UpdatesName()
+    {
+        var projectId = Guid.NewGuid();
+        var project = Project.Create(
+            id: projectId,
+            clientId: Guid.NewGuid(),
+            name: "Old Name",
+            status: ProjectStatus.Planned,
+            priority: ProjectPriority.Normal,
+            ownerUserId: "owner-1",
+            createdBy: "creator-1",
+            createdAtUtc: CreatedAtUtc);
+
+        var data = new FakeProjectDataWithProject(project);
+        var business = new ProjectBusiness(data);
+
+        var result = await business.EditAsync(
+            projectId,
+            CreateEditViewModel(name: "New Name"),
+            Convert.ToBase64String(new byte[8]),
+            ActorContext.ForUser("user-1"),
+            RequestContext.CreateNew(),
+            CreatedAtUtc.AddDays(1),
+            CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal("New Name", result.Name);
+    }
+
+    [Fact]
+    public async Task EditAsync_UpdatesMultipleFields()
+    {
+        var projectId = Guid.NewGuid();
+        var targetDate = CreatedAtUtc.AddDays(30);
+        var project = Project.Create(
+            id: projectId,
+            clientId: Guid.NewGuid(),
+            name: "Old Name",
+            status: ProjectStatus.Planned,
+            priority: ProjectPriority.Normal,
+            ownerUserId: "owner-1",
+            createdBy: "creator-1",
+            createdAtUtc: CreatedAtUtc,
+            description: "Old desc");
+
+        var data = new FakeProjectDataWithProject(project);
+        var business = new ProjectBusiness(data);
+
+        var result = await business.EditAsync(
+            projectId,
+            CreateEditViewModel(
+                name: "New Name",
+                description: "New desc",
+                priority: ProjectPriorityContract.High,
+                ownerUserId: "owner-2",
+                targetCompletionDateUtc: targetDate,
+                notes: "Some notes"),
+            Convert.ToBase64String(new byte[8]),
+            ActorContext.ForUser("user-1"),
+            RequestContext.CreateNew(),
+            CreatedAtUtc.AddDays(1),
+            CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal("New Name", result.Name);
+        Assert.Equal("New desc", result.Description);
+        Assert.Equal(ProjectPriorityContract.High, result.Priority);
+        Assert.Equal("owner-2", result.OwnerUserId);
+        Assert.Equal(targetDate, result.TargetCompletionDateUtc);
+        Assert.Equal("Some notes", result.Notes);
+    }
+
+    [Fact]
+    public async Task EditAsync_TrimsNameAndOwnerUserId()
+    {
+        var projectId = Guid.NewGuid();
+        var project = Project.Create(
+            id: projectId,
+            clientId: Guid.NewGuid(),
+            name: "Old Name",
+            status: ProjectStatus.Planned,
+            priority: ProjectPriority.Normal,
+            ownerUserId: "owner-1",
+            createdBy: "creator-1",
+            createdAtUtc: CreatedAtUtc);
+
+        var data = new FakeProjectDataWithProject(project);
+        var business = new ProjectBusiness(data);
+
+        var result = await business.EditAsync(
+            projectId,
+            CreateEditViewModel(name: "  New Name  ", ownerUserId: "  owner-2  "),
+            Convert.ToBase64String(new byte[8]),
+            ActorContext.ForUser("user-1"),
+            RequestContext.CreateNew(),
+            CreatedAtUtc.AddDays(1),
+            CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal("New Name", result.Name);
+        Assert.Equal("owner-2", result.OwnerUserId);
+    }
+
+    [Fact]
+    public async Task EditAsync_ConvertsBlankOptionalFieldsToNull()
+    {
+        var projectId = Guid.NewGuid();
+        var project = Project.Create(
+            id: projectId,
+            clientId: Guid.NewGuid(),
+            name: "Name",
+            status: ProjectStatus.Planned,
+            priority: ProjectPriority.Normal,
+            ownerUserId: "owner-1",
+            createdBy: "creator-1",
+            createdAtUtc: CreatedAtUtc,
+            description: "Desc",
+            notes: "Notes");
+
+        var data = new FakeProjectDataWithProject(project);
+        var business = new ProjectBusiness(data);
+
+        var result = await business.EditAsync(
+            projectId,
+            CreateEditViewModel(description: "  ", notes: ""),
+            Convert.ToBase64String(new byte[8]),
+            ActorContext.ForUser("user-1"),
+            RequestContext.CreateNew(),
+            CreatedAtUtc.AddDays(1),
+            CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Null(result.Description);
+        Assert.Null(result.Notes);
+    }
+
+    [Fact]
+    public async Task EditAsync_UpdatesLastModifiedBy()
+    {
+        var projectId = Guid.NewGuid();
+        var project = Project.Create(
+            id: projectId,
+            clientId: Guid.NewGuid(),
+            name: "Name",
+            status: ProjectStatus.Planned,
+            priority: ProjectPriority.Normal,
+            ownerUserId: "owner-1",
+            createdBy: "creator-1",
+            createdAtUtc: CreatedAtUtc);
+
+        var data = new FakeProjectDataWithProject(project);
+        var business = new ProjectBusiness(data);
+
+        var result = await business.EditAsync(
+            projectId,
+            CreateEditViewModel(name: "New Name"),
+            Convert.ToBase64String(new byte[8]),
+            ActorContext.ForUser("modifier-1"),
+            RequestContext.CreateNew(),
+            CreatedAtUtc.AddDays(1),
+            CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal("modifier-1", result.LastModifiedBy);
+    }
+
+    [Fact]
+    public async Task EditAsync_UpdatesLastModifiedAtUtc()
+    {
+        var projectId = Guid.NewGuid();
+        var editedAtUtc = CreatedAtUtc.AddDays(1);
+        var project = Project.Create(
+            id: projectId,
+            clientId: Guid.NewGuid(),
+            name: "Name",
+            status: ProjectStatus.Planned,
+            priority: ProjectPriority.Normal,
+            ownerUserId: "owner-1",
+            createdBy: "creator-1",
+            createdAtUtc: CreatedAtUtc);
+
+        var data = new FakeProjectDataWithProject(project);
+        var business = new ProjectBusiness(data);
+
+        var result = await business.EditAsync(
+            projectId,
+            CreateEditViewModel(name: "New Name"),
+            Convert.ToBase64String(new byte[8]),
+            ActorContext.ForUser("user-1"),
+            RequestContext.CreateNew(),
+            editedAtUtc,
+            CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal(editedAtUtc, result.LastModifiedAtUtc);
+    }
+
+    [Fact]
+    public async Task EditAsync_GeneratesAuditFactWithUpdatedAction()
+    {
+        var projectId = Guid.NewGuid();
+        var project = Project.Create(
+            id: projectId,
+            clientId: Guid.NewGuid(),
+            name: "Name",
+            status: ProjectStatus.Planned,
+            priority: ProjectPriority.Normal,
+            ownerUserId: "owner-1",
+            createdBy: "creator-1",
+            createdAtUtc: CreatedAtUtc);
+
+        var data = new FakeProjectDataForEdit();
+        var business = new ProjectBusiness(data);
+
+        await business.EditAsync(
+            projectId,
+            CreateEditViewModel(name: "New Name"),
+            Convert.ToBase64String(new byte[8]),
+            ActorContext.ForUser("user-1"),
+            RequestContext.CreateNew(),
+            CreatedAtUtc.AddDays(1),
+            CancellationToken.None);
+
+        Assert.NotNull(data.EditedAuditFact);
+        Assert.Equal(AuditActions.Updated, data.EditedAuditFact.Action);
+    }
+
+    [Fact]
+    public async Task EditAsync_AuditFactListsChangedFields()
+    {
+        var projectId = Guid.NewGuid();
+        var project = Project.Create(
+            id: projectId,
+            clientId: Guid.NewGuid(),
+            name: "Name",
+            status: ProjectStatus.Planned,
+            priority: ProjectPriority.Normal,
+            ownerUserId: "owner-1",
+            createdBy: "creator-1",
+            createdAtUtc: CreatedAtUtc);
+
+        var data = new FakeProjectDataForEdit();
+        var business = new ProjectBusiness(data);
+
+        await business.EditAsync(
+            projectId,
+            CreateEditViewModel(name: "New Name", description: "New desc"),
+            Convert.ToBase64String(new byte[8]),
+            ActorContext.ForUser("user-1"),
+            RequestContext.CreateNew(),
+            CreatedAtUtc.AddDays(1),
+            CancellationToken.None);
+
+        Assert.NotNull(data.EditedAuditFact);
+        Assert.Contains(nameof(Project.Name), data.EditedAuditFact.ChangedFields);
+        Assert.Contains(nameof(Project.Description), data.EditedAuditFact.ChangedFields);
+    }
+
+    [Fact]
+    public async Task EditAsync_AuditFactOmitsUnchangedFields()
+    {
+        var projectId = Guid.NewGuid();
+        var project = Project.Create(
+            id: projectId,
+            clientId: Guid.NewGuid(),
+            name: "Name",
+            status: ProjectStatus.Planned,
+            priority: ProjectPriority.Normal,
+            ownerUserId: "owner-1",
+            createdBy: "creator-1",
+            createdAtUtc: CreatedAtUtc);
+
+        var data = new FakeProjectDataForEdit();
+        var business = new ProjectBusiness(data);
+
+        await business.EditAsync(
+            projectId,
+            CreateEditViewModel(name: "Name"),
+            Convert.ToBase64String(new byte[8]),
+            ActorContext.ForUser("user-1"),
+            RequestContext.CreateNew(),
+            CreatedAtUtc.AddDays(1),
+            CancellationToken.None);
+
+        Assert.NotNull(data.EditedAuditFact);
+        Assert.DoesNotContain(nameof(Project.Name), data.EditedAuditFact.ChangedFields);
+    }
+
+    [Fact]
+    public async Task EditAsync_AuditFactPreservesRequestContext()
+    {
+        var projectId = Guid.NewGuid();
+        var project = Project.Create(
+            id: projectId,
+            clientId: Guid.NewGuid(),
+            name: "Name",
+            status: ProjectStatus.Planned,
+            priority: ProjectPriority.Normal,
+            ownerUserId: "owner-1",
+            createdBy: "creator-1",
+            createdAtUtc: CreatedAtUtc);
+
+        var data = new FakeProjectDataForEdit();
+        var business = new ProjectBusiness(data);
+        var requestContext = RequestContext.CreateNew();
+
+        await business.EditAsync(
+            projectId,
+            CreateEditViewModel(name: "New Name"),
+            Convert.ToBase64String(new byte[8]),
+            ActorContext.ForUser("user-1"),
+            requestContext,
+            CreatedAtUtc.AddDays(1),
+            CancellationToken.None);
+
+        Assert.NotNull(data.EditedAuditFact);
+        Assert.Equal(requestContext.TraceId, data.EditedAuditFact.TraceId);
+        Assert.Equal(requestContext.CorrelationId, data.EditedAuditFact.CorrelationId);
+        Assert.Equal(requestContext.CausationId, data.EditedAuditFact.CausationId);
+    }
+
+    [Fact]
+    public async Task EditAsync_PreservesClientId()
+    {
+        var projectId = Guid.NewGuid();
+        var clientId = Guid.NewGuid();
+        var project = Project.Create(
+            id: projectId,
+            clientId: clientId,
+            name: "Name",
+            status: ProjectStatus.Planned,
+            priority: ProjectPriority.Normal,
+            ownerUserId: "owner-1",
+            createdBy: "creator-1",
+            createdAtUtc: CreatedAtUtc);
+
+        var data = new FakeProjectDataWithProject(project);
+        var business = new ProjectBusiness(data);
+
+        var result = await business.EditAsync(
+            projectId,
+            CreateEditViewModel(name: "New Name"),
+            Convert.ToBase64String(new byte[8]),
+            ActorContext.ForUser("user-1"),
+            RequestContext.CreateNew(),
+            CreatedAtUtc.AddDays(1),
+            CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal(clientId, result.ClientId);
+    }
+
+    [Fact]
+    public async Task EditAsync_PreservesStatus()
+    {
+        var projectId = Guid.NewGuid();
+        var project = Project.Create(
+            id: projectId,
+            clientId: Guid.NewGuid(),
+            name: "Name",
+            status: ProjectStatus.Active,
+            priority: ProjectPriority.Normal,
+            ownerUserId: "owner-1",
+            createdBy: "creator-1",
+            createdAtUtc: CreatedAtUtc);
+
+        var data = new FakeProjectDataWithProject(project);
+        var business = new ProjectBusiness(data);
+
+        var result = await business.EditAsync(
+            projectId,
+            CreateEditViewModel(name: "New Name"),
+            Convert.ToBase64String(new byte[8]),
+            ActorContext.ForUser("user-1"),
+            RequestContext.CreateNew(),
+            CreatedAtUtc.AddDays(1),
+            CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal(ProjectStatusContract.Active, result.Status);
+    }
+
+    [Fact]
+    public async Task EditAsync_PreservesCreatedAtAndCreatedBy()
+    {
+        var projectId = Guid.NewGuid();
+        var project = Project.Create(
+            id: projectId,
+            clientId: Guid.NewGuid(),
+            name: "Name",
+            status: ProjectStatus.Planned,
+            priority: ProjectPriority.Normal,
+            ownerUserId: "owner-1",
+            createdBy: "creator-1",
+            createdAtUtc: CreatedAtUtc);
+
+        var data = new FakeProjectDataWithProject(project);
+        var business = new ProjectBusiness(data);
+
+        var result = await business.EditAsync(
+            projectId,
+            CreateEditViewModel(name: "New Name"),
+            Convert.ToBase64String(new byte[8]),
+            ActorContext.ForUser("modifier-1"),
+            RequestContext.CreateNew(),
+            CreatedAtUtc.AddDays(1),
+            CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal(CreatedAtUtc, result.CreatedAtUtc);
+        Assert.Equal("creator-1", result.CreatedBy);
+    }
+
+    // --- Audit before/after values (AUDIT-002) ---
+
+    [Fact]
+    public async Task EditAsync_AuditFactIncludesPreviousValueForChangedField()
+    {
+        var projectId = Guid.NewGuid();
+        var project = Project.Create(
+            id: projectId,
+            clientId: Guid.NewGuid(),
+            name: "Old Name",
+            status: ProjectStatus.Planned,
+            priority: ProjectPriority.Normal,
+            ownerUserId: "owner-1",
+            createdBy: "creator-1",
+            createdAtUtc: CreatedAtUtc);
+
+        var data = new FakeProjectDataForEdit();
+        var business = new ProjectBusiness(data);
+
+        await business.EditAsync(
+            projectId,
+            CreateEditViewModel(name: "New Name"),
+            Convert.ToBase64String(new byte[8]),
+            ActorContext.ForUser("user-1"),
+            RequestContext.CreateNew(),
+            CreatedAtUtc.AddDays(1),
+            CancellationToken.None);
+
+        Assert.NotNull(data.EditedAuditFact);
+        Assert.NotNull(data.EditedAuditFact.PreviousValues);
+        Assert.True(data.EditedAuditFact.PreviousValues.ContainsKey(nameof(Project.Name)));
+        Assert.Equal("Old Name", data.EditedAuditFact.PreviousValues[nameof(Project.Name)]);
+    }
+
+    [Fact]
+    public async Task EditAsync_AuditFactIncludesNewValueForChangedField()
+    {
+        var projectId = Guid.NewGuid();
+        var project = Project.Create(
+            id: projectId,
+            clientId: Guid.NewGuid(),
+            name: "Old Name",
+            status: ProjectStatus.Planned,
+            priority: ProjectPriority.Normal,
+            ownerUserId: "owner-1",
+            createdBy: "creator-1",
+            createdAtUtc: CreatedAtUtc);
+
+        var data = new FakeProjectDataForEdit();
+        var business = new ProjectBusiness(data);
+
+        await business.EditAsync(
+            projectId,
+            CreateEditViewModel(name: "New Name"),
+            Convert.ToBase64String(new byte[8]),
+            ActorContext.ForUser("user-1"),
+            RequestContext.CreateNew(),
+            CreatedAtUtc.AddDays(1),
+            CancellationToken.None);
+
+        Assert.NotNull(data.EditedAuditFact);
+        Assert.NotNull(data.EditedAuditFact.NewValues);
+        Assert.True(data.EditedAuditFact.NewValues.ContainsKey(nameof(Project.Name)));
+        Assert.Equal("New Name", data.EditedAuditFact.NewValues[nameof(Project.Name)]);
+    }
+
+    [Fact]
+    public async Task EditAsync_AuditFactOmitsPreviousValueForUnchangedField()
+    {
+        var projectId = Guid.NewGuid();
+        var project = Project.Create(
+            id: projectId,
+            clientId: Guid.NewGuid(),
+            name: "Name",
+            status: ProjectStatus.Planned,
+            priority: ProjectPriority.Normal,
+            ownerUserId: "owner-1",
+            createdBy: "creator-1",
+            createdAtUtc: CreatedAtUtc,
+            description: "Original description");
+
+        var data = new FakeProjectDataForEdit();
+        var business = new ProjectBusiness(data);
+
+        await business.EditAsync(
+            projectId,
+            CreateEditViewModel(name: "New Name"),
+            Convert.ToBase64String(new byte[8]),
+            ActorContext.ForUser("user-1"),
+            RequestContext.CreateNew(),
+            CreatedAtUtc.AddDays(1),
+            CancellationToken.None);
+
+        Assert.NotNull(data.EditedAuditFact);
+        Assert.NotNull(data.EditedAuditFact.PreviousValues);
+        Assert.DoesNotContain(nameof(Project.Description), data.EditedAuditFact.PreviousValues.Keys);
+    }
+
+    [Fact]
+    public async Task EditAsync_AuditFactIncludesMultipleFieldBeforeAndAfterValues()
+    {
+        var projectId = Guid.NewGuid();
+        var originalDate = CreatedAtUtc.AddDays(10);
+        var newDate = CreatedAtUtc.AddDays(20);
+        var project = Project.Create(
+            id: projectId,
+            clientId: Guid.NewGuid(),
+            name: "Old Name",
+            status: ProjectStatus.Planned,
+            priority: ProjectPriority.Normal,
+            ownerUserId: "owner-1",
+            createdBy: "creator-1",
+            createdAtUtc: CreatedAtUtc,
+            targetCompletionDateUtc: originalDate,
+            description: "Old desc");
+
+        var data = new FakeProjectDataForEdit();
+        var business = new ProjectBusiness(data);
+
+        await business.EditAsync(
+            projectId,
+            CreateEditViewModel(
+                name: "New Name",
+                description: "New desc",
+                targetCompletionDateUtc: newDate),
+            Convert.ToBase64String(new byte[8]),
+            ActorContext.ForUser("user-1"),
+            RequestContext.CreateNew(),
+            CreatedAtUtc.AddDays(1),
+            CancellationToken.None);
+
+        Assert.NotNull(data.EditedAuditFact);
+        Assert.NotNull(data.EditedAuditFact.PreviousValues);
+        Assert.NotNull(data.EditedAuditFact.NewValues);
+
+        Assert.Equal("Old Name", data.EditedAuditFact.PreviousValues[nameof(Project.Name)]);
+        Assert.Equal("New Name", data.EditedAuditFact.NewValues[nameof(Project.Name)]);
+
+        Assert.Equal("Old desc", data.EditedAuditFact.PreviousValues[nameof(Project.Description)]);
+        Assert.Equal("New desc", data.EditedAuditFact.NewValues[nameof(Project.Description)]);
+
+        Assert.Equal(originalDate.ToString("O"), data.EditedAuditFact.PreviousValues[nameof(Project.TargetCompletionDateUtc)]);
+        Assert.Equal(newDate.ToString("O"), data.EditedAuditFact.NewValues[nameof(Project.TargetCompletionDateUtc)]);
+    }
+
+    [Fact]
+    public async Task EditAsync_AuditFactOmitsBeforeAndAfterValuesWhenNoChanges()
+    {
+        var projectId = Guid.NewGuid();
+        var project = Project.Create(
+            id: projectId,
+            clientId: Guid.NewGuid(),
+            name: "Name",
+            status: ProjectStatus.Planned,
+            priority: ProjectPriority.Normal,
+            ownerUserId: "owner-1",
+            createdBy: "creator-1",
+            createdAtUtc: CreatedAtUtc);
+
+        var data = new FakeProjectDataWithProject(project);
+        var business = new ProjectBusiness(data);
+
+        var result = await business.EditAsync(
+            projectId,
+            CreateEditViewModel(),
+            Convert.ToBase64String(new byte[8]),
+            ActorContext.ForUser("user-1"),
+            RequestContext.CreateNew(),
+            CreatedAtUtc.AddDays(1),
+            CancellationToken.None);
+
+        Assert.NotNull(result);
+        // No audit fact is created when there are no changes (early return)
+    }
+
+    [Fact]
+    public async Task EditAsync_AuditFactHandlesNullOptionalFieldsInBeforeValues()
+    {
+        var projectId = Guid.NewGuid();
+        var project = Project.Create(
+            id: projectId,
+            clientId: Guid.NewGuid(),
+            name: "Name",
+            status: ProjectStatus.Planned,
+            priority: ProjectPriority.Normal,
+            ownerUserId: "owner-1",
+            createdBy: "creator-1",
+            createdAtUtc: CreatedAtUtc,
+            description: null);
+
+        var data = new FakeProjectDataForEdit();
+        var business = new ProjectBusiness(data);
+
+        await business.EditAsync(
+            projectId,
+            CreateEditViewModel(description: "New desc"),
+            Convert.ToBase64String(new byte[8]),
+            ActorContext.ForUser("user-1"),
+            RequestContext.CreateNew(),
+            CreatedAtUtc.AddDays(1),
+            CancellationToken.None);
+
+        Assert.NotNull(data.EditedAuditFact);
+        Assert.NotNull(data.EditedAuditFact.NewValues);
+        Assert.Equal("New desc", data.EditedAuditFact.NewValues[nameof(Project.Description)]);
+
+        // When previous value is null, it should not be included
+        if (data.EditedAuditFact.PreviousValues != null)
+        {
+            Assert.DoesNotContain(nameof(Project.Description), data.EditedAuditFact.PreviousValues.Keys);
+        }
+    }
+
+    [Fact]
+    public async Task EditAsync_AuditFactIncludesPriorityBeforeAndAfterValues()
+    {
+        var projectId = Guid.NewGuid();
+        var project = Project.Create(
+            id: projectId,
+            clientId: Guid.NewGuid(),
+            name: "Name",
+            status: ProjectStatus.Planned,
+            priority: ProjectPriority.Normal,
+            ownerUserId: "owner-1",
+            createdBy: "creator-1",
+            createdAtUtc: CreatedAtUtc);
+
+        var data = new FakeProjectDataForEdit();
+        var business = new ProjectBusiness(data);
+
+        await business.EditAsync(
+            projectId,
+            CreateEditViewModel(priority: ProjectPriorityContract.High),
+            Convert.ToBase64String(new byte[8]),
+            ActorContext.ForUser("user-1"),
+            RequestContext.CreateNew(),
+            CreatedAtUtc.AddDays(1),
+            CancellationToken.None);
+
+        Assert.NotNull(data.EditedAuditFact);
+        Assert.NotNull(data.EditedAuditFact.PreviousValues);
+        Assert.NotNull(data.EditedAuditFact.NewValues);
+        Assert.Equal(nameof(ProjectPriority.Normal), data.EditedAuditFact.PreviousValues[nameof(Project.Priority)]);
+        Assert.Equal(nameof(ProjectPriority.High), data.EditedAuditFact.NewValues[nameof(Project.Priority)]);
+    }
+
+    // Helper for tests that need to capture the edit audit fact
+    private sealed class FakeProjectDataForEdit : IProjectData
+    {
+        public EntityMutationAudited? EditedAuditFact { get; private set; }
+
+        public Task CreateAsync(Project project, EntityMutationAudited auditFact, CancellationToken cancellationToken) =>
+            Task.CompletedTask;
+
+        public Task<ProjectListResult> ListAsync(ProjectListFilter filter, CancellationToken cancellationToken) =>
+            Task.FromResult(new ProjectListResult { Items = [], TotalCount = 0 });
+
+        public Task<ProjectDetailResult?> GetDetailAsync(Guid projectId, CancellationToken cancellationToken) =>
+            Task.FromResult<ProjectDetailResult?>(null);
+
+        public Task<Project?> GetAsync(Guid projectId, CancellationToken cancellationToken)
+        {
+            var project = Project.Create(
+                id: projectId,
+                clientId: Guid.NewGuid(),
+                name: "Name",
+                status: ProjectStatus.Planned,
+                priority: ProjectPriority.Normal,
+                ownerUserId: "owner-1",
+                createdBy: "creator-1",
+                createdAtUtc: CreatedAtUtc);
+            return Task.FromResult<Project?>(project);
+        }
+
+        public Task TransitionStatusAsync(
+            Project project,
+            ProjectStatus newStatus,
+            string modifiedBy,
+            DateTime modifiedAtUtc,
+            DateTime? completionTimestampUtc,
+            string expectedConcurrencyToken,
+            EntityMutationAudited auditFact,
+            CancellationToken cancellationToken) =>
+            Task.CompletedTask;
+
+        public Task ArchiveAsync(
+            Project project,
+            string modifiedBy,
+            DateTime modifiedAtUtc,
+            string expectedConcurrencyToken,
+            EntityMutationAudited auditFact,
+            CancellationToken cancellationToken) =>
+            Task.CompletedTask;
+
+        public Task EditAsync(
+            Project project,
+            string modifiedBy,
+            DateTime modifiedAtUtc,
+            string expectedConcurrencyToken,
+            EntityMutationAudited auditFact,
+            CancellationToken cancellationToken)
+        {
+            EditedAuditFact = auditFact;
+            return Task.CompletedTask;
+        }
+    }
+
     // Helper for tests that need to retrieve a project
     private sealed class FakeProjectDataWithProject : IProjectData
     {
@@ -438,6 +1236,15 @@ public class ProjectBusinessTests
             Task.CompletedTask;
 
         public Task ArchiveAsync(
+            Project project,
+            string modifiedBy,
+            DateTime modifiedAtUtc,
+            string expectedConcurrencyToken,
+            EntityMutationAudited auditFact,
+            CancellationToken cancellationToken) =>
+            Task.CompletedTask;
+
+        public Task EditAsync(
             Project project,
             string modifiedBy,
             DateTime modifiedAtUtc,

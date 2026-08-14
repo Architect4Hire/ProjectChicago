@@ -63,4 +63,19 @@ public interface IProjectBusiness
         RequestContext requestContext,
         DateTime archivedAtUtc,
         CancellationToken cancellationToken);
+
+    // Edits ordinary Project detail fields (name, description, priority, owner, start/target dates,
+    // notes) while preserving Client ownership, status, actual completion date, and archive state
+    // (PROJECT-002, DATA-008, AUDIT-001..008). Validates all input, records which fields changed,
+    // creates an audit fact with before/after values, persists the Project mutation and audit fact
+    // atomically through IProjectData, and returns the updated ProjectServiceModel. Returns null if
+    // Project does not exist.
+    Task<ProjectServiceModel?> EditAsync(
+        Guid projectId,
+        UpdateProjectViewModel request,
+        string expectedConcurrencyToken,
+        ActorContext actor,
+        RequestContext requestContext,
+        DateTime editedAtUtc,
+        CancellationToken cancellationToken);
 }

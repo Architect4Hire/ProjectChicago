@@ -68,6 +68,15 @@ public class ProjectStatusTransitionBusinessTests
             ArchiveAuditFact = auditFact;
             return Task.CompletedTask;
         }
+
+        public Task EditAsync(
+            Project project,
+            string modifiedBy,
+            DateTime modifiedAtUtc,
+            string expectedConcurrencyToken,
+            EntityMutationAudited auditFact,
+            CancellationToken cancellationToken) =>
+            Task.CompletedTask;
     }
 
     private static readonly DateTime Now = new(2026, 1, 15, 12, 0, 0, DateTimeKind.Utc);

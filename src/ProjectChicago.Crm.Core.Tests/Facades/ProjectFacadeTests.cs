@@ -84,6 +84,16 @@ public class ProjectFacadeTests
             CancellationToken cancellationToken) =>
             Task.FromResult<ProjectServiceModel?>(ResultToReturn);
 
+        public Task<ProjectServiceModel?> EditAsync(
+            Guid projectId,
+            UpdateProjectViewModel request,
+            string expectedConcurrencyToken,
+            ActorContext actor,
+            RequestContext requestContext,
+            DateTime editedAtUtc,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<ProjectServiceModel?>(ResultToReturn);
+
         private static ProjectServiceModel BuildDefaultResult() => new()
         {
             Id = Guid.NewGuid(),

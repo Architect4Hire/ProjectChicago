@@ -179,6 +179,114 @@ public sealed class Project
         LastModifiedAtUtc = validModifiedAtUtc;
     }
 
+    // Edits ordinary Project detail fields (name, description, priority, owner, start/target dates,
+    // notes) while preserving Client ownership, status, actual completion date, and archive state.
+    // Returns the list of fields that changed (for audit). Does not allow changing ClientId, Status,
+    // or ActualCompletionDateUtc.
+    public IReadOnlyList<string> Edit(
+        string? name = null,
+        string? description = null,
+        ProjectPriority? priority = null,
+        string? ownerUserId = null,
+        DateTime? startDateUtc = null,
+        DateTime? targetCompletionDateUtc = null,
+        string? notes = null,
+        string? modifiedBy = null,
+        DateTime? modifiedAtUtc = null)
+    {
+        if (string.IsNullOrWhiteSpace(modifiedBy))
+        {
+            throw new ArgumentException("ModifiedBy cannot be null or whitespace.", nameof(modifiedBy));
+        }
+
+        if (!modifiedAtUtc.HasValue)
+        {
+            throw new ArgumentNullException(nameof(modifiedAtUtc));
+        }
+
+        var validModifiedAtUtc = RequireUtc(modifiedAtUtc.Value, nameof(modifiedAtUtc));
+        var changedFields = new List<string>();
+
+        if (name is not null)
+        {
+            var normalized = NormalizeRequired(name, nameof(name));
+            if (!Name.Equals(normalized, StringComparison.Ordinal))
+            {
+                Name = normalized;
+                changedFields.Add(nameof(Name));
+            }
+        }
+
+        if (description is not null)
+        {
+            var normalized = NormalizeOptional(description);
+            if (!string.Equals(Description, normalized, StringComparison.Ordinal))
+            {
+                Description = normalized;
+                changedFields.Add(nameof(Description));
+            }
+        }
+
+        if (priority.HasValue)
+        {
+            if (!Enum.IsDefined(priority.Value))
+            {
+                throw new ArgumentException("Priority must be a defined ProjectPriority value.", nameof(priority));
+            }
+
+            if (Priority != priority.Value)
+            {
+                Priority = priority.Value;
+                changedFields.Add(nameof(Priority));
+            }
+        }
+
+        if (ownerUserId is not null)
+        {
+            var normalized = NormalizeRequired(ownerUserId, nameof(ownerUserId));
+            if (!OwnerUserId.Equals(normalized, StringComparison.Ordinal))
+            {
+                OwnerUserId = normalized;
+                changedFields.Add(nameof(OwnerUserId));
+            }
+        }
+
+        if (startDateUtc is not null)
+        {
+            var normalized = NormalizeOptionalUtcDate(startDateUtc);
+            if (!Equals(StartDateUtc, normalized))
+            {
+                StartDateUtc = normalized;
+                changedFields.Add(nameof(StartDateUtc));
+            }
+        }
+
+        if (targetCompletionDateUtc is not null)
+        {
+            var normalized = NormalizeOptionalUtcDate(targetCompletionDateUtc);
+            if (!Equals(TargetCompletionDateUtc, normalized))
+            {
+                TargetCompletionDateUtc = normalized;
+                changedFields.Add(nameof(TargetCompletionDateUtc));
+            }
+        }
+
+        if (notes is not null)
+        {
+            var normalized = NormalizeOptional(notes);
+            if (!string.Equals(Notes, normalized, StringComparison.Ordinal))
+            {
+                Notes = normalized;
+                changedFields.Add(nameof(Notes));
+            }
+        }
+
+        LastModifiedBy = modifiedBy;
+        LastModifiedAtUtc = validModifiedAtUtc;
+
+        return changedFields.AsReadOnly();
+    }
+
     private static bool IsValidTransition(ProjectStatus current, ProjectStatus target)
     {
         // PROJECT-010: allowed status transitions. All others are rejected.
@@ -200,6 +308,20 @@ public sealed class Project
         string.IsNullOrWhiteSpace(value)
             ? throw new ArgumentException("Value cannot be null or whitespace.", paramName)
             : value;
+
+    private static string NormalizeRequired(string value, string paramName)
+    {
+        var trimmed = value.Trim();
+        return string.IsNullOrWhiteSpace(trimmed)
+            ? throw new ArgumentException("Value cannot be null or whitespace.", paramName)
+            : trimmed;
+    }
+
+    private static string? NormalizeOptional(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private static DateTime? NormalizeOptionalUtcDate(DateTime? value) =>
+        value.HasValue ? RequireUtc(value.Value, nameof(value)) : null;
 
     private static DateTime RequireUtc(DateTime value, string paramName) =>
         value.Kind == DateTimeKind.Utc

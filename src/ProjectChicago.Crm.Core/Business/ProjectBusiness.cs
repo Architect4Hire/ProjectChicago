@@ -226,6 +226,65 @@ public sealed class ProjectBusiness : IProjectBusiness
         return project.ToServiceModel();
     }
 
+    public async Task<ProjectServiceModel?> EditAsync(
+        Guid projectId,
+        UpdateProjectViewModel request,
+        string expectedConcurrencyToken,
+        ActorContext actor,
+        RequestContext requestContext,
+        DateTime editedAtUtc,
+        CancellationToken cancellationToken)
+    {
+        if (projectId == Guid.Empty)
+        {
+            throw new ArgumentException("Project Id cannot be empty.", nameof(projectId));
+        }
+
+        ArgumentNullException.ThrowIfNull(expectedConcurrencyToken);
+
+        var project = await _projectData.GetAsync(projectId, cancellationToken).ConfigureAwait(false);
+        if (project is null)
+        {
+            return null;
+        }
+
+        var modifiedBy = ResolveCreatedBy(actor);
+
+        // Capture before values for audit trail (AUDIT-002)
+        var beforeValues = CaptureBeforeValues(project, request);
+
+        var changedFields = project.Edit(
+            name: request.Name,
+            description: request.Description,
+            priority: request.Priority?.ToCorePriority(),
+            ownerUserId: request.OwnerUserId,
+            startDateUtc: request.StartDateUtc,
+            targetCompletionDateUtc: request.TargetCompletionDateUtc,
+            notes: request.Notes,
+            modifiedBy: modifiedBy,
+            modifiedAtUtc: editedAtUtc);
+
+        if (changedFields.Count == 0)
+        {
+            return project.ToServiceModel();
+        }
+
+        // Capture after values for audit trail (AUDIT-002)
+        var afterValues = CaptureAfterValues(project, changedFields);
+
+        var auditFact = BuildEditAuditFact(project, changedFields, beforeValues, afterValues, actor, requestContext);
+
+        await _projectData.EditAsync(
+            project,
+            modifiedBy,
+            editedAtUtc,
+            expectedConcurrencyToken,
+            auditFact,
+            cancellationToken).ConfigureAwait(false);
+
+        return project.ToServiceModel();
+    }
+
     private static EntityMutationAudited BuildStatusChangeAuditFact(
         Project project,
         ProjectStatus newStatus,
@@ -268,6 +327,47 @@ public sealed class ProjectBusiness : IProjectBusiness
             CorrelationId = requestContext.CorrelationId,
             CausationId = requestContext.CausationId,
             ChangedFields = new List<string> { nameof(Project.Status) }.AsReadOnly(),
+        };
+    }
+
+    private static EntityMutationAudited BuildEditAuditFact(
+        Project project,
+        IReadOnlyList<string> changedFields,
+        IReadOnlyDictionary<string, string> beforeValues,
+        IReadOnlyDictionary<string, string> afterValues,
+        ActorContext actor,
+        RequestContext requestContext)
+    {
+        var safeChangedFields = changedFields
+            .Where(field => !AuditSensitiveFieldNames.IsForbidden(field))
+            .ToList()
+            .AsReadOnly();
+
+        // Filter previous/new values to only include safe fields (AUDIT-008)
+        var safePreviousValues = beforeValues
+            .Where(kvp => !AuditSensitiveFieldNames.IsForbidden(kvp.Key))
+            .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+
+        var safeNewValues = afterValues
+            .Where(kvp => !AuditSensitiveFieldNames.IsForbidden(kvp.Key))
+            .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+
+        return new EntityMutationAudited
+        {
+            EventId = Guid.NewGuid().ToString(),
+            OccurredAtUtc = new DateTimeOffset(project.LastModifiedAtUtc, TimeSpan.Zero),
+            SourceService = AuditSourceServices.Crm,
+            EntityType = AuditEntityTypes.Project,
+            EntityId = project.Id,
+            Action = AuditActions.Updated,
+            ActorId = actor.ActorId,
+            ActorType = ResolveAuditActorType(actor.ActorType),
+            TraceId = requestContext.TraceId,
+            CorrelationId = requestContext.CorrelationId,
+            CausationId = requestContext.CausationId,
+            ChangedFields = safeChangedFields,
+            PreviousValues = safePreviousValues.Count > 0 ? safePreviousValues : null,
+            NewValues = safeNewValues.Count > 0 ? safeNewValues : null,
         };
     }
 
@@ -357,4 +457,94 @@ public sealed class ProjectBusiness : IProjectBusiness
 
     private static string? NormalizeOptional(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    // Captures the current values of fields that may be modified during an edit operation,
+    // for use in audit trail before/after value tracking (AUDIT-002).
+    private static IReadOnlyDictionary<string, string> CaptureBeforeValues(
+        Project project,
+        UpdateProjectViewModel request)
+    {
+        var beforeValues = new Dictionary<string, string>();
+
+        if (request.Name is not null)
+        {
+            beforeValues[nameof(Project.Name)] = project.Name;
+        }
+
+        if (request.Description is not null)
+        {
+            if (project.Description is not null)
+            {
+                beforeValues[nameof(Project.Description)] = project.Description;
+            }
+        }
+
+        if (request.Priority.HasValue)
+        {
+            beforeValues[nameof(Project.Priority)] = project.Priority.ToString();
+        }
+
+        if (request.OwnerUserId is not null)
+        {
+            beforeValues[nameof(Project.OwnerUserId)] = project.OwnerUserId;
+        }
+
+        if (request.StartDateUtc.HasValue)
+        {
+            if (project.StartDateUtc.HasValue)
+            {
+                beforeValues[nameof(Project.StartDateUtc)] = project.StartDateUtc.Value.ToString("O");
+            }
+        }
+
+        if (request.TargetCompletionDateUtc.HasValue)
+        {
+            if (project.TargetCompletionDateUtc.HasValue)
+            {
+                beforeValues[nameof(Project.TargetCompletionDateUtc)] = project.TargetCompletionDateUtc.Value.ToString("O");
+            }
+        }
+
+        if (request.Notes is not null)
+        {
+            if (project.Notes is not null)
+            {
+                beforeValues[nameof(Project.Notes)] = project.Notes;
+            }
+        }
+
+        return beforeValues;
+    }
+
+    // Captures the new values of fields that were changed during an edit operation,
+    // for use in audit trail before/after value tracking (AUDIT-002).
+    private static IReadOnlyDictionary<string, string> CaptureAfterValues(
+        Project project,
+        IReadOnlyList<string> changedFields)
+    {
+        var afterValues = new Dictionary<string, string>();
+
+        foreach (var field in changedFields)
+        {
+            // Map field names to their current values on the project entity
+            var value = field switch
+            {
+                nameof(Project.Name) => project.Name,
+                nameof(Project.Description) => project.Description ?? string.Empty,
+                nameof(Project.Priority) => project.Priority.ToString(),
+                nameof(Project.OwnerUserId) => project.OwnerUserId,
+                nameof(Project.StartDateUtc) => project.StartDateUtc?.ToString("O") ?? string.Empty,
+                nameof(Project.TargetCompletionDateUtc) => project.TargetCompletionDateUtc?.ToString("O") ?? string.Empty,
+                nameof(Project.Notes) => project.Notes ?? string.Empty,
+                _ => string.Empty,
+            };
+
+            if (!string.IsNullOrEmpty(value))
+            {
+                afterValues[field] = value;
+            }
+        }
+
+        return afterValues;
+    }
 }
