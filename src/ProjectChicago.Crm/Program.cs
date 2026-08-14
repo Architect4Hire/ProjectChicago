@@ -1,6 +1,10 @@
+using ProjectChicago.Crm.Core.Facades;
 using ProjectChicago.Crm.Core.Persistence;
+using ProjectChicago.Crm.Core.Repositories;
 using ProjectChicago.ServiceDefaults.Correlation;
 using ProjectChicago.ServiceDefaults.Errors;
+using ProjectChicago.Crm.Core.Data;
+using ProjectChicago.Crm.Core.Business;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -16,6 +20,20 @@ builder.AddSqlServerDbContext<CrmDbContext>("CrmDb");
 // AddServiceDefaults - the sibling Functions project has no HttpContext to adapt.
 builder.Services.AddHttpRequestContext();
 builder.Services.AddApiExceptionHandling();
+
+// Domain onion composition (onion-boundaries.md): Data/Repository, Business, Facade layers
+// for each bounded service's use cases. Controllers reference only Facade interfaces, which
+// reference only Business interfaces, which reference only Data interfaces.
+builder.Services.AddScoped<ITaskRepository, TaskRepository>();
+builder.Services.AddScoped<ITaskData, TaskData>();
+builder.Services.AddScoped<ITaskBusiness, TaskBusiness>();
+builder.Services.AddScoped<ITaskAuthorization, TaskAuthorization>();
+builder.Services.AddScoped<ITaskFacade, TaskFacade>();
+
+// Mechanism-neutral abstractions (onion-boundaries.md: "Facades depend only on ... abstractions
+// such as current user, clock, cache, and correlation context"). The Clock abstraction lets
+// Facades resolve "now" in a testable way without coupling to DateTime.UtcNow directly.
+builder.Services.AddSingleton<IClock, Clock>();
 
 // MVC controllers are the only HTTP application edge (onion-boundaries.md: "Use ASP.NET Core MVC
 // controllers ...; do not add minimal API routes"). AddOpenApi/MapOpenApi satisfies API-006 - every

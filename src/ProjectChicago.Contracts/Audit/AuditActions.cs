@@ -10,6 +10,7 @@ public static class AuditActions
     public const string StatusChanged = "StatusChanged";
     public const string Assigned = "Assigned";
     public const string Reassigned = "Reassigned";
+    public const string PriorityChanged = "PriorityChanged";
     public const string Completed = "Completed";
     public const string Reopened = "Reopened";
     public const string Archived = "Archived";
