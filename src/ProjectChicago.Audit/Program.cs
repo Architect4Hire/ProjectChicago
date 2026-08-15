@@ -7,6 +7,7 @@ using ProjectChicago.Audit.Core.Business;
 using ProjectChicago.ServiceDefaults.Correlation;
 using ProjectChicago.ServiceDefaults.Errors;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
 using System.Text;

@@ -128,9 +128,15 @@ var gateway = builder.AddProject<Projects.ProjectChicago_Gateway>("gateway")
 // The React/Vite client (frontend.md). runScriptName is explicit even though "dev" is already
 // AddViteApp's default, to keep it visibly tied to package.json's "dev": "vite" script rather than
 // an implicit default. Package manager is npm (the repo's package-lock.json), which is also
-// AddViteApp's default with no WithBun/WithYarn/WithPnpm call. No API base URL, route, auth, or
-// other service reference is wired yet - just the resource itself.
-builder.AddViteApp("web", "../web", "dev");
+// AddViteApp's default with no WithBun/WithYarn/WithPnpm call. Per aspire.md ("React app: reference/
+// expose only the gateway address/config"), it receives only the gateway's resolved HTTPS endpoint -
+// no service database, Service Bus, or internal service endpoint - injected as VITE_API_BASE_URL,
+// which src/web/src/api/http.ts reads via import.meta.env to build the single typed gateway client
+// base URL (frontend.md: "Browser talks to exactly one backend origin/base URL: YARP gateway").
+builder.AddViteApp("web", "../web", "dev")
+    .WithReference(gateway)
+    .WaitFor(gateway)
+    .WithEnvironment("VITE_API_BASE_URL", gateway.GetEndpoint("https"));
 
 // Build the application and run it. Database migrations are applied by each service's
 // composition root in their Program.cs using Aspire's EF Core integration (DATA-034).

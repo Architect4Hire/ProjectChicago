@@ -259,23 +259,51 @@ describe('clientsApi', () => {
   });
 
   describe('getClient', () => {
-    it('should fetch a single client by ID', async () => {
-      mockClient.get.mockResolvedValueOnce(mockClients[0]);
+    const mockClientDetail = {
+      client: {
+        id: 'client-1',
+        name: 'Acme Corp',
+        primaryContactName: 'John Doe',
+        primaryEmail: 'john@acme.com',
+        primaryPhone: '555-0100',
+        website: 'https://acme.com',
+        addressLine: '123 Main St',
+        city: 'Springfield',
+        stateOrProvince: 'IL',
+        postalCode: '62701',
+        country: 'USA',
+        lifecycleStatus: 'Active' as const,
+        description: 'Leading manufacturing company',
+        ownerUserId: 'user-1',
+        createdAtUtc: '2024-01-01T00:00:00Z',
+        createdBy: 'admin',
+        lastModifiedAtUtc: '2024-08-15T10:30:00Z',
+        lastModifiedBy: 'user-1',
+        concurrencyToken: 'AAAAAAAAB9E=',
+      },
+      activeProjects: [],
+      historicalProjects: [],
+      openTasks: [],
+      recentlyCompletedTasks: [],
+    };
+
+    it('should fetch the consolidated Client detail by ID (CLIENT-030..032)', async () => {
+      mockClient.get.mockResolvedValueOnce(mockClientDetail);
 
       const result = await clientsApi.getClient('client-1');
 
-      expect(mockClient.get).toHaveBeenCalledWith('/api/clients/client-1');
-      expect(result).toEqual(mockClients[0]);
-      expect(result.id).toBe('client-1');
+      expect(mockClient.get).toHaveBeenCalledWith('/api/clients/client-1', undefined);
+      expect(result).toEqual(mockClientDetail);
+      expect(result.client.id).toBe('client-1');
     });
 
-    it('should fetch different clients by ID', async () => {
-      mockClient.get.mockResolvedValueOnce(mockClients[1]);
+    it('forwards request options (e.g. an abort signal) to the gateway client', async () => {
+      const controller = new AbortController();
+      mockClient.get.mockResolvedValueOnce(mockClientDetail);
 
-      const result = await clientsApi.getClient('client-2');
+      await clientsApi.getClient('client-1', { signal: controller.signal });
 
-      expect(mockClient.get).toHaveBeenCalledWith('/api/clients/client-2');
-      expect(result.id).toBe('client-2');
+      expect(mockClient.get).toHaveBeenCalledWith('/api/clients/client-1', { signal: controller.signal });
     });
   });
 
@@ -283,6 +311,7 @@ describe('clientsApi', () => {
     it('should create a new client with required fields', async () => {
       const createRequest = {
         name: 'New Client',
+        ownerUserId: 'user-1',
         primaryContactName: 'Jane Doe',
         primaryEmail: 'jane@newclient.com',
         primaryPhone: '555-0300',
@@ -308,17 +337,17 @@ describe('clientsApi', () => {
     it('should create a client with all optional fields', async () => {
       const createRequest = {
         name: 'Full Client',
+        ownerUserId: 'user-3',
         primaryContactName: 'John Smith',
         primaryEmail: 'john@fullclient.com',
         primaryPhone: '555-0400',
         website: 'https://fullclient.com',
-        address: '789 Business Blvd',
+        addressLine: '789 Business Blvd',
         city: 'New York',
-        state: 'NY',
+        stateOrProvince: 'NY',
         postalCode: '10001',
         country: 'USA',
         description: 'Complete client information',
-        assignedOwner: 'user-3',
       };
 
       const createdClient = {
@@ -333,7 +362,6 @@ describe('clientsApi', () => {
 
       expect(mockClient.post).toHaveBeenCalledWith('/api/clients', createRequest);
       expect(result.website).toBe('https://fullclient.com');
-      expect(result.assignedOwner).toBe('user-3');
     });
   });
 
@@ -419,6 +447,7 @@ describe('clientsApi', () => {
 
       await clientsApi.createClient({
         name: 'Test',
+        ownerUserId: 'user-1',
         primaryContactName: 'Test',
         primaryEmail: 'test@test.com',
         primaryPhone: '555-0000',
@@ -442,10 +471,11 @@ describe('clientsApi', () => {
       expect(mockClient.get).toHaveBeenCalledWith(expect.stringContaining('/api/clients'));
 
       await clientsApi.getClient('client-1');
-      expect(mockClient.get).toHaveBeenCalledWith(expect.stringContaining('/api/clients/client-1'));
+      expect(mockClient.get).toHaveBeenCalledWith(expect.stringContaining('/api/clients/client-1'), undefined);
 
       await clientsApi.createClient({
         name: 'Test',
+        ownerUserId: 'user-1',
         primaryContactName: 'Test',
         primaryEmail: 'test@test.com',
         primaryPhone: '555-0000',

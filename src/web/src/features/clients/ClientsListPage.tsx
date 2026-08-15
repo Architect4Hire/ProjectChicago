@@ -1,11 +1,13 @@
 import { type FC, useState } from 'react';
-import { Stack, PageHeader, Spinner, EmptyState, ErrorState } from '@/design-system';
+import { useNavigate } from 'react-router-dom';
+import { Button, Cluster, Stack, PageHeader, Spinner, EmptyState, ErrorState } from '@/design-system';
 import { useClientsList } from './hooks/useClientsList';
 import { ClientsFilter } from './components/ClientsFilter';
 import { ClientsTable } from './components/ClientsTable';
 import { ClientsPagination } from './components/ClientsPagination';
 
 export const ClientsListPage: FC = () => {
+  const navigate = useNavigate();
   const [showFilters, setShowFilters] = useState(false);
   const listState = useClientsList();
 
@@ -15,13 +17,16 @@ export const ClientsListPage: FC = () => {
         title="Clients"
         description="Manage and organize your clients"
         actions={
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-900"
-            aria-label={showFilters ? 'Hide filters' : 'Show filters'}
-          >
-            {showFilters ? 'Hide' : 'Show'} Filters
-          </button>
+          <Cluster>
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-900"
+              aria-label={showFilters ? 'Hide filters' : 'Show filters'}
+            >
+              {showFilters ? 'Hide' : 'Show'} Filters
+            </button>
+            <Button onClick={() => navigate('/clients/new')}>New Client</Button>
+          </Cluster>
         }
       />
 

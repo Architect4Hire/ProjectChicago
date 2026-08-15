@@ -1,6 +1,16 @@
 export { ClientsListPage } from './ClientsListPage';
+export { ClientCreatePage } from './ClientCreatePage';
+export { ClientDetailPage } from './ClientDetailPage';
 export * from './types';
 export { useClientsList } from './hooks/useClientsList';
+export { useCreateClientForm } from './hooks/useCreateClientForm';
+export { useClientDetail } from './hooks/useClientDetail';
+export { useClientActivity } from './hooks/useClientActivity';
 export { ClientsFilter } from './components/ClientsFilter';
 export { ClientsTable } from './components/ClientsTable';
 export { ClientsPagination } from './components/ClientsPagination';
+export { ClientDuplicateWarnings } from './components/ClientDuplicateWarnings';
+export { ClientOverviewCard } from './components/ClientOverviewCard';
+export { ClientProjectsSection } from './components/ClientProjectsSection';
+export { ClientTasksSection } from './components/ClientTasksSection';
+export { ClientActivityPanel } from './components/ClientActivityPanel';

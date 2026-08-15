@@ -3,6 +3,8 @@ import { ThemeProvider } from '@/context/ThemeContext';
 import { AuthProvider, ProtectedRoute, LoginPage } from '@/auth';
 import AuthenticatedShell from './app/AuthenticatedShell';
 import { ClientsListPage } from './features/clients/ClientsListPage';
+import { ClientCreatePage } from './features/clients/ClientCreatePage';
+import { ClientDetailPage } from './features/clients/ClientDetailPage';
 
 function App() {
   return (
@@ -23,6 +25,8 @@ function App() {
             >
               <Route path="/dashboard" element={<PagePlaceholder title="Dashboard" />} />
               <Route path="/clients" element={<ClientsListPage />} />
+              <Route path="/clients/new" element={<ClientCreatePage />} />
+              <Route path="/clients/:clientId" element={<ClientDetailPage />} />
               <Route path="/projects" element={<PagePlaceholder title="Projects" />} />
               <Route path="/tasks" element={<PagePlaceholder title="Tasks" />} />
               <Route path="/search" element={<PagePlaceholder title="Search" />} />

@@ -1,4 +1,5 @@
 import { getGatewayClient } from './gateway';
+import type { RequestOptions } from './http';
 
 /**
  * Lifecycle status for a Client
@@ -47,25 +48,136 @@ export interface Client {
   lastModifiedDate: string;
   /** User who last modified the record */
   lastModifiedBy: string;
+  /** Likely-duplicate matches found during creation (CLIENT-004); empty when none */
+  possibleDuplicates?: ClientDuplicateWarning[];
+}
+
+/**
+ * Which CLIENT-004 duplicate-detection criterion matched an existing Client.
+ * Mirrors the backend's ClientDuplicateMatchField stable string enum.
+ */
+export type ClientDuplicateMatchField = 'Name' | 'PrimaryEmail' | 'PrimaryPhone';
+
+/**
+ * One likely-duplicate match surfaced by POST /api/clients (CLIENT-004).
+ * Duplicate detection warns rather than blocks or silently merges: it rides
+ * alongside the created Client instead of a separate blocking status code.
+ */
+export interface ClientDuplicateWarning {
+  clientId: string;
+  name: string;
+  matchedOn: ClientDuplicateMatchField[];
+}
+
+/**
+ * Project lifecycle status. Mirrors the backend's ProjectStatusContract stable string enum.
+ */
+export type ProjectStatus = 'Planned' | 'Active' | 'OnHold' | 'Completed' | 'Cancelled' | 'Archived';
+
+/**
+ * Shared priority scale for Projects and Tasks. Mirrors the backend's ProjectPriorityContract /
+ * TaskItemPriorityContract stable string enums (identical value sets).
+ */
+export type Priority = 'Low' | 'Normal' | 'High' | 'Critical';
+export type ProjectPriority = Priority;
+export type TaskItemPriority = Priority;
+
+/**
+ * Task lifecycle status. Mirrors the backend's TaskItemStatusContract stable string enum.
+ */
+export type TaskItemStatus = 'Backlog' | 'ToDo' | 'InProgress' | 'Blocked' | 'Completed' | 'Cancelled';
+
+/**
+ * Full Client entity as returned within a Client detail response (GET /api/clients/{clientId}).
+ * Mirrors the backend's ClientServiceModel field names exactly (CLIENT-030) - distinct from the
+ * `Client` list/create-response shape above, which is a separate, independently-evolving contract.
+ */
+export interface ClientDetailRecord {
+  id: string;
+  name: string;
+  primaryContactName?: string | null;
+  primaryEmail?: string | null;
+  primaryPhone?: string | null;
+  website?: string | null;
+  addressLine?: string | null;
+  city?: string | null;
+  stateOrProvince?: string | null;
+  postalCode?: string | null;
+  country?: string | null;
+  lifecycleStatus: ClientLifecycleStatus;
+  description?: string | null;
+  ownerUserId: string;
+  createdAtUtc: string;
+  createdBy: string;
+  lastModifiedAtUtc: string;
+  lastModifiedBy: string;
+  concurrencyToken: string;
+}
+
+/**
+ * One Project's summary within a Client's detail view (CLIENT-030/CLIENT-031). Mirrors the
+ * backend's ClientProjectSummary - enough to display and navigate, not the full Project record.
+ */
+export interface ClientDetailProjectSummary {
+  id: string;
+  name: string;
+  status: ProjectStatus;
+  priority: ProjectPriority;
+  ownerUserId: string;
+  startDateUtc?: string | null;
+  targetCompletionDateUtc?: string | null;
+  actualCompletionDateUtc?: string | null;
+  lastModifiedAtUtc: string;
+}
+
+/**
+ * One Task's summary within a Client's detail view (CLIENT-030/CLIENT-032). Mirrors the backend's
+ * ClientTaskSummary. Carries `projectId` so a Task shown here can navigate to its owning Project.
+ */
+export interface ClientDetailTaskSummary {
+  id: string;
+  projectId: string;
+  title: string;
+  status: TaskItemStatus;
+  priority: TaskItemPriority;
+  assignedUserId?: string | null;
+  dueDateUtc?: string | null;
+  completedAtUtc?: string | null;
+}
+
+/**
+ * Consolidated Client detail response (CLIENT-030..032). Mirrors the backend's
+ * ClientDetailServiceModel returned by GET /api/clients/{clientId}. Recent activity and audit
+ * history are deliberately absent here - the backend defers those to the Audit Service's own
+ * HTTP API (ADR-0016), fetched separately by the audit API module.
+ */
+export interface ClientDetail {
+  client: ClientDetailRecord;
+  activeProjects: ClientDetailProjectSummary[];
+  historicalProjects: ClientDetailProjectSummary[];
+  openTasks: ClientDetailTaskSummary[];
+  recentlyCompletedTasks: ClientDetailTaskSummary[];
 }
 
 /**
  * Request to create a new Client
  * CLIENT-001: Allow authorized user to create Client
+ * Field names/requiredness mirror the backend's CreateClientViewModel contract:
+ * only `name` and `ownerUserId` are required, the rest are optional.
  */
 export interface CreateClientRequest {
   name: string;
-  primaryContactName: string;
-  primaryEmail: string;
-  primaryPhone: string;
+  ownerUserId: string;
+  primaryContactName?: string;
+  primaryEmail?: string;
+  primaryPhone?: string;
   website?: string;
-  address?: string;
+  addressLine?: string;
   city?: string;
-  state?: string;
+  stateOrProvince?: string;
   postalCode?: string;
   country?: string;
   description?: string;
-  assignedOwner?: string;
 }
 
 /**
@@ -85,6 +197,19 @@ export interface UpdateClientRequest {
   lifecycleStatus?: ClientLifecycleStatus;
   description?: string;
   assignedOwner?: string;
+}
+
+/**
+ * Request to change a Client's current lifecycle status
+ * PATCH /api/clients/{clientId}/lifecycle-status
+ * Mirrors the backend's ChangeClientLifecycleStatusViewModel exactly (CLIENT-010..012).
+ * ExpectedConcurrencyToken is required (DATA-008): the caller's last-known
+ * ClientDetailRecord.concurrencyToken, so a stale write is rejected with 409 rather than silently
+ * overwriting a change made by someone else.
+ */
+export interface ChangeClientLifecycleStatusRequest {
+  newStatus: ClientLifecycleStatus;
+  expectedConcurrencyToken: string;
 }
 
 /**
@@ -185,13 +310,37 @@ export const clientsApi = {
   },
 
   /**
-   * Get a single Client by ID
+   * Get consolidated Client detail by ID
    * GET /api/clients/{clientId}
-   * CLIENT-030: Client detail experience with consolidated view
+   * CLIENT-030..032: Client detail experience with consolidated view (Client info, lifecycle,
+   * owner, active/historical Projects, open/recently-completed Tasks). Recent activity and audit
+   * history are fetched separately through the audit API module (ADR-0016).
    */
-  async getClient(clientId: string): Promise<Client> {
+  async getClient(clientId: string, options?: RequestOptions): Promise<ClientDetail> {
     const client = getGatewayClient();
-    return client.get<Client>(`/api/clients/${clientId}`);
+    return client.get<ClientDetail>(`/api/clients/${clientId}`, options);
+  },
+
+  /**
+   * Change a Client's current lifecycle status
+   * PATCH /api/clients/{clientId}/lifecycle-status
+   * CLIENT-010..012: a Client has exactly one current status and transitions are auditable
+   * (recorded through the Audit Service via the normal integration-event path, not by this call).
+   * Rejects with ValidationError (400) when the transition itself is disallowed, and with
+   * ConflictError (409) when expectedConcurrencyToken no longer matches the persisted Client -
+   * callers must reload rather than retry blindly (DATA-008).
+   * Response shape mirrors the backend's ClientServiceModel for the fields ClientDetailRecord also
+   * carries; PossibleDuplicates (irrelevant to a lifecycle transition) is simply ignored.
+   */
+  async changeLifecycleStatus(
+    clientId: string,
+    request: ChangeClientLifecycleStatusRequest,
+  ): Promise<ClientDetailRecord> {
+    const client = getGatewayClient();
+    return client.patch<ClientDetailRecord, ChangeClientLifecycleStatusRequest>(
+      `/api/clients/${clientId}/lifecycle-status`,
+      request,
+    );
   },
 
   /**
