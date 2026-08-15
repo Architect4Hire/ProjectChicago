@@ -20,6 +20,8 @@
     <ProjectReference Include="..\ProjectChicago.Crm.Functions\ProjectChicago.Crm.Functions.csproj" />
     <ProjectReference Include="..\ProjectChicago.Identity\ProjectChicago.Identity.csproj" />
     <ProjectReference Include="..\ProjectChicago.Identity.Functions\ProjectChicago.Identity.Functions.csproj" />
+    <ProjectReference Include="..\ProjectChicago.Audit\ProjectChicago.Audit.csproj" />
+    <ProjectReference Include="..\ProjectChicago.Audit.Functions\ProjectChicago.Audit.Functions.csproj" />
     <ProjectReference Include="..\ProjectChicago.Gateway\ProjectChicago.Gateway.csproj" />
   </ItemGroup>
 

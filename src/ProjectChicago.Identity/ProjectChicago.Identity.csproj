@@ -14,8 +14,10 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <!-- OpenAPI document generation for this host's MVC controllers (API-006). -->
+    <!-- OpenAPI document generation for this host's MVC controllers (API-006, API-007). -->
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <!-- Scalar.net provides interactive OpenAPI documentation UI (API-006). -->
+    <PackageReference Include="Scalar.AspNetCore" />
   </ItemGroup>
 
   <PropertyGroup>

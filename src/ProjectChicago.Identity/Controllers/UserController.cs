@@ -101,7 +101,7 @@ public class UserController : ControllerBase
     /// <response code="401">Not authenticated</response>
     /// <response code="403">Authenticated but not authorized (not Administrator)</response>
     /// <response code="409">Duplicate user (email already exists)</response>
-    [HttpPost]
+    [HttpPost(Name = "CreateUser")]
     [ProducesResponseType(typeof(UserServiceModel), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
@@ -164,7 +164,7 @@ public class UserController : ControllerBase
     /// <response code="400">Invalid request (user not found)</response>
     /// <response code="401">Not authenticated</response>
     /// <response code="403">Authenticated but not authorized (not Administrator)</response>
-    [HttpPost("{id}/deactivate")]
+    [HttpPost("{id}/deactivate", Name = "DeactivateUser")]
     [ProducesResponseType(typeof(UserServiceModel), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
@@ -208,7 +208,7 @@ public class UserController : ControllerBase
     /// <response code="400">Invalid request (user not found)</response>
     /// <response code="401">Not authenticated</response>
     /// <response code="403">Authenticated but not authorized (not Administrator)</response>
-    [HttpPost("{id}/activate")]
+    [HttpPost("{id}/activate", Name = "ActivateUser")]
     [ProducesResponseType(typeof(UserServiceModel), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
@@ -253,7 +253,7 @@ public class UserController : ControllerBase
     /// <response code="400">Invalid request (user not found, invalid role, user already in role)</response>
     /// <response code="401">Not authenticated</response>
     /// <response code="403">Authenticated but not authorized (not Administrator)</response>
-    [HttpPost("{id}/roles")]
+    [HttpPost("{id}/roles", Name = "AddRole")]
     [ProducesResponseType(typeof(UserServiceModel), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
@@ -317,7 +317,7 @@ public class UserController : ControllerBase
     /// <response code="400">Invalid request (user not found, user not in role)</response>
     /// <response code="401">Not authenticated</response>
     /// <response code="403">Authenticated but not authorized (not Administrator)</response>
-    [HttpDelete("{id}/roles/{roleName}")]
+    [HttpDelete("{id}/roles/{roleName}", Name = "RemoveRole")]
     [ProducesResponseType(typeof(UserServiceModel), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]

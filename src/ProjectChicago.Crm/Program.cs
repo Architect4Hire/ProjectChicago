@@ -8,6 +8,7 @@ using ProjectChicago.ServiceDefaults.Correlation;
 using ProjectChicago.ServiceDefaults.Errors;
 using ProjectChicago.Crm.Core.Data;
 using ProjectChicago.Crm.Core.Business;
+using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -133,7 +134,12 @@ app.MapDefaultEndpoints();
 app.UseAuthentication();
 app.UseAuthorization();
 
+// API-006: OpenAPI document and Scalar.net interactive documentation UI
+// SEC-010..013: APIs require authentication (401) and role-based authorization (403)
+// ADR-0018: Cookie authentication with HTTPOnly, Secure, SameSite=Strict policies
 app.MapOpenApi();
+app.MapScalarApiReference();
+
 app.MapControllers();
 
 app.Run();

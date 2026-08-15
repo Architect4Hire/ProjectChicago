@@ -9,8 +9,10 @@
     <!-- Aspire SQL Server EF Core client integration: wires CrmDbContext to the Aspire-injected
          "CrmDb" connection with resilience, health check, and telemetry defaults (aspire.md/database.md). -->
     <PackageReference Include="Aspire.Microsoft.EntityFrameworkCore.SqlServer" />
-    <!-- OpenAPI document generation for this host's MVC controllers (API-006). -->
+    <!-- OpenAPI document generation for this host's MVC controllers (API-006, API-007). -->
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <!-- Scalar.net provides interactive OpenAPI documentation UI (API-006). -->
+    <PackageReference Include="Scalar.AspNetCore" />
   </ItemGroup>
 
   <PropertyGroup>

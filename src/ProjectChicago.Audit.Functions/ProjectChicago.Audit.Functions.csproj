@@ -24,6 +24,11 @@
     <!-- Aspire Azure Service Bus client integration: Audit Functions consumes from Service Bus
          subscriptions (ADR-0016, ADR-0017). -->
     <PackageReference Include="Aspire.Azure.Messaging.ServiceBus" />
+    <!-- EF Core Design for migrations (required for dotnet ef command-line tools). -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
   </ItemGroup>
 
   <ItemGroup>

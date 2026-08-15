@@ -9,8 +9,10 @@
     <!-- Aspire SQL Server EF Core client integration: wires AuditDbContext to the Aspire-injected
          "AuditDb" connection with resilience, health check, and telemetry defaults. -->
     <PackageReference Include="Aspire.Microsoft.EntityFrameworkCore.SqlServer" />
-    <!-- OpenAPI document generation for this host's MVC controllers. -->
+    <!-- OpenAPI document generation for this host's MVC controllers (API-006, API-007). -->
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <!-- Scalar.net provides interactive OpenAPI documentation UI (API-006). -->
+    <PackageReference Include="Scalar.AspNetCore" />
   </ItemGroup>
 
   <PropertyGroup>

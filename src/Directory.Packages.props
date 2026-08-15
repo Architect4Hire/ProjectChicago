@@ -41,9 +41,11 @@
     <PackageVersion Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.10" />
   </ItemGroup>
 
-  <!-- OpenAPI document generation for MVC controller HTTP hosts (API-006). -->
+  <!-- OpenAPI document generation and interactive documentation for MVC controller HTTP hosts (API-006). -->
   <ItemGroup>
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.11" />
+    <!-- Scalar.net provides an interactive OpenAPI documentation UI (API-006). -->
+    <PackageVersion Include="Scalar.AspNetCore" Version="2.16.20" />
   </ItemGroup>
 
   <!-- YARP gateway reverse proxy (gateway.md: SEC-020, route stable public paths to service hosts via service discovery). -->

@@ -1,6 +1,12 @@
+using ProjectChicago.Audit.Core.Contracts;
+using ProjectChicago.Audit.Core.Data;
+using ProjectChicago.Audit.Core.Facades;
 using ProjectChicago.Audit.Core.Persistence;
+using ProjectChicago.Audit.Core.Repositories;
+using ProjectChicago.Audit.Core.Business;
 using ProjectChicago.ServiceDefaults.Correlation;
 using ProjectChicago.ServiceDefaults.Errors;
+using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -15,6 +21,27 @@ builder.AddSqlServerDbContext<AuditDbContext>("AuditDb");
 builder.Services.AddHttpRequestContext();
 builder.Services.AddApiExceptionHandling();
 
+// SEC-012/SEC-013: Define authorization policies for Audit read access (AUDIT-001..008, ADR-0016).
+// Audit.Read restricted to privileged roles (Administrator, Manager, and any Support-like roles
+// that may be added in the future). Policy is evaluated by ASP.NET Core authorization middleware
+// before controller actions run.
+builder.Services.AddAuthorization(options =>
+{
+    // Audit.Read: view-only access to audit entries. Restricted to Administrator and Manager roles
+    // who may need to troubleshoot issues, investigate compliance questions, or support users.
+    // Contributors and ReadOnly users do not have audit visibility by default.
+    options.AddPolicy(AuditApiContract.RequiredReadAuthorizationPolicy,
+        policy => policy.RequireRole("Administrator", "Manager"));
+});
+
+// Domain onion composition (onion-boundaries.md): Data/Repository, Business, Facade layers
+// for audit read use cases. Controllers reference only Facade interfaces, which reference
+// only Business interfaces, which reference only Data interfaces.
+builder.Services.AddScoped<IAuditRepository, AuditRepository>();
+builder.Services.AddScoped<IAuditData, AuditData>();
+builder.Services.AddScoped<IAuditReadBusiness, AuditReadBusiness>();
+builder.Services.AddScoped<IAuditReadFacade, AuditReadFacade>();
+
 // MVC controllers are the only HTTP application edge. AddOpenApi satisfies API-006 - every
 // public API contract is documented through OpenAPI.
 builder.Services.AddControllers();
@@ -22,14 +49,26 @@ builder.Services.AddOpenApi();
 
 var app = builder.Build();
 
+// ERROR-001..005, TRACE-001..007, LOG-001..006: Exception handler middleware (ProblemDetails/ApiExceptionHandler)
+// processes all unhandled exceptions and structured errors, returning safe responses with trace ID references
+// for support correlation. StatusCodePages converts bare status codes (404, etc.) into the same consistent
+// ProblemDetails shape. Both preserve trace context (W3C traceparent) and do not leak internal details/stack
+// traces to external callers (ERROR-002). Structured logging includes traceId for end-to-end correlation.
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 
 app.MapDefaultEndpoints();
+
+// SEC-012/SEC-013: ASP.NET Core authorization middleware (policies defined above).
+// Evaluates policy requirements before controller actions run.
 app.UseAuthentication();
 app.UseAuthorization();
 
+// API-006: OpenAPI document and Scalar.net interactive documentation UI
+// SEC-012: Audit.Read policy enforced by [Authorize(Policy = ...)] middleware; Admin/Manager roles only
 app.MapOpenApi();
+app.MapScalarApiReference();
+
 app.MapControllers();
 
 app.Run();

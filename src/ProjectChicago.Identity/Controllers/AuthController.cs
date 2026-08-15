@@ -40,7 +40,7 @@ public class AuthController : ControllerBase
     /// <response code="200">Login successful; session cookie issued (httponly, secure, samesite=strict); CSRF token returned</response>
     /// <response code="401">Invalid credentials</response>
     /// <response code="429">Account locked after too many failed attempts</response>
-    [HttpPost("login")]
+    [HttpPost("login", Name = "Login")]
     [ProducesResponseType(typeof(LoginServiceModel), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
@@ -87,7 +87,7 @@ public class AuthController : ControllerBase
     /// (SEC-005, AUDIT-001..008, ADR-0018).
     /// </summary>
     /// <response code="200">Logout successful; session cleared</response>
-    [HttpPost("logout")]
+    [HttpPost("logout", Name = "Logout")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> LogoutAsync(CancellationToken cancellationToken = default)
     {
@@ -115,7 +115,7 @@ public class AuthController : ControllerBase
     /// </summary>
     /// <response code="200">Authenticated; current user info returned</response>
     /// <response code="401">Not authenticated or session expired</response>
-    [HttpGet("current-user")]
+    [HttpGet("current-user", Name = "GetCurrentUser")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
     public IActionResult GetCurrentUser()
@@ -152,7 +152,7 @@ public class AuthController : ControllerBase
     /// <response code="200">Password changed successfully; session invalidated, user must re-authenticate</response>
     /// <response code="400">Invalid request (validation error, current password incorrect, policy rejection)</response>
     /// <response code="401">Not authenticated</response>
-    [HttpPut("password")]
+    [HttpPut("password", Name = "ChangePassword")]
     [Authorize]
     [ProducesResponseType(typeof(UserServiceModel), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
@@ -226,7 +226,7 @@ public class AuthController : ControllerBase
     /// <response code="400">Invalid request (user not found)</response>
     /// <response code="401">Not authenticated</response>
     /// <response code="403">Not authorized (not admin)</response>
-    [HttpPost("users/{userId}/reset-password")]
+    [HttpPost("users/{userId}/reset-password", Name = "InitiatePasswordReset")]
     [Authorize(Roles = "Admin")]
     [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
@@ -270,7 +270,7 @@ public class AuthController : ControllerBase
     /// <param name="request">Reset completion request (user ID, token, new password, confirmation)</param>
     /// <response code="200">Password reset successfully; user must re-authenticate</response>
     /// <response code="400">Invalid request (token invalid/expired, policy rejection, validation error)</response>
-    [HttpPost("reset-password")]
+    [HttpPost("reset-password", Name = "ResetPassword")]
     [ProducesResponseType(typeof(UserServiceModel), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<UserServiceModel>> ResetPasswordAsync(

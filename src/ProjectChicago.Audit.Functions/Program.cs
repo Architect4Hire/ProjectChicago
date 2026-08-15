@@ -3,6 +3,8 @@ using Microsoft.Azure.Functions.Worker.OpenTelemetry;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using OpenTelemetry;
+using ProjectChicago.Audit.Core.Business;
+using ProjectChicago.Audit.Core.Data;
 using ProjectChicago.Audit.Core.Persistence;
 
 var builder = FunctionsApplication.CreateBuilder(args);
@@ -22,6 +24,10 @@ builder.AddSqlServerDbContext<AuditDbContext>("AuditDb");
 // Aspire Azure Service Bus client integration: Audit Functions consumes from Service Bus
 // subscriptions (ADR-0016, ADR-0017).
 builder.AddAzureServiceBusClient("messaging");
+
+// Audit Core dependency injection: Data and Business layers for event processing.
+builder.Services.AddScoped<IAuditData, AuditData>();
+builder.Services.AddScoped<IAuditEventBusiness, AuditEventBusiness>();
 
 var host = builder.Build();
 
