@@ -6,6 +6,7 @@ using OpenTelemetry;
 using ProjectChicago.Audit.Core.Business;
 using ProjectChicago.Audit.Core.Data;
 using ProjectChicago.Audit.Core.Persistence;
+using ProjectChicago.Audit.Core.Repositories;
 
 var builder = FunctionsApplication.CreateBuilder(args);
 
@@ -26,6 +27,7 @@ builder.AddSqlServerDbContext<AuditDbContext>("AuditDb");
 builder.AddAzureServiceBusClient("messaging");
 
 // Audit Core dependency injection: Data and Business layers for event processing.
+builder.Services.AddScoped<IAuditRepository, AuditRepository>();
 builder.Services.AddScoped<IAuditData, AuditData>();
 builder.Services.AddScoped<IAuditEventBusiness, AuditEventBusiness>();
 
