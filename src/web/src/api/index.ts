@@ -7,6 +7,8 @@ export {
   NotFoundError,
   ConflictError,
   createGatewayClient,
+  setCsrfToken,
+  getCsrfToken,
   type HttpClientConfig,
   type RequestOptions,
   type ProblemDetails,
