@@ -153,17 +153,19 @@ public sealed class ClientsController : ControllerBase
         }
     }
 
-    // Same 401-vs-403 split as the other actions. 404 is decided here the same way GetDetail
-    // decides it: IClientFacade.ArchiveAsync returns null when no Client with the requested Id
-    // exists. One additional outcome is specific to this mutation and is not classified anywhere in
-    // the shared ApiExceptionHandler (backend.md: that handler "must not grow its switch with
-    // bespoke business exception types" - domain/data-specific translation belongs here, at the
-    // boundary that owns this one use case):
-    //  - InvalidOperationException: Business rejected the archive because the Client has active
-    //    Projects (CLIENT-015). Mapped as a 409 conflict - the state prevents the requested
-    //    operation, not a race with another request.
-    //  - ClientConcurrencyConflictException: request.ExpectedConcurrencyToken did not match the
-    //    Client's currently persisted version (DATA-008). Mapped as a 409 conflict.
+    /// <summary>
+    /// Archive a client. Requires Clients.Write authorization (SEC-010..013).
+    /// Returns 404 if client not found; 409 if client has active projects or concurrency conflict.
+    /// </summary>
+    /// <param name="clientId">Client ID</param>
+    /// <param name="request">Archive request with concurrency token</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <response code="200">Client archived</response>
+    /// <response code="400">Validation error</response>
+    /// <response code="401">Not authenticated</response>
+    /// <response code="403">Not authorized (requires Clients.Write)</response>
+    /// <response code="404">Client not found</response>
+    /// <response code="409">Concurrency conflict (expected version mismatch) or active projects exist</response>
     [HttpPost(ClientsApiContract.ArchiveRouteSuffix, Name = ClientsApiContract.ArchiveOperationId)]
     [Authorize(Policy = ClientsApiContract.RequiredAuthorizationPolicy)]
     [ProducesResponseType(typeof(ClientServiceModel), StatusCodes.Status200OK)]
@@ -177,11 +179,6 @@ public sealed class ClientsController : ControllerBase
         [FromBody] ArchiveClientViewModel request,
         CancellationToken cancellationToken)
     {
-        if (User.Identity is not { IsAuthenticated: true })
-        {
-            return Unauthorized();
-        }
-
         try
         {
             var response = await _clientFacade.ArchiveAsync(clientId, request, cancellationToken)
@@ -201,17 +198,20 @@ public sealed class ClientsController : ControllerBase
         }
     }
 
-    // Same 401-vs-403 split as the other actions. 404 is decided here the same way GetDetail
-    // decides it: IClientFacade.RestoreAsync returns null when no Client with the requested Id
-    // exists. One additional outcome is specific to this mutation and is not classified anywhere in
-    // the shared ApiExceptionHandler (backend.md: that handler "must not grow its switch with
-    // bespoke business exception types" - domain/data-specific translation belongs here, at the
-    // boundary that owns this one use case):
-    //  - InvalidOperationException: Business rejected the restore because the Client is not
-    //    currently Archived (CLIENT-014), or the RestoredStatus is invalid. Mapped as a 400 field
-    //    error - the request itself is invalid given the Client's current state.
-    //  - ClientConcurrencyConflictException: request.ExpectedConcurrencyToken did not match the
-    //    Client's currently persisted version (DATA-008). Mapped as a 409 conflict.
+    /// <summary>
+    /// Restore an archived client. Requires Clients.Write authorization (SEC-010..013).
+    /// Returns 404 if client not found; 400 if client is not archived or restored status is invalid;
+    /// 409 if concurrency conflict.
+    /// </summary>
+    /// <param name="clientId">Client ID</param>
+    /// <param name="request">Restore request with restored status and concurrency token</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <response code="200">Client restored</response>
+    /// <response code="400">Validation error or invalid restore state</response>
+    /// <response code="401">Not authenticated</response>
+    /// <response code="403">Not authorized (requires Clients.Write)</response>
+    /// <response code="404">Client not found</response>
+    /// <response code="409">Concurrency conflict (expected version mismatch)</response>
     [HttpPost(ClientsApiContract.RestoreRouteSuffix, Name = ClientsApiContract.RestoreOperationId)]
     [Authorize(Policy = ClientsApiContract.RequiredAuthorizationPolicy)]
     [ProducesResponseType(typeof(ClientServiceModel), StatusCodes.Status200OK)]
@@ -225,11 +225,6 @@ public sealed class ClientsController : ControllerBase
         [FromBody] RestoreClientViewModel request,
         CancellationToken cancellationToken)
     {
-        if (User.Identity is not { IsAuthenticated: true })
-        {
-            return Unauthorized();
-        }
-
         try
         {
             var response = await _clientFacade.RestoreAsync(clientId, request, cancellationToken)
@@ -256,14 +251,19 @@ public sealed class ClientsController : ControllerBase
         }
     }
 
-    // Same 401-vs-403 split as the other actions. 404 is decided here the same way GetDetail
-    // decides it: IClientFacade.UpdateAsync returns null when no Client with the requested Id
-    // exists. One additional outcome is specific to this mutation and is not classified anywhere in
-    // the shared ApiExceptionHandler (backend.md: that handler "must not grow its switch with
-    // bespoke business exception types" - domain/data-specific translation belongs here, at the
-    // boundary that owns this one use case):
-    //  - ClientConcurrencyConflictException: request.ExpectedConcurrencyToken did not match the
-    //    Client's currently persisted version (DATA-008). Mapped as a 409 conflict.
+    /// <summary>
+    /// Update client details. Requires Clients.Write authorization (SEC-010..013).
+    /// Returns 404 if client not found; 409 if concurrency conflict.
+    /// </summary>
+    /// <param name="clientId">Client ID</param>
+    /// <param name="request">Update request with client fields and concurrency token</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <response code="200">Client updated</response>
+    /// <response code="400">Validation error</response>
+    /// <response code="401">Not authenticated</response>
+    /// <response code="403">Not authorized (requires Clients.Write)</response>
+    /// <response code="404">Client not found</response>
+    /// <response code="409">Concurrency conflict (expected version mismatch)</response>
     [HttpPatch(ClientsApiContract.UpdateRouteSuffix, Name = ClientsApiContract.UpdateOperationId)]
     [Authorize(Policy = ClientsApiContract.RequiredAuthorizationPolicy)]
     [ProducesResponseType(typeof(ClientServiceModel), StatusCodes.Status200OK)]
@@ -277,11 +277,6 @@ public sealed class ClientsController : ControllerBase
         [FromBody] UpdateClientViewModel request,
         CancellationToken cancellationToken)
     {
-        if (User.Identity is not { IsAuthenticated: true })
-        {
-            return Unauthorized();
-        }
-
         try
         {
             var response = await _clientFacade.UpdateAsync(clientId, request, cancellationToken)

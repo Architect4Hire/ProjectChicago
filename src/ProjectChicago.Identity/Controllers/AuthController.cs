@@ -10,6 +10,7 @@ namespace ProjectChicago.Identity.Controllers;
 
 /// <summary>
 /// Authentication endpoints for login, logout, and password change (ADR-0018: cookie authentication + CSRF, SEC-004..005/AUDIT-001).
+/// Note: Login and password reset endpoints are unauthenticated; other endpoints require [Authorize].
 /// </summary>
 [ApiController]
 [Route("auth")]
@@ -83,15 +84,15 @@ public class AuthController : ControllerBase
     }
 
     /// <summary>
-    /// Logout (sign out). Records audit event, clears session state and removes authentication cookie.
+    /// Logout (sign out). Records audit event for authenticated users, clears session state and removes authentication cookie.
     /// (SEC-005, AUDIT-001..008, ADR-0018).
     /// </summary>
+    /// <param name="cancellationToken">Cancellation token</param>
     /// <response code="200">Logout successful; session cleared</response>
     [HttpPost("logout", Name = "Logout")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> LogoutAsync(CancellationToken cancellationToken = default)
     {
-        // Record logout audit event if user is authenticated (SEC-005, AUDIT-001).
         if (User.Identity?.IsAuthenticated == true)
         {
             var userId = User.FindFirst("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")?.Value;
@@ -110,26 +111,16 @@ public class AuthController : ControllerBase
     }
 
     /// <summary>
-    /// Get current authenticated user info.
-    /// (SEC-010, SEC-020..025: authenticated user context).
+    /// Get current authenticated user info (SEC-010, SEC-020..025: authenticated user context).
     /// </summary>
     /// <response code="200">Authenticated; current user info returned</response>
     /// <response code="401">Not authenticated or session expired</response>
     [HttpGet("current-user", Name = "GetCurrentUser")]
+    [Authorize]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
     public IActionResult GetCurrentUser()
     {
-        if (User.Identity?.IsAuthenticated != true)
-        {
-            return Unauthorized(new ProblemDetails
-            {
-                Title = "Not Authenticated",
-                Detail = "No valid session. Please log in.",
-                Status = StatusCodes.Status401Unauthorized,
-            });
-        }
-
         var userId = User.FindFirst("sub")?.Value ?? User.FindFirst("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")?.Value;
         var userName = User.FindFirst("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name")?.Value;
         var email = User.FindFirst("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress")?.Value;
@@ -149,6 +140,7 @@ public class AuthController : ControllerBase
     /// Records audit event (SEC-004, SEC-005, AUDIT-001..008).
     /// </summary>
     /// <param name="request">Change password request (current password, new password, confirmation)</param>
+    /// <param name="cancellationToken">Cancellation token</param>
     /// <response code="200">Password changed successfully; session invalidated, user must re-authenticate</response>
     /// <response code="400">Invalid request (validation error, current password incorrect, policy rejection)</response>
     /// <response code="401">Not authenticated</response>
@@ -161,24 +153,14 @@ public class AuthController : ControllerBase
         [FromBody] ChangePasswordViewModel request,
         CancellationToken cancellationToken = default)
     {
-        if (User.Identity?.IsAuthenticated != true)
-        {
-            return Unauthorized(new ProblemDetails
-            {
-                Title = "Not Authenticated",
-                Detail = "No valid session. Please log in.",
-                Status = StatusCodes.Status401Unauthorized,
-            });
-        }
-
         var userId = User.FindFirst("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")?.Value;
         if (!Guid.TryParse(userId, out var userGuid))
         {
-            return Unauthorized(new ProblemDetails
+            return BadRequest(new ProblemDetails
             {
                 Title = "Invalid User Context",
                 Detail = "Cannot determine current user identity.",
-                Status = StatusCodes.Status401Unauthorized,
+                Status = StatusCodes.Status400BadRequest,
             });
         }
 
@@ -221,11 +203,12 @@ public class AuthController : ControllerBase
     /// Generates a one-time reset token; admin communicates token to user via out-of-band means.
     /// Records audit event without exposing token (SEC-004, SEC-005, AUDIT-001..008).
     /// </summary>
-    /// <param name="request">Reset initiation request (user ID)</param>
+    /// <param name="userId">User ID to initiate reset for</param>
+    /// <param name="cancellationToken">Cancellation token</param>
     /// <response code="200">Reset token generated successfully</response>
     /// <response code="400">Invalid request (user not found)</response>
     /// <response code="401">Not authenticated</response>
-    /// <response code="403">Not authorized (not admin)</response>
+    /// <response code="403">Not authorized (requires Admin role)</response>
     [HttpPost("users/{userId}/reset-password", Name = "InitiatePasswordReset")]
     [Authorize(Roles = "Admin")]
     [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
@@ -236,16 +219,6 @@ public class AuthController : ControllerBase
         Guid userId,
         CancellationToken cancellationToken = default)
     {
-        if (User.Identity?.IsAuthenticated != true)
-        {
-            return Unauthorized(new ProblemDetails
-            {
-                Title = "Not Authenticated",
-                Detail = "No valid session. Please log in.",
-                Status = StatusCodes.Status401Unauthorized,
-            });
-        }
-
         try
         {
             var token = await _userManagementFacade.InitiatePasswordResetAsync(userId, cancellationToken).ConfigureAwait(false);

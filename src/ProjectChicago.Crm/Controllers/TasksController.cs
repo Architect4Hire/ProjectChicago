@@ -310,11 +310,18 @@ public sealed class TasksController : ControllerBase
         }
     }
 
-    // TASK-002: edit a Task's details (title, description, start/due dates, notes). Requires
-    // Tasks.Write authorization (SEC-012/013). Returns 200 with the updated TaskServiceModel on
-    // success, 409 Conflict when the ConcurrencyToken (RowVersion) has changed since fetch
-    // (optimistic locking, DATA-008), 400 when the Task doesn't exist or no fields changed,
-    // 401/403 for authentication/authorization.
+    /// <summary>
+    /// Edit a task's details (title, description, start/due dates, notes). Requires Tasks.Write authorization (SEC-010..013).
+    /// Returns 404 if task not found; 400 if no fields changed; 409 if concurrency conflict.
+    /// </summary>
+    /// <param name="taskId">Task ID</param>
+    /// <param name="request">Edit request with task details and concurrency token</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <response code="200">Task details updated</response>
+    /// <response code="400">Validation error or task not found</response>
+    /// <response code="401">Not authenticated</response>
+    /// <response code="403">Not authorized (requires Tasks.Write)</response>
+    /// <response code="409">Concurrency conflict (expected version mismatch)</response>
     [Route("api/tasks/{taskId}/details")]
     [HttpPatch(Name = TasksApiContract.EditOperationId)]
     [Authorize(Policy = "Tasks.Write")]
@@ -328,11 +335,6 @@ public sealed class TasksController : ControllerBase
         [FromBody] EditTaskViewModel request,
         CancellationToken cancellationToken)
     {
-        if (User.Identity is not { IsAuthenticated: true })
-        {
-            return Unauthorized();
-        }
-
         try
         {
             var response = await _taskFacade.EditAsync(request, cancellationToken).ConfigureAwait(false);
@@ -371,6 +373,16 @@ public sealed class TasksController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// List tasks with pagination and filtering. Requires Tasks.Read authorization (SEC-010..013).
+    /// Validation errors (page size, sort direction, etc.) return 400 before reaching Facade.
+    /// </summary>
+    /// <param name="request">Pagination and filter criteria</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <response code="200">Tasks retrieved</response>
+    /// <response code="400">Validation error</response>
+    /// <response code="401">Not authenticated</response>
+    /// <response code="403">Not authorized (requires Tasks.Read)</response>
     [Route("api/tasks")]
     [HttpGet(Name = TasksApiContract.ListOperationId)]
     [Authorize(Policy = "Tasks.Read")]
@@ -382,11 +394,6 @@ public sealed class TasksController : ControllerBase
         [FromQuery] ListTasksRequest request,
         CancellationToken cancellationToken)
     {
-        if (User.Identity is not { IsAuthenticated: true })
-        {
-            return Unauthorized();
-        }
-
         try
         {
             var response = await _taskFacade.ListAsync(request, cancellationToken).ConfigureAwait(false);
