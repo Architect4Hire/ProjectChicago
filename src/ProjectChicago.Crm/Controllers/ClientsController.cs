@@ -5,22 +5,18 @@ using ProjectChicago.Crm.Contracts.Common;
 using ProjectChicago.Crm.Core.Data;
 using ProjectChicago.Crm.Core.Facades;
 using ProjectChicago.ServiceDefaults.Correlation;
+using ProjectChicago.ServiceDefaults.Filters;
 using ProjectChicago.Shared.Errors;
 
 namespace ProjectChicago.Crm.Controllers;
 
-// POST /api/clients, GET /api/clients, GET /api/clients/{clientId} (CLIENT-001..004,
-// CLIENT-020..024, CLIENT-030..032, API-001..007, SEC-010..013, ERROR-001..005). Transport-only:
-// binds the wire request, applies the coarse "is there an authenticated actor at all" check
-// documented by ClientsApiContract's 401 case, calls the single IClientFacade use case, and maps its
-// typed result/exception to the standard HTTP/ProblemDetails shape (onion-boundaries.md; add-endpoint
-// skill step 3). No field-by-field request/response mapping lives here - IClientFacade accepts and
-// returns the wire contract types directly, and ClientContractMappingExtensions (Business) owns the
-// translation to/from Business models. Fine-grained SEC-012/013 policy authorization ("Clients.Write")
-// and CLIENT-002/004 business rules live in Facade/Business - this controller injects no
-// Business/Data/Repository/DbContext and never publishes directly (RESTRICTION).
+/// <summary>
+/// CRM Clients resource endpoints (CLIENT-001..004, CLIENT-020..024, CLIENT-030..032, API-006/007, SEC-010..013).
+/// Transport-only: binds requests, delegates to IClientFacade, maps results to HTTP/ProblemDetails.
+/// </summary>
 [ApiController]
 [Route(ClientsApiContract.Route)]
+[RequireAuthentication]
 public sealed class ClientsController : ControllerBase
 {
     private readonly IClientFacade _clientFacade;
@@ -30,13 +26,15 @@ public sealed class ClientsController : ControllerBase
         _clientFacade = clientFacade ?? throw new ArgumentNullException(nameof(clientFacade));
     }
 
-    // Unauthenticated (401) vs unauthorized (403) are deliberately distinct per ClientsApiContract:
-    // this coarse check (is there any authenticated actor at all) stays in the controller as plain
-    // ASP.NET Core ClaimsPrincipal inspection - not a call into IClientFacade/IClientAuthorization -
-    // so it never depends on the still-open ADR-0018 authentication-transport decision. The narrower
-    // "does this actor hold Clients.Write" policy check happens in Facade/IClientAuthorization and
-    // surfaces here only as an UnauthorizedAccessException the already-registered ApiExceptionHandler
-    // classifies into 403.
+    /// <summary>
+    /// Create a new client. Requires Clients.Write authorization (SEC-010..013).
+    /// </summary>
+    /// <param name="request">Client creation data</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <response code="201">Client created</response>
+    /// <response code="400">Validation error</response>
+    /// <response code="401">Not authenticated</response>
+    /// <response code="403">Not authorized (requires Clients.Write)</response>
     [HttpPost(Name = ClientsApiContract.CreateOperationId)]
     [Authorize(Policy = ClientsApiContract.RequiredAuthorizationPolicy)]
     [ProducesResponseType(typeof(ClientServiceModel), StatusCodes.Status201Created)]
@@ -47,24 +45,21 @@ public sealed class ClientsController : ControllerBase
         [FromBody] CreateClientViewModel request,
         CancellationToken cancellationToken)
     {
-        if (User.Identity is not { IsAuthenticated: true })
-        {
-            return Unauthorized();
-        }
-
         var response = await _clientFacade.CreateAsync(request, cancellationToken).ConfigureAwait(false);
 
         return Created(new Uri($"{ClientsApiContract.Route}/{response.Id}", UriKind.Relative), response);
     }
 
-    // Same 401-vs-403 split as Create: the coarse "is there any authenticated actor at all" check
-    // stays here as plain ClaimsPrincipal inspection, while the narrower Clients.Read policy check
-    // happens in Facade/IClientAuthorization and surfaces here only as an
-    // UnauthorizedAccessException the registered ApiExceptionHandler classifies into 403.
-    // [ApiController]'s automatic model-state validation covers CLIENT-024's bounded-page-size
-    // requirement and the SortBy/SortDirection/LifecycleStatus [EnumDataType] checks on
-    // ListClientsRequest before this action body ever runs, so an invalid query never reaches the
-    // Facade (SEC-022).
+    /// <summary>
+    /// List clients with pagination and filtering. Requires Clients.Read authorization (SEC-010..013).
+    /// Validation errors (page size, sort direction, etc.) return 400 before reaching Facade.
+    /// </summary>
+    /// <param name="request">Pagination and filter criteria</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <response code="200">Clients retrieved</response>
+    /// <response code="400">Validation error</response>
+    /// <response code="401">Not authenticated</response>
+    /// <response code="403">Not authorized (requires Clients.Read)</response>
     [HttpGet(Name = ClientsApiContract.ListOperationId)]
     [Authorize(Policy = ClientsApiContract.RequiredReadAuthorizationPolicy)]
     [ProducesResponseType(typeof(PagedResponse<ClientServiceModel>), StatusCodes.Status200OK)]
@@ -75,23 +70,21 @@ public sealed class ClientsController : ControllerBase
         [FromQuery] ListClientsRequest request,
         CancellationToken cancellationToken)
     {
-        if (User.Identity is not { IsAuthenticated: true })
-        {
-            return Unauthorized();
-        }
-
         var response = await _clientFacade.ListAsync(request, cancellationToken).ConfigureAwait(false);
 
         return Ok(response);
     }
 
-    // Same 401-vs-403 split as Create/List: the coarse "is there any authenticated actor at all"
-    // check stays here as plain ClaimsPrincipal inspection, while the narrower Clients.Read policy
-    // check happens in Facade/IClientAuthorization and surfaces here only as an
-    // UnauthorizedAccessException the registered ApiExceptionHandler classifies into 403. 404 is
-    // decided here, not in Facade/Business: IClientFacade.GetDetailAsync returns null when no
-    // Client with the requested Id exists, and this action is the only place that null maps to a
-    // 404 ProblemDetails response (CLIENT-030..032).
+    /// <summary>
+    /// Get client detail by ID. Requires Clients.Read authorization (SEC-010..013).
+    /// Returns 404 if client not found.
+    /// </summary>
+    /// <param name="clientId">Client ID</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <response code="200">Client retrieved</response>
+    /// <response code="401">Not authenticated</response>
+    /// <response code="403">Not authorized (requires Clients.Read)</response>
+    /// <response code="404">Client not found</response>
     [HttpGet("{clientId:guid}", Name = ClientsApiContract.GetDetailOperationId)]
     [Authorize(Policy = ClientsApiContract.RequiredReadAuthorizationPolicy)]
     [ProducesResponseType(typeof(ClientDetailServiceModel), StatusCodes.Status200OK)]
@@ -102,28 +95,24 @@ public sealed class ClientsController : ControllerBase
         Guid clientId,
         CancellationToken cancellationToken)
     {
-        if (User.Identity is not { IsAuthenticated: true })
-        {
-            return Unauthorized();
-        }
-
         var response = await _clientFacade.GetDetailAsync(clientId, cancellationToken).ConfigureAwait(false);
 
         return response is null ? NotFound() : Ok(response);
     }
 
-    // Same 401-vs-403 split as the other actions. 404 is decided here the same way GetDetail
-    // decides it: IClientFacade.ChangeLifecycleStatusAsync returns null when no Client with the
-    // requested Id exists. Two additional outcomes are specific to this mutation and are not
-    // classified anywhere in the shared ApiExceptionHandler (backend.md: that handler "must not
-    // grow its switch with bespoke business exception types" - domain/data-specific translation
-    // belongs here, at the boundary that owns this one use case):
-    //  - InvalidOperationException: Business rejected the requested transition
-    //    (CLIENT-010..015/ClientLifecycleTransitionRules). Mapped as a 400 field error on
-    //    NewStatus - the request itself is invalid given the Client's current state, not a race
-    //    with another request.
-    //  - ClientConcurrencyConflictException: request.ExpectedConcurrencyToken did not match the
-    //    Client's currently persisted version (DATA-008). Mapped as a 409 conflict.
+    /// <summary>
+    /// Change client lifecycle status. Requires Clients.Write authorization (SEC-010..013).
+    /// Returns 404 if client not found; 400 if transition invalid; 409 if concurrency conflict.
+    /// </summary>
+    /// <param name="clientId">Client ID</param>
+    /// <param name="request">Lifecycle status change with concurrency token</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <response code="200">Status changed</response>
+    /// <response code="400">Validation error or invalid state transition</response>
+    /// <response code="401">Not authenticated</response>
+    /// <response code="403">Not authorized (requires Clients.Write)</response>
+    /// <response code="404">Client not found</response>
+    /// <response code="409">Concurrency conflict (expected version mismatch)</response>
     [HttpPatch(ClientsApiContract.LifecycleStatusRouteSuffix, Name = ClientsApiContract.ChangeLifecycleStatusOperationId)]
     [Authorize(Policy = ClientsApiContract.RequiredAuthorizationPolicy)]
     [ProducesResponseType(typeof(ClientServiceModel), StatusCodes.Status200OK)]
@@ -137,10 +126,6 @@ public sealed class ClientsController : ControllerBase
         [FromBody] ChangeClientLifecycleStatusViewModel request,
         CancellationToken cancellationToken)
     {
-        if (User.Identity is not { IsAuthenticated: true })
-        {
-            return Unauthorized();
-        }
 
         try
         {

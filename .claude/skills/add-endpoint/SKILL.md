@@ -67,11 +67,35 @@ ViewModel) catches shape/format. Domain/state rules stay in Business.
 Implement the smallest action that:
 
 1. binds the request body/query/route to the ViewModel;
-2. obtains authenticated actor/tenant/correlation context through established abstractions (coarse
-   authentication check only — see rule 4);
-3. calls one Facade method, passing the bound ViewModel straight through;
-4. wraps the returned ServiceModel in the right `ActionResult` (`Created`, `Ok`, etc.) or maps a
+2. calls one Facade method, passing the bound ViewModel straight through;
+3. wraps the returned ServiceModel in the right `ActionResult` (`Created`, `Ok`, etc.) or maps a
    thrown exception to the standard Problem Details shape.
+
+**Documentation:**
+Use standard XML summary comments that describe the endpoint's purpose, parameters, and response
+codes — for example:
+
+```csharp
+/// <summary>
+/// Create a new client. Requires Clients.Write authorization (SEC-010..013).
+/// </summary>
+/// <param name="request">Client creation data</param>
+/// <param name="cancellationToken">Cancellation token</param>
+/// <response code="201">Client created</response>
+/// <response code="400">Validation error</response>
+/// <response code="401">Not authenticated</response>
+/// <response code="403">Not authorized (requires Clients.Write)</response>
+```
+
+Do not embed verbose inline comments above methods explaining authorization or architectural
+layers — the architecture and attributes (below) already document that context.
+
+**Authentication and authorization:**
+- Apply `[RequireAuthentication]` at the class level to ensure all actions require an authenticated
+  user. This filter returns 401 Unauthorized if `User.Identity.IsAuthenticated` is false.
+- Apply `[Authorize(Policy = "...")]` (ASP.NET Core's built-in) on the class or individual actions
+  for fine-grained policy authorization (e.g., role-based). Policy failures surface as 403 Forbidden
+  through the registered `ApiExceptionHandler`.
 
 The controller never constructs a service input from the ViewModel's fields, and never reads the
 ServiceModel's fields to build a different response shape — it passes the ViewModel in and the
@@ -86,7 +110,9 @@ Do not:
 - implement lifecycle rules;
 - query another service;
 - map ViewModel fields into anything, or read ServiceModel fields to build anything — the
-  controller only forwards and wraps.
+  controller only forwards and wraps;
+- perform manual `if (User.Identity is not { IsAuthenticated: true })` checks — use
+  `[RequireAuthentication]` attribute instead.
 
 ## 4. Facade — use-case boundary
 

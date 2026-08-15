@@ -7,20 +7,18 @@ using ProjectChicago.Crm.Contracts.Tasks;
 using ProjectChicago.Crm.Core.Data;
 using ProjectChicago.Crm.Core.Facades;
 using ProjectChicago.ServiceDefaults.Correlation;
+using ProjectChicago.ServiceDefaults.Filters;
 using ProjectChicago.Shared.Errors;
 
 namespace ProjectChicago.Crm.Controllers;
 
-// Handlers for Task collection (TASK-020..022, API-001..007, SEC-010..013, ERROR-001..005).
-// Transport-only: bind wire requests, apply the coarse "is there an authenticated actor at all"
-// check, call ITaskFacade operations, and map typed results/exceptions to standard HTTP/ProblemDetails
-// shape (onion-boundaries.md; add-endpoint skill step 3). No field-by-field request/response mapping
-// lives here - ITaskFacade accepts and returns wire contract types directly, and TaskContractMappingExtensions
-// (Business) owns translation to/from Business models. Fine-grained SEC-012/013 policy authorization
-// and business rules live in Facade/Business - this controller injects no Business/Data/Repository/
-// DbContext and never publishes directly (RESTRICTION).
+/// <summary>
+/// CRM Tasks resource endpoints (TASK-020..022, API-006/007, SEC-010..013).
+/// Transport-only: binds requests, delegates to ITaskFacade, maps results to HTTP/ProblemDetails.
+/// </summary>
 [ApiController]
 [Route("")]
+[RequireAuthentication]
 public sealed class TasksController : ControllerBase
 {
     private readonly ITaskFacade _taskFacade;
@@ -30,15 +28,17 @@ public sealed class TasksController : ControllerBase
         _taskFacade = taskFacade ?? throw new ArgumentNullException(nameof(taskFacade));
     }
 
-    // Unauthenticated (401) vs unauthorized (403) are deliberately distinct per TasksApiContract:
-    // this coarse check (is there any authenticated actor at all) stays in the controller as plain
-    // ASP.NET Core ClaimsPrincipal inspection - not a call into ITaskFacade/ITaskAuthorization -
-    // so it never depends on the still-open ADR-0018 authentication-transport decision. The narrower
-    // "does this actor hold Tasks.Write" policy check happens in Facade/ITaskAuthorization and
-    // surfaces here only as an UnauthorizedAccessException the already-registered ApiExceptionHandler
-    // classifies into 403. The TaskProjectNotFoundException from ITaskData (DATA-003: "A Task
-    // shall not exist without a Project") is caught here and mapped as a 400 BadRequest - the Project
-    // does not exist, making the request invalid given the current state.
+    /// <summary>
+    /// Create a new task for a project. Requires Tasks.Write authorization (SEC-010..013).
+    /// Returns 400 if project does not exist.
+    /// </summary>
+    /// <param name="projectId">Project ID</param>
+    /// <param name="request">Task creation data</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <response code="201">Task created</response>
+    /// <response code="400">Validation error or project not found</response>
+    /// <response code="401">Not authenticated</response>
+    /// <response code="403">Not authorized (requires Tasks.Write)</response>
     [Route("api/projects/{projectId}/tasks")]
     [HttpPost(Name = TasksApiContract.CreateOperationId)]
     [Authorize(Policy = "Tasks.Write")]
@@ -51,10 +51,6 @@ public sealed class TasksController : ControllerBase
         [FromBody] CreateTaskViewModel request,
         CancellationToken cancellationToken)
     {
-        if (User.Identity is not { IsAuthenticated: true })
-        {
-            return Unauthorized();
-        }
 
         try
         {

@@ -5,21 +5,18 @@ using ProjectChicago.Crm.Contracts.Projects;
 using ProjectChicago.Crm.Core.Data;
 using ProjectChicago.Crm.Core.Facades;
 using ProjectChicago.ServiceDefaults.Correlation;
+using ProjectChicago.ServiceDefaults.Filters;
 using ProjectChicago.Shared.Errors;
 
 namespace ProjectChicago.Crm.Controllers;
 
-// POST /api/clients/{clientId}/projects (PROJECT-001..002, API-001..007, SEC-010..013, ERROR-001..005).
-// Transport-only: binds the wire request, applies the coarse "is there an authenticated actor at all"
-// check documented by ProjectsApiContract's 401 case, calls the single IProjectFacade use case, and
-// maps its typed result/exception to the standard HTTP/ProblemDetails shape (onion-boundaries.md; add-endpoint
-// skill step 3). No field-by-field request/response mapping lives here - IProjectFacade accepts and
-// returns the wire contract types directly, and ProjectContractMappingExtensions (Business) owns the
-// translation to/from Business models. Fine-grained SEC-012/013 policy authorization ("Projects.Write")
-// and PROJECT-001..002 business rules live in Facade/Business - this controller injects no
-// Business/Data/Repository/DbContext and never publishes directly (RESTRICTION).
+/// <summary>
+/// CRM Projects resource endpoints (PROJECT-001..002, API-006/007, SEC-010..013).
+/// Transport-only: binds requests, delegates to IProjectFacade, maps results to HTTP/ProblemDetails.
+/// </summary>
 [ApiController]
 [Route("")]
+[RequireAuthentication]
 public sealed class ProjectsController : ControllerBase
 {
     private readonly IProjectFacade _projectFacade;
@@ -29,15 +26,17 @@ public sealed class ProjectsController : ControllerBase
         _projectFacade = projectFacade ?? throw new ArgumentNullException(nameof(projectFacade));
     }
 
-    // Unauthenticated (401) vs unauthorized (403) are deliberately distinct per ProjectsApiContract:
-    // this coarse check (is there any authenticated actor at all) stays in the controller as plain
-    // ASP.NET Core ClaimsPrincipal inspection - not a call into IProjectFacade/IProjectAuthorization -
-    // so it never depends on the still-open ADR-0018 authentication-transport decision. The narrower
-    // "does this actor hold Projects.Write" policy check happens in Facade/IProjectAuthorization and
-    // surfaces here only as an UnauthorizedAccessException the already-registered ApiExceptionHandler
-    // classifies into 403. The ProjectClientNotFoundException from IProjectData (DATA-002: "A Project
-    // shall not exist without a Client") is caught here and mapped as a 400 BadRequest - the Client
-    // does not exist, making the request invalid given the current state.
+    /// <summary>
+    /// Create a new project for a client. Requires Projects.Write authorization (SEC-010..013).
+    /// Returns 400 if client does not exist.
+    /// </summary>
+    /// <param name="clientId">Client ID</param>
+    /// <param name="request">Project creation data</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <response code="201">Project created</response>
+    /// <response code="400">Validation error or client not found</response>
+    /// <response code="401">Not authenticated</response>
+    /// <response code="403">Not authorized (requires Projects.Write)</response>
     [Route("api/clients/{clientId}/projects")]
     [HttpPost(Name = ProjectsApiContract.CreateOperationId)]
     [Authorize(Policy = "Projects.Write")]
@@ -50,10 +49,6 @@ public sealed class ProjectsController : ControllerBase
         [FromBody] CreateProjectViewModel request,
         CancellationToken cancellationToken)
     {
-        if (User.Identity is not { IsAuthenticated: true })
-        {
-            return Unauthorized();
-        }
 
         try
         {

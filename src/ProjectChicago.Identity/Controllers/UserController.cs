@@ -2,15 +2,17 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ProjectChicago.Identity.Core.Authorization.Contracts;
 using ProjectChicago.Identity.Core.Authorization.Facade;
+using ProjectChicago.ServiceDefaults.Filters;
 
 namespace ProjectChicago.Identity.Controllers;
 
 /// <summary>
-/// User management endpoints for administrator use (SEC-004, SEC-010..016, AUDIT-001..008).
-/// Administrator-only operations for creating users and assigning roles.
+/// User management endpoints for administrators (SEC-004, SEC-010..016, AUDIT-001..008).
+/// Create, read, activate, deactivate users and manage their roles.
 /// </summary>
 [ApiController]
 [Route("users")]
+[RequireAuthentication]
 [Authorize(Roles = "Administrator")]
 public class UserController : ControllerBase
 {
@@ -23,15 +25,15 @@ public class UserController : ControllerBase
     }
 
     /// <summary>
-    /// List application users with pagination.
-    /// Administrator-only read endpoint. Returns support-safe user metadata (ID, email, role, created-at)
-    /// without passwords or security tokens (SEC-004, SEC-010..016).
+    /// List application users with pagination. Administrator-only (SEC-004, SEC-010..016).
+    /// Returns user ID, email, role, created-at without passwords or security tokens.
     /// </summary>
     /// <param name="request">Pagination request (page, pageSize)</param>
-    /// <response code="200">Users retrieved successfully with pagination metadata</response>
-    /// <response code="400">Invalid request (page/pageSize out of valid range)</response>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <response code="200">Users retrieved with pagination metadata</response>
+    /// <response code="400">Validation error</response>
     /// <response code="401">Not authenticated</response>
-    /// <response code="403">Authenticated but not authorized (not Administrator)</response>
+    /// <response code="403">Not authorized (requires Administrator role)</response>
     [HttpGet(Name = "ListUsers")]
     [ProducesResponseType(typeof(PagedResponse<UserServiceModel>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
@@ -41,25 +43,20 @@ public class UserController : ControllerBase
         [FromQuery] ListUsersRequest request,
         CancellationToken cancellationToken = default)
     {
-        if (User.Identity is not { IsAuthenticated: true })
-        {
-            return Unauthorized();
-        }
-
         var response = await _userManagementFacade.ListUsersAsync(request, cancellationToken).ConfigureAwait(false);
 
         return Ok(response);
     }
 
     /// <summary>
-    /// Get a user by ID with role information.
-    /// Administrator-only read endpoint. Returns support-safe user metadata (ID, email, role, created-at)
-    /// without passwords or security tokens (SEC-004, SEC-010..016).
+    /// Get user detail by ID. Administrator-only (SEC-004, SEC-010..016).
+    /// Returns user ID, email, role, created-at; 404 if not found.
     /// </summary>
     /// <param name="id">User ID</param>
-    /// <response code="200">User retrieved successfully</response>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <response code="200">User retrieved</response>
     /// <response code="401">Not authenticated</response>
-    /// <response code="403">Authenticated but not authorized (not Administrator)</response>
+    /// <response code="403">Not authorized (requires Administrator role)</response>
     /// <response code="404">User not found</response>
     [HttpGet("{id:guid}", Name = "GetUserDetail")]
     [ProducesResponseType(typeof(UserServiceModel), StatusCodes.Status200OK)]
@@ -70,11 +67,6 @@ public class UserController : ControllerBase
         [FromRoute] Guid id,
         CancellationToken cancellationToken = default)
     {
-        if (User.Identity is not { IsAuthenticated: true })
-        {
-            return Unauthorized();
-        }
-
         var response = await _userManagementFacade.GetUserDetailAsync(id, cancellationToken).ConfigureAwait(false);
 
         if (response is null)
@@ -91,15 +83,15 @@ public class UserController : ControllerBase
     }
 
     /// <summary>
-    /// Create a new application user with assigned role.
-    /// Administrator-only endpoint. Records audit event on success, role validation failure,
-    /// or duplicate user detection (SEC-004, SEC-010..016, AUDIT-001..008).
+    /// Create a new user with an assigned role. Administrator-only (SEC-004, SEC-010..016, AUDIT-001..008).
+    /// Records audit event on success, validation failure, or duplicate detection.
     /// </summary>
     /// <param name="request">User creation request (email, password, role)</param>
-    /// <response code="201">User created successfully; returns user ID, email, and assigned role</response>
-    /// <response code="400">Invalid request (validation error, password policy violation, role not found)</response>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <response code="201">User created</response>
+    /// <response code="400">Validation error, password policy violation, or role not found</response>
     /// <response code="401">Not authenticated</response>
-    /// <response code="403">Authenticated but not authorized (not Administrator)</response>
+    /// <response code="403">Not authorized (requires Administrator role)</response>
     /// <response code="409">Duplicate user (email already exists)</response>
     [HttpPost(Name = "CreateUser")]
     [ProducesResponseType(typeof(UserServiceModel), StatusCodes.Status201Created)]
@@ -155,15 +147,15 @@ public class UserController : ControllerBase
     }
 
     /// <summary>
-    /// Deactivate a user account.
-    /// Administrator-only endpoint. Prevents future authentication and invalidates existing sessions.
-    /// Records audit event (SEC-004, SEC-010..016, AUDIT-001..008).
+    /// Deactivate a user account. Administrator-only (SEC-004, SEC-010..016, AUDIT-001..008).
+    /// Prevents future authentication and invalidates existing sessions; records audit event.
     /// </summary>
     /// <param name="id">User ID</param>
-    /// <response code="200">User deactivated successfully; returns updated user info</response>
-    /// <response code="400">Invalid request (user not found)</response>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <response code="200">User deactivated</response>
+    /// <response code="400">Validation error or user not found</response>
     /// <response code="401">Not authenticated</response>
-    /// <response code="403">Authenticated but not authorized (not Administrator)</response>
+    /// <response code="403">Not authorized (requires Administrator role)</response>
     [HttpPost("{id}/deactivate", Name = "DeactivateUser")]
     [ProducesResponseType(typeof(UserServiceModel), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
@@ -199,15 +191,15 @@ public class UserController : ControllerBase
     }
 
     /// <summary>
-    /// Activate a user account.
-    /// Administrator-only endpoint. Restores eligibility for authentication.
-    /// Records audit event (SEC-004, SEC-010..016, AUDIT-001..008).
+    /// Activate a user account. Administrator-only (SEC-004, SEC-010..016, AUDIT-001..008).
+    /// Restores authentication eligibility; records audit event.
     /// </summary>
     /// <param name="id">User ID</param>
-    /// <response code="200">User activated successfully; returns updated user info</response>
-    /// <response code="400">Invalid request (user not found)</response>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <response code="200">User activated</response>
+    /// <response code="400">Validation error or user not found</response>
     /// <response code="401">Not authenticated</response>
-    /// <response code="403">Authenticated but not authorized (not Administrator)</response>
+    /// <response code="403">Not authorized (requires Administrator role)</response>
     [HttpPost("{id}/activate", Name = "ActivateUser")]
     [ProducesResponseType(typeof(UserServiceModel), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
@@ -243,16 +235,16 @@ public class UserController : ControllerBase
     }
 
     /// <summary>
-    /// Add a role to a user.
-    /// Administrator-only endpoint. Assigns role to existing user.
-    /// Records audit event (SEC-004, SEC-010..016, AUDIT-001..008).
+    /// Add a role to a user. Administrator-only (SEC-004, SEC-010..016, AUDIT-001..008).
+    /// Assigns role to user; records audit event.
     /// </summary>
     /// <param name="id">User ID</param>
     /// <param name="request">Add role request (role name)</param>
-    /// <response code="200">Role added successfully; returns updated user info</response>
-    /// <response code="400">Invalid request (user not found, invalid role, user already in role)</response>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <response code="200">Role added</response>
+    /// <response code="400">Validation error, user not found, invalid role, or user already in role</response>
     /// <response code="401">Not authenticated</response>
-    /// <response code="403">Authenticated but not authorized (not Administrator)</response>
+    /// <response code="403">Not authorized (requires Administrator role)</response>
     [HttpPost("{id}/roles", Name = "AddRole")]
     [ProducesResponseType(typeof(UserServiceModel), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
@@ -307,16 +299,16 @@ public class UserController : ControllerBase
     }
 
     /// <summary>
-    /// Remove a role from a user.
-    /// Administrator-only endpoint. Removes role from existing user.
-    /// Records audit event (SEC-004, SEC-010..016, AUDIT-001..008).
+    /// Remove a role from a user. Administrator-only (SEC-004, SEC-010..016, AUDIT-001..008).
+    /// Removes role from user; records audit event.
     /// </summary>
     /// <param name="id">User ID</param>
     /// <param name="roleName">Role name to remove</param>
-    /// <response code="200">Role removed successfully; returns updated user info</response>
-    /// <response code="400">Invalid request (user not found, user not in role)</response>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <response code="200">Role removed</response>
+    /// <response code="400">Validation error, user not found, or user not in role</response>
     /// <response code="401">Not authenticated</response>
-    /// <response code="403">Authenticated but not authorized (not Administrator)</response>
+    /// <response code="403">Not authorized (requires Administrator role)</response>
     [HttpDelete("{id}/roles/{roleName}", Name = "RemoveRole")]
     [ProducesResponseType(typeof(UserServiceModel), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
