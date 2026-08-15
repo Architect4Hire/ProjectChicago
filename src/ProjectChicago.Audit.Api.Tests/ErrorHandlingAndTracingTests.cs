@@ -1,5 +1,7 @@
 using System.Net;
 using System.Text.Json;
+using System.Net.Http.Json;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Xunit;
 
@@ -39,7 +41,7 @@ public class ErrorHandlingAndTracingTests : IAsyncLifetime
 
         // Assert
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        var problemDetails = await response.Content.ReadAsAsync<ValidationProblemDetails>();
+        var problemDetails = await response.Content.ReadFromJsonAsync<ValidationProblemDetails>();
         Assert.NotNull(problemDetails);
         Assert.Equal(StatusCodes.Status400BadRequest, problemDetails.Status);
         // Errors dict should document which fields are invalid
@@ -62,7 +64,7 @@ public class ErrorHandlingAndTracingTests : IAsyncLifetime
 
         // Assert
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        var problemDetails = await response.Content.ReadAsAsync<ValidationProblemDetails>();
+        var problemDetails = await response.Content.ReadFromJsonAsync<ValidationProblemDetails>();
         Assert.NotNull(problemDetails);
         Assert.Equal(StatusCodes.Status400BadRequest, problemDetails.Status);
     }
@@ -84,7 +86,7 @@ public class ErrorHandlingAndTracingTests : IAsyncLifetime
 
         // Assert
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
-        var problemDetails = await response.Content.ReadAsAsync<ProblemDetails>();
+        var problemDetails = await response.Content.ReadFromJsonAsync<ProblemDetails>();
         Assert.NotNull(problemDetails);
         Assert.Equal(StatusCodes.Status401Unauthorized, problemDetails.Status);
         // ERROR-002: no stack trace exposed
@@ -111,7 +113,7 @@ public class ErrorHandlingAndTracingTests : IAsyncLifetime
 
         // Assert
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-        var problemDetails = await response.Content.ReadAsAsync<ProblemDetails>();
+        var problemDetails = await response.Content.ReadFromJsonAsync<ProblemDetails>();
         Assert.NotNull(problemDetails);
         Assert.Equal(StatusCodes.Status403Forbidden, problemDetails.Status);
         // ERROR-002: no stack trace
@@ -134,7 +136,7 @@ public class ErrorHandlingAndTracingTests : IAsyncLifetime
 
         // Assert
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-        var problemDetails = await response.Content.ReadAsAsync<ProblemDetails>();
+        var problemDetails = await response.Content.ReadFromJsonAsync<ProblemDetails>();
         Assert.NotNull(problemDetails);
         Assert.Equal(StatusCodes.Status404NotFound, problemDetails.Status);
         // ERROR-002: no stack trace
@@ -176,7 +178,7 @@ public class ErrorHandlingAndTracingTests : IAsyncLifetime
             $"/api/audit/entries-by-entity?entityType=Client&entityId={entityId}&pageNumber=1&pageSize=25");
 
         // Assert
-        var problemDetails = await response.Content.ReadAsAsync<ProblemDetails>();
+        var problemDetails = await response.Content.ReadFromJsonAsync<ProblemDetails>();
         Assert.NotNull(problemDetails);
         // ERROR-005: Trace/support reference included
         // The extensions property typically contains trace ID
@@ -205,7 +207,7 @@ public class ErrorHandlingAndTracingTests : IAsyncLifetime
         // Assert
         // Errors should include trace context (traceId in ProblemDetails)
         // TRACE-002: W3C conventions support, TRACE-005: diagnostic info available
-        var problemDetails = await response.Content.ReadAsAsync<ProblemDetails>();
+        var problemDetails = await response.Content.ReadFromJsonAsync<ProblemDetails>();
         Assert.NotNull(problemDetails);
         // The response preserves trace context for downstream correlation
         Assert.True(problemDetails.Extensions?.ContainsKey("traceId") ?? false);
@@ -240,9 +242,9 @@ public class ErrorHandlingAndTracingTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.Forbidden, forbiddenResponse.StatusCode);
 
         // ERROR-003: All three are distinct and returned with ProblemDetails
-        var validationProblem = await validationResponse.Content.ReadAsAsync<ValidationProblemDetails>();
-        var unauthorizedProblem = await unauthorizedResponse.Content.ReadAsAsync<ProblemDetails>();
-        var forbiddenProblem = await forbiddenResponse.Content.ReadAsAsync<ProblemDetails>();
+        var validationProblem = await validationResponse.Content.ReadFromJsonAsync<ValidationProblemDetails>();
+        var unauthorizedProblem = await unauthorizedResponse.Content.ReadFromJsonAsync<ProblemDetails>();
+        var forbiddenProblem = await forbiddenResponse.Content.ReadFromJsonAsync<ProblemDetails>();
 
         Assert.NotNull(validationProblem);
         Assert.NotNull(unauthorizedProblem);
@@ -289,7 +291,7 @@ public class ErrorHandlingAndTracingTests : IAsyncLifetime
 
         // Assert
         Assert.Equal(HttpStatusCode.MethodNotAllowed, response.StatusCode);
-        var problemDetails = await response.Content.ReadAsAsync<ProblemDetails>();
+        var problemDetails = await response.Content.ReadFromJsonAsync<ProblemDetails>();
         Assert.NotNull(problemDetails);
         Assert.Equal(StatusCodes.Status405MethodNotAllowed, problemDetails.Status);
         // ERROR-001: Consistent ProblemDetails shape
@@ -337,7 +339,7 @@ public class ErrorHandlingAndTracingTests : IAsyncLifetime
             $"/api/audit/entries-by-entity?entityType=Client&entityId={entityId}&pageNumber=1&pageSize=25");
 
         // Assert
-        var problemDetails = await response.Content.ReadAsAsync<ProblemDetails>();
+        var problemDetails = await response.Content.ReadFromJsonAsync<ProblemDetails>();
         Assert.NotNull(problemDetails);
         var traceId = problemDetails.Extensions?["traceId"] as string;
         Assert.False(string.IsNullOrEmpty(traceId));

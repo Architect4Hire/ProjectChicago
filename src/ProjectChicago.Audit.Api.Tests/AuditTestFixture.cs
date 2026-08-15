@@ -18,7 +18,7 @@ public sealed class AuditTestFixture : IAsyncLifetime
     private WebApplicationFactory<Program>? _factory;
     private WebApplication? _app;
 
-    async Task IAsyncLifetime.InitializeAsync()
+    public async Task InitializeAsync()
     {
         // Build and start the in-memory test server hosting the Audit API.
         _factory = new WebApplicationFactory<Program>()
@@ -45,7 +45,7 @@ public sealed class AuditTestFixture : IAsyncLifetime
         await Task.CompletedTask;
     }
 
-    async Task IAsyncLifetime.DisposeAsync()
+    public async Task DisposeAsync()
     {
         if (_factory != null)
         {

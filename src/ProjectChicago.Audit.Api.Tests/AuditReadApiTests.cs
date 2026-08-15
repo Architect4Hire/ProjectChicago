@@ -1,5 +1,7 @@
 using System.Net;
 using System.Text.Json;
+using System.Net.Http.Json;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using ProjectChicago.Audit.Core.Contracts;
 using ProjectChicago.Audit.Core.Models;
@@ -62,7 +64,7 @@ public class AuditReadApiTests : IAsyncLifetime
 
         // Assert
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-        var problemDetails = await response.Content.ReadAsAsync<ProblemDetails>();
+        var problemDetails = await response.Content.ReadFromJsonAsync<ProblemDetails>();
         Assert.NotNull(problemDetails);
         Assert.Equal(StatusCodes.Status403Forbidden, problemDetails.Status);
     }
@@ -86,7 +88,7 @@ public class AuditReadApiTests : IAsyncLifetime
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var result = await response.Content.ReadAsAsync<AuditListResult>();
+        var result = await response.Content.ReadFromJsonAsync<AuditListResult>();
         Assert.NotNull(result);
         Assert.Empty(result.Items);
         Assert.Equal(0, result.TotalCount);
@@ -133,7 +135,7 @@ public class AuditReadApiTests : IAsyncLifetime
 
         // Assert
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        var problemDetails = await response.Content.ReadAsAsync<ValidationProblemDetails>();
+        var problemDetails = await response.Content.ReadFromJsonAsync<ValidationProblemDetails>();
         Assert.NotNull(problemDetails);
         Assert.Equal(StatusCodes.Status400BadRequest, problemDetails.Status);
     }
@@ -172,7 +174,7 @@ public class AuditReadApiTests : IAsyncLifetime
 
         // Assert
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        var problemDetails = await response.Content.ReadAsAsync<ValidationProblemDetails>();
+        var problemDetails = await response.Content.ReadFromJsonAsync<ValidationProblemDetails>();
         Assert.NotNull(problemDetails);
     }
 
@@ -233,7 +235,7 @@ public class AuditReadApiTests : IAsyncLifetime
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var result = await response.Content.ReadAsAsync<AuditListResult>();
+        var result = await response.Content.ReadFromJsonAsync<AuditListResult>();
         Assert.NotNull(result);
         // With default pagination and no audit entries, result should have Items=[] and TotalCount=0
         Assert.Empty(result.Items);
@@ -257,7 +259,7 @@ public class AuditReadApiTests : IAsyncLifetime
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var result = await response.Content.ReadAsAsync<AuditListResult>();
+        var result = await response.Content.ReadFromJsonAsync<AuditListResult>();
         Assert.NotNull(result);
         Assert.NotNull(result.Items);
         Assert.True(result.TotalCount >= 0);
@@ -317,7 +319,7 @@ public class AuditReadApiTests : IAsyncLifetime
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var result = await response.Content.ReadAsAsync<AuditListResult>();
+        var result = await response.Content.ReadFromJsonAsync<AuditListResult>();
         Assert.NotNull(result);
     }
 
@@ -359,7 +361,7 @@ public class AuditReadApiTests : IAsyncLifetime
 
         // Assert
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        var problemDetails = await response.Content.ReadAsAsync<ValidationProblemDetails>();
+        var problemDetails = await response.Content.ReadFromJsonAsync<ValidationProblemDetails>();
         Assert.NotNull(problemDetails);
     }
 
@@ -379,7 +381,7 @@ public class AuditReadApiTests : IAsyncLifetime
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var result = await response.Content.ReadAsAsync<AuditListResult>();
+        var result = await response.Content.ReadFromJsonAsync<AuditListResult>();
         Assert.NotNull(result);
     }
 
@@ -398,7 +400,7 @@ public class AuditReadApiTests : IAsyncLifetime
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var result = await response.Content.ReadAsAsync<AuditListResult>();
+        var result = await response.Content.ReadFromJsonAsync<AuditListResult>();
         Assert.NotNull(result);
     }
 
@@ -417,7 +419,7 @@ public class AuditReadApiTests : IAsyncLifetime
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var result = await response.Content.ReadAsAsync<AuditListResult>();
+        var result = await response.Content.ReadFromJsonAsync<AuditListResult>();
         Assert.NotNull(result);
     }
 
@@ -471,7 +473,7 @@ public class AuditReadApiTests : IAsyncLifetime
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var result = await response.Content.ReadAsAsync<AuditListResult>();
+        var result = await response.Content.ReadFromJsonAsync<AuditListResult>();
         Assert.NotNull(result);
     }
 
@@ -496,7 +498,7 @@ public class AuditReadApiTests : IAsyncLifetime
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var result = await response.Content.ReadAsAsync<AuditListResult>();
+        var result = await response.Content.ReadFromJsonAsync<AuditListResult>();
         Assert.NotNull(result);
         Assert.NotNull(result.Items);
         Assert.IsType<List<AuditEntryResult>>(result.Items);
@@ -547,7 +549,7 @@ public class AuditReadApiTests : IAsyncLifetime
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var result = await response.Content.ReadAsAsync<AuditListResult>();
+        var result = await response.Content.ReadFromJsonAsync<AuditListResult>();
         Assert.NotNull(result);
         Assert.Empty(result.Items);
         Assert.Equal(0, result.TotalCount);
@@ -569,7 +571,7 @@ public class AuditReadApiTests : IAsyncLifetime
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var result = await response.Content.ReadAsAsync<AuditListResult>();
+        var result = await response.Content.ReadFromJsonAsync<AuditListResult>();
         Assert.NotNull(result);
         Assert.Empty(result.Items);
         Assert.Equal(0, result.TotalCount);
