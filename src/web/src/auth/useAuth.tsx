@@ -48,8 +48,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setIsLoading(true);
 
         const response = await client.post<{ user: CurrentUser }>('/auth/login', {
-          email,
-          password,
+          Email: email,
+          Password: password,
         });
 
         setCurrentUser(response.user);

@@ -67,14 +67,16 @@ public static class AuthEndpoints
             var sessionId = await sessionStore.CreateAsync(session, cancellationToken);
 
             // Set HttpOnly session cookie with the opaque session ID (never the tokens)
+            // SameSite=None required for cross-origin requests (React app on different port than gateway).
+            // Secure flag must be true when SameSite=None, so enforce HTTPS for BFF cookie transport (ADR-0018-superseding).
             httpContext.Response.Cookies.Append(
                 ".ProjectChicago.SessionId",
                 sessionId,
                 new CookieOptions
                 {
                     HttpOnly = true,
-                    Secure = httpContext.Request.IsHttps,
-                    SameSite = SameSiteMode.Lax,
+                    Secure = true,
+                    SameSite = SameSiteMode.None,
                     MaxAge = session.RefreshTokenExpiresAtUtc - DateTime.UtcNow,
                 });
 

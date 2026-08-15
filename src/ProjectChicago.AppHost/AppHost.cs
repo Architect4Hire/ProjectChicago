@@ -44,11 +44,10 @@ var redis = builder.AddRedis("redis")
     .WithLifetime(ContainerLifetime.Persistent);
 
 // Shared JWT signing secret (HMAC-SHA256, ADR-0018-superseding decision: symmetric key, no MFA/
-// asymmetric complexity needed). Aspire generates and manages this as a secret parameter for local
-// dev, consistent with the SQL admin credential above (DEPLOY-001). Only Identity (signs) and the
-// JWT-validating services (CRM, Audit, Identity itself for its own [Authorize] endpoints) receive it;
-// Gateway never sees it (Gateway treats tokens as opaque, per plan judgment call #4).
-var jwtSigningKey = builder.AddParameter("jwt-signing-key", secret: true);
+// asymmetric complexity needed). Fixed 32-byte key for HS256 (requires minimum 128 bits / 16 bytes).
+// Only Identity (signs) and the JWT-validating services (CRM, Audit, Identity itself for its own
+// [Authorize] endpoints) receive it; Gateway never sees it (Gateway treats tokens as opaque).
+const string jwtSigningKey = "ThisIsA32ByteKeyFor256BitHMACWithSHA256Algorithm";
 
 // CRM bounded-service HTTP host (ADR-0015). Composition-only: ServiceDefaults plus the Aspire SQL
 // Server EF Core integration for its own "CrmDb" database (DATA-030..034). WaitFor ensures the SQL

@@ -3,6 +3,7 @@ using ProjectChicago.Gateway.Auth;
 using ProjectChicago.Gateway.Sessions;
 using ProjectChicago.Gateway.Proxy;
 using ProjectChicago.Gateway.Csrf;
+using Microsoft.AspNetCore.HttpOverrides;
 using Yarp.ReverseProxy.Configuration;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -69,6 +70,13 @@ var app = builder.Build();
 app.UseCorrelation();
 
 app.UseCors("AllowLocalhost");
+
+// Forwarded headers middleware: Trust X-Forwarded-* headers so IsHttps is correct for cookie Secure flag.
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
+    RequireHeaderSymmetry = false,
+});
 
 // HTTPS redirection at the gateway edge ensures all downstream communication uses HTTPS,
 // preventing backend services from issuing redirects that break the proxy chain and CORS.

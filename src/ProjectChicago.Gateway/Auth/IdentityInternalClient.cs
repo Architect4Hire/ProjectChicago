@@ -69,6 +69,8 @@ public class IdentityInternalClient
 
         if (!response.IsSuccessStatusCode)
         {
+            var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
+            Console.WriteLine($"[ERROR] Identity /auth/login {response.StatusCode}: {responseBody}");
             throw new HttpRequestException(
                 $"Identity /auth/login failed: {response.StatusCode}",
                 null,
