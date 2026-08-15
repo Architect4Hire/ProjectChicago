@@ -6,7 +6,7 @@ import { LIFECYCLE_STATUSES } from '../types';
 interface ClientsTableProps {
   clients: Client[];
   sortBy: 'name' | 'createdDate' | 'lastModifiedDate' | 'lifecycleStatus';
-  sortDirection: 'asc' | 'desc';
+  sortDirection: 'Ascending' | 'Descending';
   onSortChange: (sortBy: ClientsTableProps['sortBy'], direction: 'asc' | 'desc') => void;
 }
 
@@ -20,7 +20,7 @@ export const ClientsTable: FC<ClientsTableProps> = ({
 
   const handleSort = (column: ClientsTableProps['sortBy']) => {
     if (sortBy === column) {
-      onSortChange(column, sortDirection === 'asc' ? 'desc' : 'asc');
+      onSortChange(column, sortDirection === 'Ascending' ? 'desc' : 'asc');
     } else {
       onSortChange(column, 'asc');
     }
@@ -43,7 +43,7 @@ export const ClientsTable: FC<ClientsTableProps> = ({
       <div className="flex items-center gap-2">
         {label}
         {sortBy === column && (
-          <span aria-hidden="true">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+          <span aria-hidden="true">{sortDirection === 'Ascending' ? '↑' : '↓'}</span>
         )}
       </div>
     </th>

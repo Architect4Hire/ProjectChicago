@@ -71,7 +71,7 @@ export const ClientsListPage: FC = () => {
               sortDirection={listState.sortDirection}
               onSortChange={(sortBy, direction) => {
                 listState.setSortBy(sortBy);
-                listState.setSortDirection(direction);
+                listState.setSortDirection(direction === 'asc' ? 'Ascending' : 'Descending');
               }}
             />
           </div>

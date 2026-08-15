@@ -18,7 +18,7 @@ export function useClientsList() {
     assignedOwner: '',
     excludeArchived: true,
     sortBy: 'name',
-    sortDirection: 'asc',
+    sortDirection: 'Ascending',
   });
 
   const fetchClients = useCallback(async () => {
@@ -82,7 +82,7 @@ export function useClientsList() {
     setState((prev) => ({ ...prev, sortBy, pageNumber: 1 }));
   }, []);
 
-  const setSortDirection = useCallback((direction: 'asc' | 'desc') => {
+  const setSortDirection = useCallback((direction: 'Ascending' | 'Descending') => {
     setState((prev) => ({ ...prev, sortDirection: direction }));
   }, []);
 

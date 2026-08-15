@@ -13,7 +13,7 @@ export interface ClientListState {
   assignedOwner: string;
   excludeArchived: boolean;
   sortBy: 'name' | 'createdDate' | 'lastModifiedDate' | 'lifecycleStatus';
-  sortDirection: 'asc' | 'desc';
+  sortDirection: 'Ascending' | 'Descending';
 }
 
 export const DEFAULT_PAGE_SIZE = 20;
