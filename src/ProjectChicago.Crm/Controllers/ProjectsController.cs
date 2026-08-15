@@ -74,15 +74,16 @@ public sealed class ProjectsController : ControllerBase
         }
     }
 
-    // GET /api/projects (PROJECT-020..023, API-001..007, SEC-010..013, ERROR-001..005).
-    // Transport-only: binds the wire query request, applies the coarse "is there an authenticated
-    // actor at all" check, calls the single IProjectFacade use case, and maps its typed result/exception
-    // to the standard HTTP/ProblemDetails shape (onion-boundaries.md; add-endpoint skill step 3). No
-    // field-by-field request/response mapping lives here - IProjectFacade accepts and returns the wire
-    // contract types directly, and ProjectContractMappingExtensions (Business) owns the translation
-    // to/from Business models. Fine-grained SEC-012/013 policy authorization ("Projects.Read") and
-    // PROJECT-020..023 business rules live in Facade/Business - this controller injects no
-    // Business/Data/Repository/DbContext and never publishes directly (RESTRICTION).
+    /// <summary>
+    /// List projects with pagination and filtering. Requires Projects.Read authorization (SEC-010..013).
+    /// Validation errors (page size, sort direction, etc.) return 400 before reaching Facade.
+    /// </summary>
+    /// <param name="request">Pagination and filter criteria</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <response code="200">Projects retrieved</response>
+    /// <response code="400">Validation error</response>
+    /// <response code="401">Not authenticated</response>
+    /// <response code="403">Not authorized (requires Projects.Read)</response>
     [Route("api/projects")]
     [HttpGet(Name = ProjectsApiContract.ListOperationId)]
     [Authorize(Policy = "Projects.Read")]
@@ -94,28 +95,21 @@ public sealed class ProjectsController : ControllerBase
         [FromQuery] ListProjectsRequest request,
         CancellationToken cancellationToken)
     {
-        if (User.Identity is not { IsAuthenticated: true })
-        {
-            return Unauthorized();
-        }
-
-        // PROJECT-020..023: the Facade validates the request, checks authorization for
-        // Projects.Read capability, and delegates to IProjectBusiness for filter translation,
-        // retrieval, and mapping into PagedResponse<ProjectServiceModel>.
         var response = await _projectFacade.ListAsync(request, cancellationToken).ConfigureAwait(false);
 
         return Ok(response);
     }
 
-    // GET /api/projects/{projectId} (PROJECT-030..031, API-001..007, SEC-010..013, ERROR-001..005).
-    // Transport-only: binds the route projectId, applies the coarse "is there an authenticated
-    // actor at all" check, calls the single IProjectFacade use case, and maps its typed result/exception
-    // to the standard HTTP/ProblemDetails shape (onion-boundaries.md; add-endpoint skill step 3). No
-    // field-by-field request/response mapping lives here - IProjectFacade accepts and returns the wire
-    // contract types directly, and ProjectContractMappingExtensions (Business) owns the translation
-    // to/from Business models. Fine-grained SEC-012/013 policy authorization ("Projects.Read") and
-    // PROJECT-030 business rules live in Facade/Business - this controller injects no
-    // Business/Data/Repository/DbContext and never publishes directly (RESTRICTION).
+    /// <summary>
+    /// Get project detail by ID. Requires Projects.Read authorization (SEC-010..013).
+    /// Returns 404 if project not found.
+    /// </summary>
+    /// <param name="projectId">Project ID</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <response code="200">Project retrieved</response>
+    /// <response code="401">Not authenticated</response>
+    /// <response code="403">Not authorized (requires Projects.Read)</response>
+    /// <response code="404">Project not found</response>
     [Route("api/projects/{projectId}")]
     [HttpGet(Name = ProjectsApiContract.DetailOperationId)]
     [Authorize(Policy = "Projects.Read")]
@@ -127,30 +121,24 @@ public sealed class ProjectsController : ControllerBase
         Guid projectId,
         CancellationToken cancellationToken)
     {
-        if (User.Identity is not { IsAuthenticated: true })
-        {
-            return Unauthorized();
-        }
-
-        // PROJECT-030: the Facade checks authorization for Projects.Read capability, validates
-        // the projectId, and delegates to IProjectBusiness for retrieval and mapping into
-        // ProjectDetailServiceModel. Returns 404 when the Project does not exist.
         var response = await _projectFacade.GetDetailAsync(projectId, cancellationToken).ConfigureAwait(false);
 
         return response is null ? NotFound() : Ok(response);
     }
 
-    // PATCH /api/projects/{projectId}/status (PROJECT-010..014, API-001..007, SEC-012..013,
-    // DATA-008, ERROR-001..005). Transport-only: binds the route projectId and wire request,
-    // applies the coarse "is there an authenticated actor at all" check, calls the single
-    // IProjectFacade use case, and maps its typed result/exception to the standard HTTP/ProblemDetails
-    // shape (onion-boundaries.md; add-endpoint skill step 3). No field-by-field request/response
-    // mapping lives here - IProjectFacade accepts and returns the wire contract types directly,
-    // and ProjectContractMappingExtensions (Business) owns the translation to/from Business models.
-    // Fine-grained SEC-012/013 policy authorization ("Projects.Write"), PROJECT-010..014 transition
-    // validation, PROJECT-012 completion timestamp, PROJECT-013 open-task acknowledgement, and
-    // DATA-008 concurrency conflict detection all live in Facade/Business - this controller injects
-    // no Business/Data/Repository/DbContext and never publishes directly (RESTRICTION).
+    /// <summary>
+    /// Transition project status. Requires Projects.Write authorization (SEC-010..013).
+    /// Returns 404 if project not found; 400 if transition invalid; 409 if concurrency conflict.
+    /// </summary>
+    /// <param name="projectId">Project ID</param>
+    /// <param name="request">Status transition with concurrency token</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <response code="200">Status changed</response>
+    /// <response code="400">Validation error or invalid state transition</response>
+    /// <response code="401">Not authenticated</response>
+    /// <response code="403">Not authorized (requires Projects.Write)</response>
+    /// <response code="404">Project not found</response>
+    /// <response code="409">Concurrency conflict (expected version mismatch)</response>
     [Route("api/projects/{projectId}/status")]
     [HttpPatch(Name = ProjectsApiContract.TransitionStatusOperationId)]
     [Authorize(Policy = "Projects.Write")]
@@ -165,10 +153,6 @@ public sealed class ProjectsController : ControllerBase
         [FromBody] ChangeProjectStatusViewModel request,
         CancellationToken cancellationToken)
     {
-        if (User.Identity is not { IsAuthenticated: true })
-        {
-            return Unauthorized();
-        }
 
         try
         {
@@ -205,16 +189,19 @@ public sealed class ProjectsController : ControllerBase
         }
     }
 
-    // DELETE /api/projects/{projectId}/archive (PROJECT-014, API-001..007, SEC-012..013,
-    // DATA-008, ERROR-001..005). Transport-only: binds the route projectId and wire request,
-    // applies the coarse "is there an authenticated actor at all" check, calls the single
-    // IProjectFacade use case, and maps its typed result/exception to the standard HTTP/ProblemDetails
-    // shape (onion-boundaries.md; add-endpoint skill step 3). No field-by-field request/response
-    // mapping lives here - IProjectFacade accepts and returns the wire contract types directly,
-    // and ProjectContractMappingExtensions (Business) owns the translation to/from Business models.
-    // Fine-grained SEC-012/013 policy authorization ("Projects.Write") and DATA-008 concurrency
-    // conflict detection all live in Facade/Business - this controller injects no Business/Data/
-    // Repository/DbContext and never publishes directly (RESTRICTION).
+    /// <summary>
+    /// Archive a project. Requires Projects.Write authorization (SEC-010..013).
+    /// Returns 404 if project not found; 409 if concurrency conflict.
+    /// </summary>
+    /// <param name="projectId">Project ID</param>
+    /// <param name="request">Archive request with concurrency token</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <response code="200">Project archived</response>
+    /// <response code="400">Validation error</response>
+    /// <response code="401">Not authenticated</response>
+    /// <response code="403">Not authorized (requires Projects.Write)</response>
+    /// <response code="404">Project not found</response>
+    /// <response code="409">Concurrency conflict (expected version mismatch)</response>
     [Route("api/projects/{projectId}/archive")]
     [HttpDelete(Name = ProjectsApiContract.ArchiveOperationId)]
     [Authorize(Policy = "Projects.Write")]
@@ -229,10 +216,6 @@ public sealed class ProjectsController : ControllerBase
         [FromBody] ArchiveProjectViewModel request,
         CancellationToken cancellationToken)
     {
-        if (User.Identity is not { IsAuthenticated: true })
-        {
-            return Unauthorized();
-        }
 
         try
         {

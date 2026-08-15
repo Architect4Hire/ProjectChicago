@@ -72,10 +72,18 @@ public sealed class TasksController : ControllerBase
         }
     }
 
-    // TASK-013/014: assign or reassign a Task to a user. Requires Tasks.Write authorization
-    // (SEC-012/013). Returns 200 with the updated TaskServiceModel on success, 409 Conflict
-    // when the ConcurrencyToken (RowVersion) has changed since fetch (optimistic locking,
-    // DATA-008), 400 when the Task doesn't exist, 401/403 for authentication/authorization.
+    /// <summary>
+    /// Assign or reassign a task to a user. Requires Tasks.Write authorization (SEC-010..013).
+    /// Returns 409 if concurrency conflict; 400 if task not found.
+    /// </summary>
+    /// <param name="taskId">Task ID</param>
+    /// <param name="request">Assign request with assignee and concurrency token</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <response code="200">Task assigned</response>
+    /// <response code="400">Validation error or task not found</response>
+    /// <response code="401">Not authenticated</response>
+    /// <response code="403">Not authorized (requires Tasks.Write)</response>
+    /// <response code="409">Concurrency conflict (expected version mismatch)</response>
     [Route("api/tasks/{taskId}")]
     [HttpPatch(Name = TasksApiContract.AssignOperationId)]
     [Authorize(Policy = "Tasks.Write")]
@@ -89,10 +97,6 @@ public sealed class TasksController : ControllerBase
         [FromBody] AssignTaskViewModel request,
         CancellationToken cancellationToken)
     {
-        if (User.Identity is not { IsAuthenticated: true })
-        {
-            return Unauthorized();
-        }
 
         try
         {
@@ -123,10 +127,18 @@ public sealed class TasksController : ControllerBase
         }
     }
 
-    // TASK-015: change a Task's priority. Requires Tasks.Write authorization (SEC-012/013).
-    // Returns 200 with the updated TaskServiceModel on success, 409 Conflict when the
-    // ConcurrencyToken (RowVersion) has changed since fetch (optimistic locking, DATA-008),
-    // 400 when the Task doesn't exist, 401/403 for authentication/authorization.
+    /// <summary>
+    /// Change task priority. Requires Tasks.Write authorization (SEC-010..013).
+    /// Returns 409 if concurrency conflict; 400 if task not found.
+    /// </summary>
+    /// <param name="taskId">Task ID</param>
+    /// <param name="request">Priority change with concurrency token</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <response code="200">Priority changed</response>
+    /// <response code="400">Validation error or task not found</response>
+    /// <response code="401">Not authenticated</response>
+    /// <response code="403">Not authorized (requires Tasks.Write)</response>
+    /// <response code="409">Concurrency conflict (expected version mismatch)</response>
     [Route("api/tasks/{taskId}/priority")]
     [HttpPatch(Name = TasksApiContract.ChangePriorityOperationId)]
     [Authorize(Policy = "Tasks.Write")]
@@ -140,10 +152,6 @@ public sealed class TasksController : ControllerBase
         [FromBody] ChangeTaskPriorityViewModel request,
         CancellationToken cancellationToken)
     {
-        if (User.Identity is not { IsAuthenticated: true })
-        {
-            return Unauthorized();
-        }
 
         try
         {
@@ -174,11 +182,18 @@ public sealed class TasksController : ControllerBase
         }
     }
 
-    // TASK-010..012: change a Task's status. Requires Tasks.Write authorization (SEC-012/013).
-    // Returns 200 with the updated TaskServiceModel on success, 409 Conflict when the
-    // ConcurrencyToken (RowVersion) has changed since fetch (optimistic locking, DATA-008),
-    // 400 when the Task doesn't exist or the status transition is invalid, 401/403 for
-    // authentication/authorization.
+    /// <summary>
+    /// Change task status. Requires Tasks.Write authorization (SEC-010..013).
+    /// Returns 409 if concurrency conflict; 400 if task not found or transition invalid.
+    /// </summary>
+    /// <param name="taskId">Task ID</param>
+    /// <param name="request">Status change with concurrency token</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <response code="200">Status changed</response>
+    /// <response code="400">Validation error, task not found, or invalid state transition</response>
+    /// <response code="401">Not authenticated</response>
+    /// <response code="403">Not authorized (requires Tasks.Write)</response>
+    /// <response code="409">Concurrency conflict (expected version mismatch)</response>
     [Route("api/tasks/{taskId}/status")]
     [HttpPatch(Name = TasksApiContract.ChangeStatusOperationId)]
     [Authorize(Policy = "Tasks.Write")]
@@ -192,10 +207,6 @@ public sealed class TasksController : ControllerBase
         [FromBody] ChangeTaskStatusViewModel request,
         CancellationToken cancellationToken)
     {
-        if (User.Identity is not { IsAuthenticated: true })
-        {
-            return Unauthorized();
-        }
 
         try
         {
@@ -235,10 +246,18 @@ public sealed class TasksController : ControllerBase
         }
     }
 
-    // TASK-012: reopen a completed Task. Requires Tasks.Write authorization (SEC-012/013).
-    // Returns 200 with the updated TaskServiceModel on success, 409 Conflict when the
-    // ConcurrencyToken (RowVersion) has changed since fetch (optimistic locking, DATA-008),
-    // 400 when the Task doesn't exist or is not Completed, 401/403 for authentication/authorization.
+    /// <summary>
+    /// Reopen a completed task. Requires Tasks.Write authorization (SEC-010..013).
+    /// Returns 409 if concurrency conflict; 400 if task not found or not completed.
+    /// </summary>
+    /// <param name="taskId">Task ID</param>
+    /// <param name="request">Reopen request with concurrency token</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <response code="200">Task reopened</response>
+    /// <response code="400">Validation error, task not found, or task not completed</response>
+    /// <response code="401">Not authenticated</response>
+    /// <response code="403">Not authorized (requires Tasks.Write)</response>
+    /// <response code="409">Concurrency conflict (expected version mismatch)</response>
     [Route("api/tasks/{taskId}/reopen")]
     [HttpPatch(Name = TasksApiContract.ReopenOperationId)]
     [Authorize(Policy = "Tasks.Write")]
@@ -252,10 +271,6 @@ public sealed class TasksController : ControllerBase
         [FromBody] ReopenTaskViewModel request,
         CancellationToken cancellationToken)
     {
-        if (User.Identity is not { IsAuthenticated: true })
-        {
-            return Unauthorized();
-        }
 
         try
         {
