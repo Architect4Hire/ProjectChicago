@@ -83,7 +83,11 @@ app.MapDefaultEndpoints();
 // API-006: OpenAPI document and Scalar.net interactive documentation UI
 // ADR-0018: Cookie authentication (HTTPOnly, Secure, SameSite=Strict) and CSRF token support
 app.MapOpenApi();
-app.MapScalarApiReference();
+app.MapScalarApiReference(options =>
+{
+    options.OpenApiRoutePattern = "/openapi/{documentName}.json";
+    options.Title = "Project Chicago - Identity API";
+});
 
 app.UseHttpsRedirection();
 app.UseAuthentication();

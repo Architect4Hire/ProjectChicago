@@ -138,7 +138,11 @@ app.UseAuthorization();
 // SEC-010..013: APIs require authentication (401) and role-based authorization (403)
 // ADR-0018: Cookie authentication with HTTPOnly, Secure, SameSite=Strict policies
 app.MapOpenApi();
-app.MapScalarApiReference();
+app.MapScalarApiReference(options =>
+{
+    options.OpenApiRoutePattern = "/openapi/{documentName}.json";
+    options.Title = "Project Chicago - CRM API";
+});
 
 app.MapControllers();
 

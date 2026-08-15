@@ -67,7 +67,11 @@ app.UseAuthorization();
 // API-006: OpenAPI document and Scalar.net interactive documentation UI
 // SEC-012: Audit.Read policy enforced by [Authorize(Policy = ...)] middleware; Admin/Manager roles only
 app.MapOpenApi();
-app.MapScalarApiReference();
+app.MapScalarApiReference(options =>
+{
+    options.OpenApiRoutePattern = "/openapi/{documentName}.json";
+    options.Title = "Project Chicago - Audit API";
+});
 
 app.MapControllers();
 
