@@ -80,7 +80,8 @@ public class UserManagementBusiness
         {
             UserId = user.Id,
             Email = user.Email!,
-            RoleName = request.RoleName,
+            UserName = user.UserName!,
+            Roles = new List<string> { request.RoleName },
             CreatedAtUtc = DateTime.UtcNow,
         };
     }
@@ -118,14 +119,14 @@ public class UserManagementBusiness
 
         // Get user's role for response
         var roles = await _userManager.GetRolesAsync(user).ConfigureAwait(false);
-        var roleName = roles.FirstOrDefault() ?? "Unknown";
 
         return new UserServiceModel
         {
             UserId = user.Id,
             Email = user.Email!,
-            RoleName = roleName,
-            CreatedAtUtc = user.ConcurrencyStamp is not null ? DateTime.UtcNow : DateTime.UtcNow,
+            UserName = user.UserName!,
+            Roles = roles.ToList(),
+            CreatedAtUtc = DateTime.UtcNow,
         };
     }
 
@@ -161,14 +162,14 @@ public class UserManagementBusiness
 
         // Get user's role for response
         var roles = await _userManager.GetRolesAsync(user).ConfigureAwait(false);
-        var roleName = roles.FirstOrDefault() ?? "Unknown";
 
         return new UserServiceModel
         {
             UserId = user.Id,
             Email = user.Email!,
-            RoleName = roleName,
-            CreatedAtUtc = user.ConcurrencyStamp is not null ? DateTime.UtcNow : DateTime.UtcNow,
+            UserName = user.UserName!,
+            Roles = roles.ToList(),
+            CreatedAtUtc = DateTime.UtcNow,
         };
     }
 
@@ -211,13 +212,13 @@ public class UserManagementBusiness
 
         // Get updated roles for response
         var roles = await _userManager.GetRolesAsync(user).ConfigureAwait(false);
-        var currentRole = roles.FirstOrDefault() ?? "Unknown";
 
         return new UserServiceModel
         {
             UserId = user.Id,
             Email = user.Email!,
-            RoleName = currentRole,
+            UserName = user.UserName!,
+            Roles = roles.ToList(),
             CreatedAtUtc = DateTime.UtcNow,
         };
     }
@@ -254,13 +255,13 @@ public class UserManagementBusiness
 
         // Get updated roles for response
         var roles = await _userManager.GetRolesAsync(user).ConfigureAwait(false);
-        var currentRole = roles.FirstOrDefault() ?? "Unknown";
 
         return new UserServiceModel
         {
             UserId = user.Id,
             Email = user.Email!,
-            RoleName = currentRole,
+            UserName = user.UserName!,
+            Roles = roles.ToList(),
             CreatedAtUtc = DateTime.UtcNow,
         };
     }
@@ -307,13 +308,13 @@ public class UserManagementBusiness
 
         // Get user's role for response
         var roles = await _userManager.GetRolesAsync(user).ConfigureAwait(false);
-        var roleName = roles.FirstOrDefault() ?? "Unknown";
 
         return new UserServiceModel
         {
             UserId = user.Id,
             Email = user.Email!,
-            RoleName = roleName,
+            UserName = user.UserName!,
+            Roles = roles.ToList(),
             CreatedAtUtc = DateTime.UtcNow,
         };
     }
@@ -371,13 +372,13 @@ public class UserManagementBusiness
 
         // Get user's role for response
         var roles = await _userManager.GetRolesAsync(user).ConfigureAwait(false);
-        var roleName = roles.FirstOrDefault() ?? "Unknown";
 
         return new UserServiceModel
         {
             UserId = user.Id,
             Email = user.Email!,
-            RoleName = roleName,
+            UserName = user.UserName!,
+            Roles = roles.ToList(),
             CreatedAtUtc = DateTime.UtcNow,
         };
     }

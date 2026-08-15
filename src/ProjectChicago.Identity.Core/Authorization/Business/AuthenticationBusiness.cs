@@ -37,14 +37,14 @@ public class AuthenticationBusiness
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        var normalizedUserName = request.UserName.Trim().ToLowerInvariant();
+        var normalizedEmail = request.Email.Trim().ToLowerInvariant();
         ApplicationUser? user = null;
 
         // Attempt to find user to determine if we can emit audit event with valid user ID (vs Anonymous for unknown user).
         // This lookup does not leak user-existence information to the client (we still return generic "invalid credentials" error).
         try
         {
-            user = await _userManager.FindByNameAsync(normalizedUserName).ConfigureAwait(false);
+            user = await _userManager.FindByNameAsync(normalizedEmail).ConfigureAwait(false);
         }
         catch
         {
@@ -52,13 +52,13 @@ public class AuthenticationBusiness
         }
 
         // SignInManager.PasswordSignInAsync handles:
-        // 1. User lookup by normalized username
+        // 1. User lookup by normalized email
         // 2. Password hash verification (never exposes plaintext password)
         // 3. Lockout check and enforcement
         // 4. Security stamp validation
         // 5. Issue authentication cookie (if successful)
         var result = await _signInManager.PasswordSignInAsync(
-            normalizedUserName,
+            normalizedEmail,
             request.Password,
             isPersistent: false,
             lockoutOnFailure: true);
@@ -71,7 +71,7 @@ public class AuthenticationBusiness
             {
                 Outcome = LoginOutcome.FailedAccountLocked,
                 User = user,
-                AttemptedUsername = normalizedUserName,
+                AttemptedUsername = normalizedEmail,
                 ErrorMessage = "Account is locked due to too many failed login attempts.",
             };
         }
@@ -83,7 +83,7 @@ public class AuthenticationBusiness
             {
                 Outcome = LoginOutcome.FailedTwoFactorRequired,
                 User = user,
-                AttemptedUsername = normalizedUserName,
+                AttemptedUsername = normalizedEmail,
                 ErrorMessage = "Two-factor authentication is not yet enabled.",
             };
         }
@@ -95,16 +95,28 @@ public class AuthenticationBusiness
             return new LoginResult
             {
                 Outcome = LoginOutcome.FailedInvalidCredentials,
-                AttemptedUsername = normalizedUserName,
-                ErrorMessage = "Invalid username or password.",
+                AttemptedUsername = normalizedEmail,
+                ErrorMessage = "Invalid email or password.",
             };
         }
 
         // Successful login. User must be non-null here (SignInManager succeeded).
-        user ??= await _userManager.FindByNameAsync(normalizedUserName).ConfigureAwait(false);
+        user ??= await _userManager.FindByNameAsync(normalizedEmail).ConfigureAwait(false);
+
+        // Get user roles (SEC-010: include roles in login response for authorization context).
+        var roles = await _userManager.GetRolesAsync(user!).ConfigureAwait(false);
 
         // Generate CSRF token (ADR-0018: client includes this in all mutation requests).
         var token = Guid.NewGuid().ToString("N");
+
+        var userServiceModel = new UserServiceModel
+        {
+            UserId = user.Id,
+            Email = user.Email ?? "",
+            UserName = user.UserName ?? "",
+            Roles = roles.ToList(),
+            CreatedAtUtc = DateTime.UtcNow,
+        };
 
         return new LoginResult
         {
@@ -112,6 +124,7 @@ public class AuthenticationBusiness
             User = user,
             ServiceModel = new LoginServiceModel
             {
+                User = userServiceModel,
                 Token = token,
                 ExpiresAt = expiresAtUtc,
             },

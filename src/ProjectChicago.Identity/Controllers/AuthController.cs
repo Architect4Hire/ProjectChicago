@@ -63,12 +63,12 @@ public class AuthController : ControllerBase
                 Status = StatusCodes.Status429TooManyRequests,
             });
         }
-        catch (InvalidOperationException ex) when (ex.Message.Contains("username or password", StringComparison.OrdinalIgnoreCase))
+        catch (InvalidOperationException ex) when (ex.Message.Contains("email or password", StringComparison.OrdinalIgnoreCase) || ex.Message.Contains("invalid", StringComparison.OrdinalIgnoreCase))
         {
             return Unauthorized(new ProblemDetails
             {
                 Title = "Authentication Failed",
-                Detail = "Invalid username or password.",
+                Detail = "Invalid email or password.",
                 Status = StatusCodes.Status401Unauthorized,
             });
         }
@@ -117,20 +117,41 @@ public class AuthController : ControllerBase
     /// <response code="401">Not authenticated or session expired</response>
     [HttpGet("current-user", Name = "GetCurrentUser")]
     [Authorize]
-    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(UserServiceModel), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
-    public IActionResult GetCurrentUser()
+    public async Task<ActionResult<UserServiceModel>> GetCurrentUserAsync()
     {
-        var userId = User.FindFirst("sub")?.Value ?? User.FindFirst("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")?.Value;
-        var userName = User.FindFirst("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name")?.Value;
-        var email = User.FindFirst("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress")?.Value;
-
-        return Ok(new
+        var userIdString = User.FindFirst("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")?.Value;
+        if (!Guid.TryParse(userIdString, out var userId))
         {
-            userId,
-            userName,
-            email,
-            isAuthenticated = User.Identity.IsAuthenticated,
+            return Unauthorized(new ProblemDetails
+            {
+                Title = "Invalid User Context",
+                Detail = "Cannot determine current user identity.",
+                Status = StatusCodes.Status401Unauthorized,
+            });
+        }
+
+        var user = await _userManager.FindByIdAsync(userId.ToString());
+        if (user is null)
+        {
+            return Unauthorized(new ProblemDetails
+            {
+                Title = "User Not Found",
+                Detail = "The authenticated user could not be found.",
+                Status = StatusCodes.Status401Unauthorized,
+            });
+        }
+
+        var roles = await _userManager.GetRolesAsync(user);
+
+        return Ok(new UserServiceModel
+        {
+            UserId = user.Id,
+            Email = user.Email ?? "",
+            UserName = user.UserName ?? "",
+            Roles = roles.ToList(),
+            CreatedAtUtc = DateTime.UtcNow,
         });
     }
 

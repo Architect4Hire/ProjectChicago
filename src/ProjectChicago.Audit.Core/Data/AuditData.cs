@@ -51,94 +51,98 @@ public class AuditData : IAuditData
         ArgumentNullException.ThrowIfNull(auditEntry);
         ArgumentNullException.ThrowIfNull(inboxMessage);
 
-        // Start a database transaction to ensure atomicity of AuditEntry + InboxMessage state.
-        using (var transaction = await _context.Database.BeginTransactionAsync(cancellationToken))
+        // Use the execution strategy to manage the transaction atomically (compatible with SQL Server retry policy).
+        var strategy = _context.Database.CreateExecutionStrategy();
+        await strategy.ExecuteAsync(async () =>
         {
-            try
+            using (var transaction = await _context.Database.BeginTransactionAsync(cancellationToken))
             {
-                // Step 1: Check if this message has already been processed.
-                var existingInboxMessage = await _context.InboxMessages
-                    .FirstOrDefaultAsync(m => m.MessageId == inboxMessage.MessageId, cancellationToken);
-
-                // Step 2: If already Completed, return success (safe no-op for duplicate).
-                if (existingInboxMessage?.Status == InboxMessageStatus.Completed)
-                {
-                    // Duplicate delivery and processing is complete; no error.
-                    await transaction.CommitAsync(cancellationToken);
-                    return;
-                }
-
-                // Step 3: Prepare all state changes atomically.
-                // Add the AuditEntry for insertion.
-                _context.AuditEntries.Add(auditEntry);
-
-                // Prepare InboxMessage: register if new, or update for retry attempt.
-                if (existingInboxMessage == null)
-                {
-                    // First delivery: register inbox message and set final state to Completed.
-                    inboxMessage.Status = InboxMessageStatus.Received;
-                    inboxMessage.ProcessingStartedAtUtc = DateTime.UtcNow;
-                    inboxMessage.ProcessingCompletedAtUtc = DateTime.UtcNow;
-                    inboxMessage.Status = InboxMessageStatus.Completed;
-                    inboxMessage.AttemptCount = 1;
-                    inboxMessage.LastAttemptAtUtc = DateTime.UtcNow;
-                    _context.InboxMessages.Add(inboxMessage);
-                }
-                else
-                {
-                    // Existing inbox entry from a prior failed attempt.
-                    // Update it to mark retry processing and completion.
-                    existingInboxMessage.ProcessingStartedAtUtc = DateTime.UtcNow;
-                    existingInboxMessage.ProcessingCompletedAtUtc = DateTime.UtcNow;
-                    existingInboxMessage.Status = InboxMessageStatus.Completed;
-                    existingInboxMessage.AttemptCount++;
-                    existingInboxMessage.LastAttemptAtUtc = DateTime.UtcNow;
-                    _context.InboxMessages.Update(existingInboxMessage);
-                }
-
-                // Step 4: Persist AuditEntry and InboxMessage state atomically.
-                // If the EventId unique constraint on AuditEntry is violated, SaveChangesAsync throws
-                // a DbUpdateException. We catch this and check if the inbox is already Completed
-                // (indicating a safe duplicate that fully processed).
                 try
                 {
-                    await _context.SaveChangesAsync(cancellationToken);
-                }
-                catch (DbUpdateException ex) when (ex.InnerException?.Message.Contains("AK_AuditEntries_EventId") ?? false)
-                {
-                    // The EventId unique constraint was violated: an AuditEntry with this EventId already exists.
-                    // This can occur if a prior successful delivery created the entry, or if concurrent
-                    // deliveries race (Function platform handles concurrent delivery retry at a higher level).
-
-                    // Step 5a: Check if the inbox is already Completed (full idempotent success).
-                    var maybeCompletedInbox = await _context.InboxMessages
+                    // Step 1: Check if this message has already been processed.
+                    var existingInboxMessage = await _context.InboxMessages
                         .FirstOrDefaultAsync(m => m.MessageId == inboxMessage.MessageId, cancellationToken);
 
-                    if (maybeCompletedInbox?.Status == InboxMessageStatus.Completed)
+                    // Step 2: If already Completed, return success (safe no-op for duplicate).
+                    if (existingInboxMessage?.Status == InboxMessageStatus.Completed)
                     {
-                        // Duplicate delivery: both AuditEntry and InboxMessage already fully processed.
-                        // This is a safe no-op: the operation is idempotent.
+                        // Duplicate delivery and processing is complete; no error.
                         await transaction.CommitAsync(cancellationToken);
                         return;
                     }
 
-                    // Step 5b: Inbox exists but is not Completed (prior processing failed).
-                    // Rollback to allow Function trigger to retry or dead-letter the message.
+                    // Step 3: Prepare all state changes atomically.
+                    // Add the AuditEntry for insertion.
+                    _context.AuditEntries.Add(auditEntry);
+
+                    // Prepare InboxMessage: register if new, or update for retry attempt.
+                    if (existingInboxMessage == null)
+                    {
+                        // First delivery: register inbox message and set final state to Completed.
+                        inboxMessage.Status = InboxMessageStatus.Received;
+                        inboxMessage.ProcessingStartedAtUtc = DateTime.UtcNow;
+                        inboxMessage.ProcessingCompletedAtUtc = DateTime.UtcNow;
+                        inboxMessage.Status = InboxMessageStatus.Completed;
+                        inboxMessage.AttemptCount = 1;
+                        inboxMessage.LastAttemptAtUtc = DateTime.UtcNow;
+                        _context.InboxMessages.Add(inboxMessage);
+                    }
+                    else
+                    {
+                        // Existing inbox entry from a prior failed attempt.
+                        // Update it to mark retry processing and completion.
+                        existingInboxMessage.ProcessingStartedAtUtc = DateTime.UtcNow;
+                        existingInboxMessage.ProcessingCompletedAtUtc = DateTime.UtcNow;
+                        existingInboxMessage.Status = InboxMessageStatus.Completed;
+                        existingInboxMessage.AttemptCount++;
+                        existingInboxMessage.LastAttemptAtUtc = DateTime.UtcNow;
+                        _context.InboxMessages.Update(existingInboxMessage);
+                    }
+
+                    // Step 4: Persist AuditEntry and InboxMessage state atomically.
+                    // If the EventId unique constraint on AuditEntry is violated, SaveChangesAsync throws
+                    // a DbUpdateException. We catch this and check if the inbox is already Completed
+                    // (indicating a safe duplicate that fully processed).
+                    try
+                    {
+                        await _context.SaveChangesAsync(cancellationToken);
+                    }
+                    catch (DbUpdateException ex) when (ex.InnerException?.Message.Contains("AK_AuditEntries_EventId") ?? false)
+                    {
+                        // The EventId unique constraint was violated: an AuditEntry with this EventId already exists.
+                        // This can occur if a prior successful delivery created the entry, or if concurrent
+                        // deliveries race (Function platform handles concurrent delivery retry at a higher level).
+
+                        // Step 5a: Check if the inbox is already Completed (full idempotent success).
+                        var maybeCompletedInbox = await _context.InboxMessages
+                            .FirstOrDefaultAsync(m => m.MessageId == inboxMessage.MessageId, cancellationToken);
+
+                        if (maybeCompletedInbox?.Status == InboxMessageStatus.Completed)
+                        {
+                            // Duplicate delivery: both AuditEntry and InboxMessage already fully processed.
+                            // This is a safe no-op: the operation is idempotent.
+                            await transaction.CommitAsync(cancellationToken);
+                            return;
+                        }
+
+                        // Step 5b: Inbox exists but is not Completed (prior processing failed).
+                        // Rollback to allow Function trigger to retry or dead-letter the message.
+                        await transaction.RollbackAsync(cancellationToken);
+                        throw;
+                    }
+
+                    // Step 6: Both AuditEntry and InboxMessage persisted atomically.
+                    await transaction.CommitAsync(cancellationToken);
+                }
+                catch
+                {
+                    // On any error, rollback is automatic if not explicitly committed.
+                    // The Function trigger will fail the invocation, allowing Service Bus to retry or dead-letter.
                     await transaction.RollbackAsync(cancellationToken);
                     throw;
                 }
-
-                // Step 6: Both AuditEntry and InboxMessage persisted atomically.
-                await transaction.CommitAsync(cancellationToken);
             }
-            catch
-            {
-                // On any error, rollback is automatic if not explicitly committed.
-                // The Function trigger will fail the invocation, allowing Service Bus to retry or dead-letter.
-                await transaction.RollbackAsync(cancellationToken);
-                throw;
-            }
-        }
+        });
     }
 
     /// <summary>

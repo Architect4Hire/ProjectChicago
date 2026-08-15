@@ -5,6 +5,8 @@ namespace ProjectChicago.Identity.Core.Authorization.Contracts;
 // cookie expiration time for client UI display (e.g., "Session expires in 30 minutes").
 public class LoginServiceModel
 {
+    public required UserServiceModel User { get; set; }
+
     public required string Token { get; set; }
 
     public required DateTime ExpiresAt { get; set; }

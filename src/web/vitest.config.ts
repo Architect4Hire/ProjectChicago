@@ -1,19 +1,11 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import svgr from 'vite-plugin-svgr'
-import { resolve } from 'path'
+import { defineConfig } from 'vitest/config';
+import react from '@vitejs/plugin-react';
+import { resolve } from 'path';
 
-// https://vite.dev/config/
-const __dirname = import.meta.dirname
+const __dirname = import.meta.dirname;
 
 export default defineConfig({
-  plugins: [
-    react(),
-    svgr({
-      svgrOptions: { exportType: 'named', ref: true, svgo: false, titleProp: true },
-      include: '**/*.svg?react',
-    }),
-  ],
+  plugins: [react()],
   resolve: {
     alias: {
       '@/design-system': resolve(__dirname, './design-system/src/design-system'),
@@ -25,5 +17,9 @@ export default defineConfig({
       '@/auth': resolve(__dirname, './src/auth'),
     },
   },
-  publicDir: 'public',
-})
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    setupFiles: ['./vitest.setup.ts'],
+  },
+});

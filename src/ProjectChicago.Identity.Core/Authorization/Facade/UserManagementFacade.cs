@@ -72,7 +72,8 @@ public class UserManagementFacade
                 Email = serviceModel.Email,
             };
 
-            await _data.RecordUserCreatedAsync(auditUser, serviceModel.RoleName, _requestContext.Current, cancellationToken).ConfigureAwait(false);
+            var roleName = serviceModel.Roles.FirstOrDefault() ?? "Unknown";
+            await _data.RecordUserCreatedAsync(auditUser, roleName, _requestContext.Current, cancellationToken).ConfigureAwait(false);
         }
 
         return serviceModel;

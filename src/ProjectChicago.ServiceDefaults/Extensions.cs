@@ -40,7 +40,8 @@ public static class Extensions
             http.AddServiceDiscovery();
         });
 
-        // Uncomment the following to restrict the allowed schemes for service discovery.
+        // Service discovery allows both HTTP and HTTPS; individual service routing (gateway.md) determines scheme.
+        // Gateway proxies to HTTPS service endpoints; Vite dev app discovery remains scheme-flexible.
         // builder.Services.Configure<ServiceDiscoveryOptions>(options =>
         // {
         //     options.AllowedSchemes = ["https"];

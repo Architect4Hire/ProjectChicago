@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using ProjectChicago.Identity.Core.Authorization.Business;
 using ProjectChicago.Identity.Core.Authorization.Data;
 using ProjectChicago.Identity.Core.Authorization.Facade;
@@ -67,16 +69,67 @@ builder.Services.AddScoped<UserManagementBusiness>();
 builder.Services.AddScoped<UserManagementData>();
 builder.Services.AddScoped<UserManagementFacade>();
 
+// User seeding for development (idempotent: skips if user exists).
+builder.Services.AddScoped<ProjectChicago.Identity.Core.Authorization.Data.UserSeeder>();
+
+// CORS configuration (ADR-0018, SEC-020: allow React client on localhost for development).
+// In production, restrict origins and carefully control credentials policy.
+// AllowAnyOrigin() and AllowCredentials() cannot both be true; use specific origins in production.
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowLocalhost", corsBuilder =>
+    {
+        corsBuilder
+            .SetIsOriginAllowed(origin => origin.Contains("localhost") || origin.Contains("127.0.0.1"))
+            .AllowAnyMethod()
+            .AllowAnyHeader()
+            .AllowCredentials();
+    });
+});
+
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
 var app = builder.Build();
+
+// Apply pending EF Core migrations (DATA-034: migrations through controlled deployment).
+// Runs synchronously on startup to ensure schema is ready before the service serves requests.
+// If migration fails, service startup fails (correct behavior for schema corruption/errors).
+try
+{
+    using var scope = app.Services.CreateScope();
+    var dbContext = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+    await dbContext.Database.MigrateAsync();
+    Console.WriteLine("[Identity] ✓ Database migrations applied successfully");
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"[Identity] ✗ Database migration failed: {ex.Message}");
+    throw;
+}
 
 // ERROR-001..005, TRACE-001..007, LOG-001..006: Exception handler middleware (ProblemDetails/ApiExceptionHandler)
 // processes all unhandled exceptions and structured errors before they reach the browser.
 // StatusCodePages converts bare status codes (404, etc.) into the same ProblemDetails shape.
 app.UseExceptionHandler();
 app.UseStatusCodePages();
+
+// Forwarded headers middleware (SEC-020, gateway.md): Trust X-Forwarded-* headers from YARP gateway.
+// Required for services behind reverse proxy to recognize the correct protocol (X-Forwarded-Proto: http)
+// and not redirect HTTP → HTTPS unnecessarily when receiving gateway traffic.
+// In production, configure to trust only the gateway's IP range.
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
+    RequireHeaderSymmetry = false,
+    // In production, restrict to known proxy IPs: KnownProxies = new() { IPAddress.Parse("10.0.0.1") }
+});
+
+// CORS middleware (ADR-0018, SEC-020, gateway.md): Handle preflight requests before HTTPS redirection.
+// Preflight OPTIONS requests must be answered with CORS headers, not redirected.
+app.UseCors("AllowLocalhost");
+
+app.UseHttpsRedirection();
 
 app.MapDefaultEndpoints();
 
@@ -89,9 +142,18 @@ app.MapScalarApiReference(options =>
     options.Title = "Project Chicago - Identity API";
 });
 
-app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
+// Seed default user for local development (idempotent: skipped if user already exists).
+await SeedDefaultUserAsync(app.Services);
+
 app.Run();
+
+async Task SeedDefaultUserAsync(IServiceProvider serviceProvider)
+{
+    using var scope = serviceProvider.CreateScope();
+    var seeder = scope.ServiceProvider.GetRequiredService<ProjectChicago.Identity.Core.Authorization.Data.UserSeeder>();
+    await seeder.SeedDefaultUserAsync("robert@architect4hire.com", "Chicago1974!!!", "Administrator");
+}

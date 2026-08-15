@@ -350,14 +350,12 @@ public sealed class UserManagementData
                 .ToListAsync(cancellationToken)
                 .ConfigureAwait(false);
 
-            // Ideally, we'd have one role per user in current design; use first or join.
-            var roleName = roles.FirstOrDefault() ?? "Unknown";
-
             serviceModels.Add(new UserServiceModel
             {
                 UserId = user.Id,
                 Email = user.Email!,
-                RoleName = roleName,
+                UserName = user.UserName!,
+                Roles = roles.Where(r => r != null).ToList()!,
                 CreatedAtUtc = user.LockoutEnd != null && user.LockoutEnd < DateTimeOffset.UtcNow.AddYears(-100)
                     ? DateTime.UtcNow.AddDays(-1) // Rough approximation if no CreatedDate exists
                     : DateTime.UtcNow,
@@ -392,14 +390,13 @@ public sealed class UserManagementData
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
 
-        var roleName = roles.FirstOrDefault() ?? "Unknown";
-
         // Map to ServiceModel without passwords/tokens (SEC-004: support-safe).
         return new UserServiceModel
         {
             UserId = user.Id,
             Email = user.Email!,
-            RoleName = roleName,
+            UserName = user.UserName!,
+            Roles = roles.ToList(),
             CreatedAtUtc = DateTime.UtcNow,
         };
     }

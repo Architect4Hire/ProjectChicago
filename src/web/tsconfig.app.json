@@ -4,7 +4,7 @@
     "target": "es2023",
     "lib": ["ES2023", "DOM"],
     "module": "esnext",
-    "types": ["vite/client"],
+    "types": ["vite/client", "vitest/globals", "@testing-library/jest-dom"],
     "allowArbitraryExtensions": true,
     "skipLibCheck": true,
 
@@ -20,11 +20,17 @@
     "ignoreDeprecations": "6.0",
     "baseUrl": ".",
     "paths": {
+      "@/design-system": ["./design-system/src/design-system/index.ts"],
       "@/design-system/*": ["./design-system/src/design-system/*"],
       "@/layout/*": ["./design-system/src/layout/*"],
       "@/context/*": ["./design-system/src/context/*"],
       "@/icons/*": ["./design-system/src/icons/*"],
-      "@/components/*": ["./design-system/src/components/*"]
+      "@/icons": ["./design-system/src/icons"],
+      "@/components/*": ["./design-system/src/components/*"],
+      "@/api/*": ["./src/api/*"],
+      "@/api": ["./src/api/index.ts"],
+      "@/auth/*": ["./src/auth/*"],
+      "@/auth": ["./src/auth/index.ts"]
     },
 
     /* Linting */

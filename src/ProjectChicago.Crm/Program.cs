@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.HttpOverrides;
 using ProjectChicago.Crm.Contracts.Clients;
 using ProjectChicago.Crm.Contracts.Projects;
 using ProjectChicago.Crm.Contracts.Tasks;
@@ -24,6 +26,18 @@ builder.AddSqlServerDbContext<CrmDbContext>("CrmDb");
 // AddServiceDefaults - the sibling Functions project has no HttpContext to adapt.
 builder.Services.AddHttpRequestContext();
 builder.Services.AddApiExceptionHandling();
+
+// Cookie authentication (ADR-0018, identity.md: ASP.NET Core Identity cookies from the Identity Service).
+// CRM service validates authenticated context passed through the gateway via authentication cookies.
+builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+    .AddCookie(options =>
+    {
+        options.LoginPath = "/auth/login";
+        options.Cookie.Name = ".ProjectChicago.Session";
+        options.Cookie.HttpOnly = true;
+        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+        options.Cookie.SameSite = SameSiteMode.Strict;
+    });
 
 // SEC-010..016: Define authorization policies for CRM roles (Administrator, Manager, Contributor,
 // ReadOnly). Each role maps to CRM capabilities using least-privilege principle (SEC-016).
@@ -108,6 +122,21 @@ builder.Services.AddScoped<ITaskFacade, TaskFacade>();
 // Facades resolve "now" in a testable way without coupling to DateTime.UtcNow directly.
 builder.Services.AddSingleton<IClock, Clock>();
 
+// CORS configuration (ADR-0018, SEC-020: allow React client on localhost for development).
+// In production, restrict origins and carefully control credentials policy.
+// AllowAnyOrigin() and AllowCredentials() cannot both be true; use specific origins in production.
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowLocalhost", corsBuilder =>
+    {
+        corsBuilder
+            .SetIsOriginAllowed(origin => origin.Contains("localhost") || origin.Contains("127.0.0.1"))
+            .AllowAnyMethod()
+            .AllowAnyHeader()
+            .AllowCredentials();
+    });
+});
+
 // MVC controllers are the only HTTP application edge (onion-boundaries.md: "Use ASP.NET Core MVC
 // controllers ...; do not add minimal API routes"). AddOpenApi/MapOpenApi satisfies API-006 - every
 // public API contract is documented through OpenAPI, keyed by each action's stable OperationId
@@ -125,6 +154,23 @@ app.UseExceptionHandler();
 app.UseStatusCodePages();
 
 app.MapDefaultEndpoints();
+
+// Forwarded headers middleware (SEC-020, gateway.md): Trust X-Forwarded-* headers from YARP gateway.
+// Required for services behind reverse proxy to recognize the correct protocol (X-Forwarded-Proto: http)
+// and not redirect HTTP → HTTPS unnecessarily when receiving gateway traffic.
+// In production, configure to trust only the gateway's IP range.
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
+    RequireHeaderSymmetry = false,
+    // In production, restrict to known proxy IPs: KnownProxies = new() { IPAddress.Parse("10.0.0.1") }
+});
+
+// CORS middleware (ADR-0018, SEC-020, gateway.md): Handle preflight requests before HTTPS redirection.
+// Preflight OPTIONS requests must be answered with CORS headers, not redirected.
+app.UseCors("AllowLocalhost");
+
+app.UseHttpsRedirection();
 
 // SEC-010..013: ASP.NET Core authorization middleware (policies defined above). Evaluates
 // policy requirements before controller actions run, throwing UnauthorizedAccessException when an

@@ -1,4 +1,6 @@
 <Solution>
+  <Folder Name="/App Hosts and Service Defaults/" />
+  <Folder Name="/Shared/" />
   <Project Path="ProjectChicago.AppHost/ProjectChicago.AppHost.csproj" />
   <Project Path="ProjectChicago.Audit/ProjectChicago.Audit.csproj" />
   <Project Path="ProjectChicago.Audit.Api.Tests/ProjectChicago.Audit.Api.Tests.csproj" />

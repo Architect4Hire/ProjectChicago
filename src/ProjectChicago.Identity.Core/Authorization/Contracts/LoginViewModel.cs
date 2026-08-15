@@ -3,12 +3,12 @@ using System.ComponentModel.DataAnnotations;
 namespace ProjectChicago.Identity.Core.Authorization.Contracts;
 
 // Login request contract (ADR-0018: cookie authentication). Normalized and validated by transport layer
-// before entering the service boundary. Username is trimmed and lowercased for lookup.
+// before entering the service boundary. Email is trimmed and lowercased for lookup.
 public class LoginViewModel
 {
     [Required]
     [StringLength(256)]
-    public string UserName { get; set; } = "";
+    public string Email { get; set; } = "";
 
     [Required]
     [StringLength(128)]

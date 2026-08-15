@@ -1,3 +1,4 @@
+
 var builder = DistributedApplication.CreateBuilder(args);
 
 // One local SQL Server container resource; each bounded service gets its own database resource
@@ -39,7 +40,7 @@ eventsTopic.AddServiceBusSubscription("audit-subscription", "Audit");
 // Server EF Core integration for its own "CrmDb" database (DATA-030..034). WaitFor ensures the SQL
 // container is ready before Crm starts; no messaging reference here since the host has no Service
 // Bus wiring yet (aspire.md: don't give an API host Service Bus credentials it doesn't use).
-builder.AddProject<Projects.ProjectChicago_Crm>("crm")
+var crm = builder.AddProject<Projects.ProjectChicago_Crm>("crm")
     .WithReference(crmDb)
     .WaitFor(crmDb);
 
@@ -103,6 +104,7 @@ builder.AddAzureFunctionsProject<Projects.ProjectChicago_Audit_Functions>("audit
 // Audit service is wired for /api/audit/* route (read-only audit entry queries, AUDIT-001..008, SEC-012).
 var gateway = builder.AddProject<Projects.ProjectChicago_Gateway>("gateway")
     .WithReference(identity)  // Identity host needed for /auth/* routing
+    .WithReference(crm)
     .WithReference(audit);    // Audit host needed for /api/audit/* routing
 
 // The React/Vite client (frontend.md). runScriptName is explicit even though "dev" is already
@@ -112,4 +114,10 @@ var gateway = builder.AddProject<Projects.ProjectChicago_Gateway>("gateway")
 // other service reference is wired yet - just the resource itself.
 builder.AddViteApp("web", "../web", "dev");
 
-builder.Build().Run();
+// Build the application and run it. Database migrations are applied by each service's
+// composition root in their Program.cs using Aspire's EF Core integration (DATA-034).
+// Each bounded service applies its own migrations independently via the AddSqlServerDbContext
+// Aspire helper which includes migration support (DATA-031: one database per service).
+// See: https://learn.microsoft.com/en-us/dotnet/aspire/database/sql-server-component?tabs=dotnet-cli
+var app = builder.Build();
+await app.RunAsync();
