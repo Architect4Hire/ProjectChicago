@@ -1,13 +1,20 @@
 # ADR-0018: Browser Authentication and Session Transport
 
-**Status:** Approved  
+**Status:** Superseded  
 **Date:** 2026-08-12  
+**Superseded Date:** 2026-08-15  
 **References:** SEC-001..025, ADR-0015 (Identity Service), identity.md, gateway.md, security.md  
-**Approval:** User approval on 2026-08-12
+**Superseding Decision:** Backend-for-Frontend (BFF) pattern with server-side session storage (2026-08-15)
 
-## Decision
+## Decision (Superseded: 2026-08-12)
 
-Project Chicago shall use **ASP.NET Core Cookie Authentication** for browser authentication and session transport.
+~~Project Chicago shall use **ASP.NET Core Cookie Authentication** for browser authentication and session transport.~~
+
+---
+
+## New Decision (Superseding: 2026-08-15)
+
+Project Chicago shall use a **Backend-for-Frontend (BFF) pattern with server-side JWT token storage in Redis**. The YARP gateway acts as a credential-exchange boundary: it authenticates with Identity on the browser's behalf, stores JWT access and refresh tokens server-side in Redis, and issues an opaque HttpOnly session cookie to the browser. The browser never directly handles JWT tokens in any form (no response bodies, no storage, no headers). CRM and Audit services validate bearer tokens injected by the Gateway's BearerTokenMiddleware.
 
 ---
 
@@ -33,7 +40,45 @@ The project must decide:
 - **Revocation required**: Logout must immediately invalidate sessions
 - **Production-suitable**: Must work at scale without complex distributed session management
 
-## Solution: ASP.NET Core Cookie Authentication
+---
+
+## Superseding Solution: Backend-for-Frontend (BFF) with Server-Side Session Storage (2026-08-15)
+
+**Why we superseded:** The original cookie-auth design (2026-08-12) expected CRM and Audit to validate cookies issued by Identity, but no shared ASP.NET Data Protection key ring was established between processes. The BFF pattern eliminates this: Identity issues JWT bearer tokens, the Gateway stores them server-side in Redis, and all downstream services validate the same bearer tokens injected by the Gateway. This achieves stronger isolation. Additionally, the browser never handles JWT tokens in any form (no response bodies, no storage)—only an opaque HttpOnly session cookie is sent to the browser.
+
+### Architecture
+
+```
+React (SPA)
+    ↓ (POST /auth/login via YARP)
+YARP Gateway (BFF: credential exchange boundary)
+    ├─ Identity Service (validate credentials, mint JWT access + refresh tokens)
+    ├─ Redis session store (session:{sessionId} = GatewaySession with tokens, user info, TTL)
+    ├─ Browser (200 + .ProjectChicago.SessionId cookie + X-CSRF-TOKEN header)
+    │
+    └─ Proxy (BearerTokenMiddleware injects Authorization: Bearer header + CsrfValidationMiddleware validates X-CSRF-TOKEN)
+        └─ CRM/Audit/Identity (validate incoming bearer tokens)
+```
+
+### Key Design Points
+
+1. **Browser never sees raw JWT tokens** — Only opaque HttpOnly session cookie `.ProjectChicago.SessionId` (256-bit random ID)
+2. **Server-side token storage** — JWT access/refresh tokens stored in Redis at `session:{sessionId}`; TTL = refresh token lifetime
+3. **Inline token refresh** — `BearerTokenMiddleware` checks if access token expires within 60s; if yes, calls Identity `/auth/refresh`, rotates tokens, updates Redis, injects new token
+4. **Bearer token injection** — Only Gateway injects Authorization headers; downstream services validate JWT signature/issuer/audience/lifetime using same signing key
+5. **CSRF via double-submit** — Gateway issues CSRF token on login (header `X-CSRF-TOKEN`); React captures it; attached to all mutations; validated by `CsrfValidationMiddleware`
+6. **Endpoint routing** — `/auth/login` and `/auth/logout` handled by Gateway; all other `/auth/*` and `/api/**` routes proxied with bearer injection
+
+### Configuration Summary
+
+- **Identity:** JWT issuance (`JwtTokenService`), `/auth/refresh` endpoint, `Jwt__SigningKey` from environment
+- **Gateway:** Redis session store (`ISessionStore`), `BearerTokenMiddleware`, `CsrfValidationMiddleware`, `AuthEndpoints` (login/logout), JWT config from appsettings
+- **CRM/Audit:** JWT bearer validation (`AddJwtBearer` with same `Jwt__SigningKey`), JWT config from appsettings
+- **React:** CSRF token capture (`http.ts`), CSRF header attachment on mutations, `setCsrfToken()` on login
+
+---
+
+## Original Solution: ASP.NET Core Cookie Authentication (Superseded 2026-08-15)
 
 ### Architecture
 

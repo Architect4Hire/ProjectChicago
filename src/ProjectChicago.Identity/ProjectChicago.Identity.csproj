@@ -14,6 +14,8 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
+    <!-- JWT bearer token authentication (ADR-0018-superseding: mints access/refresh tokens for BFF design). -->
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
     <!-- OpenAPI document generation for this host's MVC controllers (API-006, API-007). -->
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
     <!-- Scalar.net provides interactive OpenAPI documentation UI (API-006). -->

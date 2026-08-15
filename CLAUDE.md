@@ -215,7 +215,7 @@ Use read-only agents after implementation:
 6. YARP is the **only gateway / browser-facing backend edge** for the solution. React never calls service or Function endpoints directly.
 7. Each bounded service owns exactly one Microsoft SQL database. Local Aspire may use one SQL Server resource with one database resource per service while preserving ownership isolation.
 8. PCDS is copied into Project Chicago and consumed from the local source in the React application. Skills must inspect and reuse/extend that local design system rather than recreating it.
-9. Application identity uses **ASP.NET Core Identity** in the **Identity Service** (ADR-0015). Auth transport (cookie/token), session/refresh strategy, MFA/passkey adoption, and external-provider policy remain open — ADR-0018.
+9. Application identity uses **ASP.NET Core Identity** in the **Identity Service** (ADR-0015). Auth transport, session/refresh, MFA/passkey, and external-provider policy are decided in ADR-0018.
 10. **ADR-0016**: Audit Service ingests all business mutations as integration events through Service Bus (never direct database writes). Audit owns its database exclusively, maintains append-only AuditEvents table, enforces idempotency through inbox pattern, redacts sensitive fields before persistence, captures before/after values and correlation/trace metadata, and documents retention policy and purge governance before production.
 11. **ADR-0017**: Single shared topic `ProjectChicago.Events` with per-service subscriptions (Audit initially). CRM and Identity publish via timer-triggered outbox relay Functions. Audit consumes via Service Bus trigger with no filtering. All entity names, connection strings, and timing parameters are configuration-driven (never hardcoded). Dead-letter queue and retry metrics are observable. Future services (Notification, Search, Workflow) extend by adding subscriptions without topology changes.
 12. **ADR-0021**: OpenTelemetry is the instrumentation standard (traces, metrics, logs) for all APIs, services, and Azure Functions. Azure Monitor/Application Insights is production SPOG. W3C Trace Context propagates across gateway, APIs, SQL, HTTP, Service Bus, Functions. Correlation/causation metadata links async work (outbox → relay → Service Bus → consumer) back to originating requests. Logs are structured, auto-correlated to traces. Business identifiers (Client/Project/Task IDs) are safe; PII/payloads forbidden. Aspire Dashboard provides local observability parity.
@@ -223,16 +223,16 @@ Use read-only agents after implementation:
 ## Still intentionally open
 
 - The production Microsoft SQL hosting flavor (for example Azure SQL Database vs another SQL Server deployment) — ADR-0019.
-- Browser authentication transport (cookie, JWT token, or other) and session/refresh/MFA/external-provider policy — ADR-0018.
 - The API endpoint style inside each service (controllers are the preserved default; changing that requires an ADR).
 - Redis/caching layer (whether to add, where, and scoping) — future ADR if needed.
 - IaC/deployment ownership and tooling beyond the confirmed Flex Consumption target — ADR-0020.
 
-**Decided by ADR-0015, ADR-0016, ADR-0017, and ADR-0021 and no longer open:**
+**Decided by ADR-0015, ADR-0016, ADR-0017, ADR-0018, and ADR-0021 and no longer open:**
 - Initial bounded-service catalog (CRM, Identity, Audit, Notification, Search, Workflow confirmed)
 - Service ownership of Clients, Projects, Tasks (permanently CRM unless superseded)
 - Audit as a baseline bounded context (confirmed as append-only trail)
 - Notification and Search as baseline services (confirmed)
 - **ADR-0016**: Audit ingestion through Service Bus (not direct database writes); append-only architecture; event-driven consistency; required audit fields; redaction rules; idempotency through inbox pattern; correlation/trace linkage; retention policy placeholder; purge governance
 - **ADR-0017**: Single shared Service Bus topic `ProjectChicago.Events`; per-service subscriptions; CRM/Identity publish via timer relay; Audit consumes via trigger; configuration-driven (no hardcoded topology); dead-letter and retry observability; extensible for future services
+- **ADR-0018**: Browser authentication uses **Backend-for-Frontend (BFF) pattern with JWT bearer tokens**: Identity issues short-lived access tokens (10 min) and longer-lived refresh tokens (14 days); Gateway stores both server-side in Redis and issues opaque HttpOnly session cookie to browser (never sends raw tokens to browser); Gateway's `BearerTokenMiddleware` injects `Authorization: Bearer` headers into proxied requests and handles inline token refresh; CRM, Audit, and Identity all validate bearer tokens via JWT middleware reading shared signing key; double-submit CSRF tokens validated by Gateway's `CsrfValidationMiddleware`; no MFA/passkey support initially; external-provider policy remains open for future ADR
 - **ADR-0021**: OpenTelemetry instrumentation standard; Azure Monitor/Application Insights SPOG; W3C Trace Context propagation; correlation/causation metadata; log-trace auto-correlation; business-safe identifiers; Aspire local development parity; end-to-end traceability from browser through all services, databases, and async functions

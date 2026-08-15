@@ -84,11 +84,63 @@ public class AuthController : ControllerBase
     }
 
     /// <summary>
-    /// Logout (sign out). Records audit event for authenticated users, clears session state and removes authentication cookie.
-    /// (SEC-005, AUDIT-001..008, ADR-0018).
+    /// Refresh access token using a valid refresh token (ADR-0018-superseding BFF design).
+    /// Called by the Gateway when a stored access token is expired/near-expiry.
+    /// Returns new access token + refresh token pair (refresh token rotation).
+    /// Records audit events on success or failure.
+    /// </summary>
+    /// <param name="request">Refresh token request</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <response code="200">Token refresh successful; new token pair issued</response>
+    /// <response code="401">Invalid or expired refresh token</response>
+    [HttpPost("refresh", Name = "RefreshToken")]
+    [ProducesResponseType(typeof(LoginServiceModel), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+    public async Task<ActionResult<LoginServiceModel>> RefreshAsync(
+        [FromBody] RefreshTokenViewModel request,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var result = await _authenticationFacade.RefreshAsync(request, cancellationToken);
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("locked", StringComparison.OrdinalIgnoreCase))
+        {
+            return StatusCode(StatusCodes.Status429TooManyRequests, new ProblemDetails
+            {
+                Title = "Account Locked",
+                Detail = ex.Message,
+                Status = StatusCodes.Status429TooManyRequests,
+            });
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("invalid", StringComparison.OrdinalIgnoreCase) || ex.Message.Contains("expired", StringComparison.OrdinalIgnoreCase))
+        {
+            return Unauthorized(new ProblemDetails
+            {
+                Title = "Token Refresh Failed",
+                Detail = ex.Message,
+                Status = StatusCodes.Status401Unauthorized,
+            });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new ProblemDetails
+            {
+                Title = "Invalid Request",
+                Detail = ex.Message,
+                Status = StatusCodes.Status400BadRequest,
+            });
+        }
+    }
+
+    /// <summary>
+    /// Logout (sign out). Records audit event for authenticated users.
+    /// NOTE: ADR-0018-superseding BFF design — the Gateway now owns logout (deletes Redis session, clears cookie).
+    /// This endpoint is kept for completeness but is not called by the Gateway for v1.
     /// </summary>
     /// <param name="cancellationToken">Cancellation token</param>
-    /// <response code="200">Logout successful; session cleared</response>
+    /// <response code="200">Logout recorded</response>
     [HttpPost("logout", Name = "Logout")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> LogoutAsync(CancellationToken cancellationToken = default)
@@ -106,7 +158,7 @@ public class AuthController : ControllerBase
             }
         }
 
-        await HttpContext.SignOutAsync("Cookies");
+        // No longer sign out via cookie since we use JWT bearer auth now.
         return Ok(new { message = "Logged out successfully" });
     }
 

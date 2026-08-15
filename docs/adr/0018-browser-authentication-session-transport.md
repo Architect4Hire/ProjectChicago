@@ -1,29 +1,17 @@
 # ADR-0018 — Browser Authentication and Session Transport
 
-- **Status:** Proposed
+- **Status:** Superseded
 - **Requirements:** SEC-001..025
+- **Superseded by:** ADR-0018 at `docs/design/adr-0018-browser-authentication-session.md` (2026-08-15)
 
-## Context
-ASP.NET Core Identity is fixed, but a React SPA behind YARP still needs an explicit choice for browser credential/session transport. The decision affects CSRF, token storage, revocation, gateway behavior and downstream authorization context.
+## Context (Superseded)
 
-## Proposed decision
-No transport is accepted in this ADR yet.
+This ADR was a placeholder for browser authentication transport choice. The decision has been made and documented in the canonical ADR-0018 file.
 
-The architecture review must compare at minimum:
+## Decision (Superseded 2026-08-15)
 
-- secure HttpOnly cookie/session approaches,
-- access-token approaches and where tokens are stored,
-- whether YARP acts as a BFF-style session boundary,
-- CSRF protection,
-- revocation/logout,
-- multi-service propagation of trusted identity/claims,
-- 401 vs 403 behavior,
-- refresh/lifetime policy.
+**This ADR document is superseded. See the canonical decision at `docs/design/adr-0018-browser-authentication-session.md`.**
 
-A production choice must avoid exposing long-lived credentials to insecure browser storage.
+The project uses a **Backend-for-Frontend (BFF) pattern with server-side JWT token storage in Redis**. The YARP gateway acts as a credential-exchange boundary: it authenticates with Identity on the browser's behalf, stores JWT tokens server-side in Redis, and issues an opaque HttpOnly session cookie to the browser. The browser never directly handles JWT tokens in any form.
 
-## Consequences
-Downstream auth endpoint and gateway design is blocked until this ADR is Accepted.
-
-## Validation
-Use the decision prompt in the canonical SCRUB sequence; record the approved choice here or supersede this placeholder ADR.
+For complete details, configuration, testing strategy, and rationale, refer to the canonical ADR-0018 document.

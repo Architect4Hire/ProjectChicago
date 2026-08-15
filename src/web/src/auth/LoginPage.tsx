@@ -11,7 +11,7 @@ export const LoginPage: FC = () => {
   const { login, error: authError } = useAuth();
 
   const [email, setEmail] = useState('');
-  const [secret, setSecret] = useState('');
+  const [password, setPassword] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -24,8 +24,8 @@ export const LoginPage: FC = () => {
       newErrors.email = 'Please enter a valid email address';
     }
 
-    if (!secret) {
-      newErrors.secret = 'Credential is required';
+    if (!password) {
+      newErrors.password = 'Credential is required';
     }
 
     setErrors(newErrors);
@@ -41,7 +41,7 @@ export const LoginPage: FC = () => {
 
     setIsSubmitting(true);
     try {
-      await login(email, secret);
+      await login(email, password);
       navigate('/dashboard', { replace: true });
     } catch {
       // Error is handled by the auth context and displayed via authError
@@ -89,25 +89,25 @@ export const LoginPage: FC = () => {
               </Field>
 
               <Field
-                label="Credential"
-                error={errors.secret}
+                label="Password"
+                error={errors.password}
                 required
               >
                 <Input
-                  id="secret"
-                  type="text"
-                  name="secret"
-                  value={secret}
+                  id="password"
+                  type="password"
+                  name="password"
+                  value={password}
                   onChange={(e: ChangeEvent<HTMLInputElement>) => {
-                    setSecret(e.target.value);
-                    if (errors.secret) {
-                      setErrors({ ...errors, secret: '' });
+                    setPassword(e.target.value);
+                    if (errors.password) {
+                      setErrors({ ...errors, password: '' });
                     }
                   }}
-                  placeholder="Enter your credential"
+                  placeholder="Enter your password"
                   disabled={isSubmitting}
-                  invalid={!!errors.secret}
-                  autoComplete="off"
+                  invalid={!!errors.password}
+                  autoComplete="current-password"
                 />
               </Field>
 

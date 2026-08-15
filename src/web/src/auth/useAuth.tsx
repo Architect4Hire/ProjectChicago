@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
-import { getGatewayClient, AuthenticationError, HttpError } from '@/api';
+import { getGatewayClient, AuthenticationError, HttpError, setCsrfToken } from '@/api';
 
 export interface CurrentUser {
   userId: string;
@@ -79,6 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error('Logout error:', err);
     } finally {
       setCurrentUser(null);
+      setCsrfToken(''); // Clear CSRF token on logout (ADR-0018-superseding BFF).
     }
   }, [client]);
 

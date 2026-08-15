@@ -1,35 +1,13 @@
 using ProjectChicago.Gateway.Correlation;
+using ProjectChicago.Gateway.Auth;
+using ProjectChicago.Gateway.Sessions;
+using ProjectChicago.Gateway.Proxy;
+using ProjectChicago.Gateway.Csrf;
 using Yarp.ReverseProxy.Configuration;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
-
-// DEBUG: Log all environment variables and configuration keys to understand Aspire injection
-Console.WriteLine("\n=== GATEWAY STARTUP DEBUG ===");
-Console.WriteLine("Environment Variables (services*):");
-foreach (var env in Environment.GetEnvironmentVariables(EnvironmentVariableTarget.Process).Cast<System.Collections.DictionaryEntry>())
-{
-    var key = env.Key.ToString();
-    if (key?.Contains("services", StringComparison.OrdinalIgnoreCase) == true)
-    {
-        Console.WriteLine($"  {key} = {env.Value}");
-    }
-}
-
-Console.WriteLine("\nConfiguration Keys (ReverseProxy*):");
-var allKeys = builder.Configuration.AsEnumerable().Where(kvp => kvp.Key?.Contains("Reverse", StringComparison.OrdinalIgnoreCase) == true);
-foreach (var kvp in allKeys)
-{
-    Console.WriteLine($"  {kvp.Key} = {kvp.Value}");
-}
-
-Console.WriteLine("\nConfiguration Keys (services*):");
-var serviceKeys = builder.Configuration.AsEnumerable().Where(kvp => kvp.Key?.Contains("services", StringComparison.OrdinalIgnoreCase) == true);
-foreach (var kvp in serviceKeys)
-{
-    Console.WriteLine($"  {kvp.Key} = {kvp.Value}");
-}
 
 // Resolve Aspire-injected service URLs from configuration (ADR-0015, SEC-020, gateway.md).
 // Aspire WithReference() injects endpoints as services__<name>__http; we resolve them before YARP initializes.
@@ -42,6 +20,17 @@ Console.WriteLine($"  CRM: {crmUrl}");
 Console.WriteLine($"  Identity: {identityUrl}");
 Console.WriteLine($"  Audit: {auditUrl}");
 Console.WriteLine("============================\n");
+
+// Redis client for session storage (ADR-0018-superseding BFF: holds JWT tokens server-side).
+builder.AddRedisClient("redis");
+
+// Session store and identity client (BFF components: login/logout endpoints and bearer-token transform).
+builder.Services.AddScoped<ISessionStore, RedisSessionStore>();
+builder.Services.AddHttpClient<IdentityInternalClient>()
+    .ConfigureHttpClient(client => client.BaseAddress = new Uri("https://identity"));
+
+// CSRF protection via ASP.NET Core IAntiforgery (ADR-0018-superseding: double-submit token pattern).
+builder.Services.AddAntiforgery();
 
 // CORS configuration (ADR-0018, SEC-020: allow React client on localhost for development).
 // In production, restrict origins and carefully control credentials policy.
@@ -77,19 +66,6 @@ builder.Services.AddReverseProxy()
 
 var app = builder.Build();
 
-// Verify YARP configuration loaded correctly (DEBUG)
-Console.WriteLine("\nYARP Loaded Clusters:");
-var proxyConfig = app.Services.GetRequiredService<IProxyConfigProvider>().GetConfig();
-foreach (var cluster in proxyConfig.Clusters)
-{
-    Console.WriteLine($"  {cluster.ClusterId}:");
-    foreach (var dest in cluster.Destinations)
-    {
-        Console.WriteLine($"    {dest.Key} -> {dest.Value.Address}");
-    }
-}
-Console.WriteLine();
-
 app.UseCorrelation();
 
 app.UseCors("AllowLocalhost");
@@ -100,11 +76,18 @@ app.UseHttpsRedirection();
 
 app.MapDefaultEndpoints();
 
+// Bearer token injection middleware: injects JWT bearer tokens from Redis session into proxied requests (ADR-0018-superseding).
+app.UseMiddleware<BearerTokenMiddleware>();
+
+// CSRF validation middleware: checks double-submit tokens on mutating requests (ADR-0018-superseding).
+app.UseMiddleware<CsrfValidationMiddleware>();
+
+// BFF authentication endpoints: login/logout owned by Gateway, other /auth/* routes go through YARP.
+AuthEndpoints.MapAuthEndpoints(app);
+
 // Forward all configured routes through YARP (gateway.md step 5).
 // Correlation middleware has already normalized and set headers (gateway.md step 4).
 app.MapReverseProxy();
-
-app.MapGet("/", () => "Hello World!");
 
 app.Run();
 

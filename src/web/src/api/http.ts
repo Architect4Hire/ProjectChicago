@@ -6,6 +6,17 @@ function uuidv4(): string {
   });
 }
 
+// CSRF token storage (ADR-0018-superseding BFF: double-submit pattern, token issued by Gateway on /auth/login).
+let csrfToken: string | null = null;
+
+export function setCsrfToken(token: string): void {
+  csrfToken = token;
+}
+
+export function getCsrfToken(): string | null {
+  return csrfToken;
+}
+
 export interface ProblemDetails {
   type?: string;
   title?: string;
@@ -124,6 +135,7 @@ export class HttpClient {
   private buildHeaders(
     options?: RequestOptions,
     correlationId?: string,
+    method?: string,
   ): Record<string, string> {
     const headers: Record<string, string> = {
       ...this.defaultHeaders,
@@ -132,6 +144,11 @@ export class HttpClient {
     if (correlationId) {
       headers['X-Correlation-ID'] = correlationId;
       headers['traceparent'] = `00-${correlationId}-0000000000000000-01`;
+    }
+
+    // Attach CSRF token for mutating requests (POST, PUT, PATCH, DELETE) — ADR-0018-superseding.
+    if (method && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) && csrfToken) {
+      headers['X-CSRF-TOKEN'] = csrfToken;
     }
 
     if (options?.headers) {
@@ -258,7 +275,7 @@ export class HttpClient {
   ): Promise<T> {
     const correlationId = this.getCorrelationId();
     const url = this.normalizeUrl(path);
-    const headers = this.buildHeaders(options, correlationId);
+    const headers = this.buildHeaders(options, correlationId, method);
     const controller = this.createAbortController(
       options?.signal,
       options?.timeout,
@@ -277,6 +294,14 @@ export class HttpClient {
 
     try {
       const response = await fetch(url, fetchOptions);
+
+      // Capture CSRF token from /auth/login response header (ADR-0018-superseding BFF).
+      if (method === 'POST' && path.endsWith('/auth/login') && response.ok) {
+        const token = response.headers.get('X-CSRF-TOKEN');
+        if (token) {
+          setCsrfToken(token);
+        }
+      }
 
       if (!response.ok) {
         await this.handleErrorResponse(response);

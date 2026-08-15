@@ -36,13 +36,28 @@ var eventsTopic = messaging.AddServiceBusTopic("events-topic", "ProjectChicago.E
 
 eventsTopic.AddServiceBusSubscription("audit-subscription", "Audit");
 
+// Redis cache resource (ADR-0018-superseding BFF design): holds the server-side session record
+// {accessToken, refreshToken, userId, expiries} keyed by opaque session ID. Persistent lifetime keeps
+// local sessions alive across AppHost restarts during development, matching the "sql" resource's
+// convention. Gateway is the only consumer (WaitFor ensures Redis is ready before Gateway starts).
+var redis = builder.AddRedis("redis")
+    .WithLifetime(ContainerLifetime.Persistent);
+
+// Shared JWT signing secret (HMAC-SHA256, ADR-0018-superseding decision: symmetric key, no MFA/
+// asymmetric complexity needed). Aspire generates and manages this as a secret parameter for local
+// dev, consistent with the SQL admin credential above (DEPLOY-001). Only Identity (signs) and the
+// JWT-validating services (CRM, Audit, Identity itself for its own [Authorize] endpoints) receive it;
+// Gateway never sees it (Gateway treats tokens as opaque, per plan judgment call #4).
+var jwtSigningKey = builder.AddParameter("jwt-signing-key", secret: true);
+
 // CRM bounded-service HTTP host (ADR-0015). Composition-only: ServiceDefaults plus the Aspire SQL
 // Server EF Core integration for its own "CrmDb" database (DATA-030..034). WaitFor ensures the SQL
 // container is ready before Crm starts; no messaging reference here since the host has no Service
 // Bus wiring yet (aspire.md: don't give an API host Service Bus credentials it doesn't use).
 var crm = builder.AddProject<Projects.ProjectChicago_Crm>("crm")
     .WithReference(crmDb)
-    .WaitFor(crmDb);
+    .WaitFor(crmDb)
+    .WithEnvironment("Jwt__SigningKey", jwtSigningKey);
 
 // CRM's sibling Azure Functions project (ADR-0015), the only asynchronous entry point for this
 // service (functions.md). It is the CRM publisher side of the outbox pattern (OUTBOX-003), so -
@@ -63,7 +78,8 @@ builder.AddAzureFunctionsProject<Projects.ProjectChicago_Crm_Functions>("crm-fun
 // Service Bus credentials it doesn't use); only Identity.Functions publishes Identity events.
 var identity = builder.AddProject<Projects.ProjectChicago_Identity>("identity")
     .WithReference(identityDb)
-    .WaitFor(identityDb);
+    .WaitFor(identityDb)
+    .WithEnvironment("Jwt__SigningKey", jwtSigningKey);
 
 // Identity's sibling Azure Functions project (ADR-0015), the only asynchronous entry point for
 // this service (functions.md). It is the Identity publisher side of the outbox pattern (OUTBOX-003),
@@ -83,7 +99,8 @@ builder.AddAzureFunctionsProject<Projects.ProjectChicago_Identity_Functions>("id
 // credentials it doesn't use); only Audit.Functions consumes events.
 var audit = builder.AddProject<Projects.ProjectChicago_Audit>("audit")
     .WithReference(auditDb)
-    .WaitFor(auditDb);
+    .WaitFor(auditDb)
+    .WithEnvironment("Jwt__SigningKey", jwtSigningKey);
 
 // Audit's sibling Azure Functions project (ADR-0015, ADR-0016), the only asynchronous entry point
 // for this service (functions.md). It is the Audit consumer side, receiving Service Bus-triggered
@@ -105,7 +122,9 @@ builder.AddAzureFunctionsProject<Projects.ProjectChicago_Audit_Functions>("audit
 var gateway = builder.AddProject<Projects.ProjectChicago_Gateway>("gateway")
     .WithReference(identity)  // Identity host needed for /auth/* routing
     .WithReference(crm)
-    .WithReference(audit);    // Audit host needed for /api/audit/* routing
+    .WithReference(audit)     // Audit host needed for /api/audit/* routing
+    .WithReference(redis)
+    .WaitFor(redis);          // Redis cache for session storage (ADR-0018-superseding)
 
 // The React/Vite client (frontend.md). runScriptName is explicit even though "dev" is already
 // AddViteApp's default, to keep it visibly tied to package.json's "dev": "vite" script rather than

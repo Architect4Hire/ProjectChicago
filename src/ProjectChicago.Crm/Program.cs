@@ -1,5 +1,7 @@
-using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using ProjectChicago.Crm.Contracts.Clients;
 using ProjectChicago.Crm.Contracts.Projects;
 using ProjectChicago.Crm.Contracts.Tasks;
@@ -27,16 +29,49 @@ builder.AddSqlServerDbContext<CrmDbContext>("CrmDb");
 builder.Services.AddHttpRequestContext();
 builder.Services.AddApiExceptionHandling();
 
-// Cookie authentication (ADR-0018, identity.md: ASP.NET Core Identity cookies from the Identity Service).
-// CRM service validates authenticated context passed through the gateway via authentication cookies.
-builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
-    .AddCookie(options =>
+// JWT bearer authentication (ADR-0018-superseding, BFF pattern: validates JWT tokens injected by the Gateway).
+// The Gateway holds JWT tokens server-side in Redis and injects Authorization: Bearer headers on proxied requests.
+// CRM never receives the signing key (it stays with Identity); CRM validates using the shared public Issuer/Audience.
+// Tokens are issued by Identity, validated by ASP.NET Core's JWT handler reading Jwt config (Issuer, Audience, SigningKey from env).
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
     {
-        options.LoginPath = "/auth/login";
-        options.Cookie.Name = ".ProjectChicago.Session";
-        options.Cookie.HttpOnly = true;
-        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-        options.Cookie.SameSite = SameSiteMode.Strict;
+        var config = builder.Configuration.GetSection("Jwt");
+        var issuer = config["Issuer"];
+        var audience = config["Audience"];
+        var signingKey = Environment.GetEnvironmentVariable("Jwt__SigningKey");
+
+        if (string.IsNullOrWhiteSpace(issuer))
+            throw new InvalidOperationException("JWT Issuer is not configured");
+        if (string.IsNullOrWhiteSpace(audience))
+            throw new InvalidOperationException("JWT Audience is not configured");
+        if (string.IsNullOrWhiteSpace(signingKey))
+            throw new InvalidOperationException("JWT SigningKey is not configured via environment variable Jwt__SigningKey");
+
+        options.TokenValidationParameters.ValidAudience = audience;
+        options.TokenValidationParameters.ValidIssuer = issuer;
+        options.TokenValidationParameters.ValidateIssuerSigningKey = true;
+        options.TokenValidationParameters.IssuerSigningKey =
+            new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(
+                System.Text.Encoding.UTF8.GetBytes(signingKey));
+        options.TokenValidationParameters.ValidateIssuer = true;
+        options.TokenValidationParameters.ValidateAudience = true;
+        options.TokenValidationParameters.ValidateLifetime = true;
+        options.TokenValidationParameters.ClockSkew = TimeSpan.Zero;
+
+        // Short-lived access tokens don't need a refresh challenge; let the response propagate as 401.
+        options.Events = new JwtBearerEvents
+        {
+            OnChallenge = context =>
+            {
+                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                context.Response.ContentType = "application/problem+json";
+                var problem = new { type = "https://tools.ietf.org/html/rfc7231#section-6.3.1", title = "Unauthorized", status = 401, traceId = context.HttpContext.TraceIdentifier };
+                context.Response.WriteAsJsonAsync(problem);
+                context.HandleResponse();
+                return Task.CompletedTask;
+            }
+        };
     });
 
 // SEC-010..016: Define authorization policies for CRM roles (Administrator, Manager, Contributor,

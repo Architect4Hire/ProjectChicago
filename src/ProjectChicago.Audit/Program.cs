@@ -6,7 +6,10 @@ using ProjectChicago.Audit.Core.Repositories;
 using ProjectChicago.Audit.Core.Business;
 using ProjectChicago.ServiceDefaults.Correlation;
 using ProjectChicago.ServiceDefaults.Errors;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -20,6 +23,49 @@ builder.AddSqlServerDbContext<AuditDbContext>("AuditDb");
 // adapter are host-owned composition (backend.md), not part of AddServiceDefaults.
 builder.Services.AddHttpRequestContext();
 builder.Services.AddApiExceptionHandling();
+
+// JWT bearer authentication (ADR-0018-superseding, BFF pattern: validates JWT tokens injected by the Gateway).
+// The Gateway holds JWT tokens server-side in Redis and injects Authorization: Bearer headers on proxied requests.
+// Audit never receives the signing key (it stays with Identity); Audit validates using the shared public Issuer/Audience.
+// Tokens are issued by Identity, validated by ASP.NET Core's JWT handler reading Jwt config (Issuer, Audience, SigningKey from env).
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        var config = builder.Configuration.GetSection("Jwt");
+        var issuer = config["Issuer"];
+        var audience = config["Audience"];
+        var signingKey = Environment.GetEnvironmentVariable("Jwt__SigningKey");
+
+        if (string.IsNullOrWhiteSpace(issuer))
+            throw new InvalidOperationException("JWT Issuer is not configured");
+        if (string.IsNullOrWhiteSpace(audience))
+            throw new InvalidOperationException("JWT Audience is not configured");
+        if (string.IsNullOrWhiteSpace(signingKey))
+            throw new InvalidOperationException("JWT SigningKey is not configured via environment variable Jwt__SigningKey");
+
+        options.TokenValidationParameters.ValidAudience = audience;
+        options.TokenValidationParameters.ValidIssuer = issuer;
+        options.TokenValidationParameters.ValidateIssuerSigningKey = true;
+        options.TokenValidationParameters.IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(signingKey));
+        options.TokenValidationParameters.ValidateIssuer = true;
+        options.TokenValidationParameters.ValidateAudience = true;
+        options.TokenValidationParameters.ValidateLifetime = true;
+        options.TokenValidationParameters.ClockSkew = TimeSpan.Zero;
+
+        // Short-lived access tokens don't need a refresh challenge; let the response propagate as 401.
+        options.Events = new JwtBearerEvents
+        {
+            OnChallenge = context =>
+            {
+                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                context.Response.ContentType = "application/problem+json";
+                var problem = new { type = "https://tools.ietf.org/html/rfc7231#section-6.3.1", title = "Unauthorized", status = 401, traceId = context.HttpContext.TraceIdentifier };
+                context.Response.WriteAsJsonAsync(problem);
+                context.HandleResponse();
+                return Task.CompletedTask;
+            }
+        };
+    });
 
 // SEC-012/SEC-013: Define authorization policies for Audit read access (AUDIT-001..008, ADR-0016).
 // Audit.Read restricted to privileged roles (Administrator, Manager, and any Support-like roles

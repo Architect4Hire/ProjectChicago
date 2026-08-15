@@ -1,7 +1,8 @@
-using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using ProjectChicago.Identity.Core.Authorization.Business;
 using ProjectChicago.Identity.Core.Authorization.Data;
 using ProjectChicago.Identity.Core.Authorization.Facade;
@@ -11,6 +12,7 @@ using ProjectChicago.Identity.Core.Authorization.Contracts;
 using ProjectChicago.ServiceDefaults.Correlation;
 using ProjectChicago.ServiceDefaults.Errors;
 using Scalar.AspNetCore;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -37,29 +39,32 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole<Guid>>()
     .AddEntityFrameworkStores<IdentityDbContext>()
     .AddDefaultTokenProviders();
 
-// Cookie authentication (ADR-0018: HTTPOnly, Secure, SameSite=Strict session cookies).
-// SignInManager issues cookies on successful login; middleware extracts claims on inbound requests.
-builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
-    .AddCookie(options =>
+// JWT bearer token authentication (ADR-0018-superseding BFF design).
+// Identity mints JWT access tokens (for downstream services) and refresh tokens (for the Gateway).
+// Gateway holds tokens server-side in Redis; they never reach the browser.
+// This authentication scheme validates bearer tokens on Identity's own [Authorize] endpoints
+// (e.g., /auth/current-user, /auth/password) when the Gateway forwards them via the bearer-injection transform.
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
     {
-        options.LoginPath = "/auth/login";
-        options.LogoutPath = "/auth/logout";
-        options.Cookie.Name = ".ProjectChicago.Session";
-        options.Cookie.HttpOnly = true;
-        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-        options.Cookie.SameSite = SameSiteMode.Strict;
-        options.Cookie.IsEssential = true;
-        options.ExpireTimeSpan = TimeSpan.FromMinutes(30);
-        options.SlidingExpiration = true;
+        var jwt = builder.Configuration.GetSection("Jwt");
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidIssuer = jwt["Issuer"],
+            ValidateAudience = true,
+            ValidAudience = jwt["Audience"],
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt["SigningKey"]!)),
+            ClockSkew = TimeSpan.FromSeconds(30),
+        };
     });
 
-// AntiForgery protection (ADR-0018: CSRF token validation on mutations).
-builder.Services.AddAntiforgery(options =>
-{
-    options.HeaderName = "X-CSRF-TOKEN";
-});
+// JWT token service for ADR-0018-superseding BFF design (mints access/refresh tokens, validates refresh tokens).
+builder.Services.AddScoped<JwtTokenService>();
 
-// Authentication business, data, and facade (add-endpoint: layered architecture, SEC-005/AUDIT-001).
+// Authentication business, data, and facade (add-endpoint: layered architecture, SEC-005/AUDIT-001, ADR-0018-superseding).
 builder.Services.AddScoped<AuthenticationBusiness>();
 builder.Services.AddScoped<AuthenticationData>();
 builder.Services.AddScoped<AuthenticationFacade>();
@@ -72,9 +77,9 @@ builder.Services.AddScoped<UserManagementFacade>();
 // User seeding for development (idempotent: skips if user exists).
 builder.Services.AddScoped<ProjectChicago.Identity.Core.Authorization.Data.UserSeeder>();
 
-// CORS configuration (ADR-0018, SEC-020: allow React client on localhost for development).
-// In production, restrict origins and carefully control credentials policy.
-// AllowAnyOrigin() and AllowCredentials() cannot both be true; use specific origins in production.
+// CORS configuration (ADR-0018-superseding, SEC-020: allow YARP gateway on localhost for development).
+// AllowCredentials() is needed for the gateway to forward cookies/session identifiers when calling Identity's
+// /auth/* endpoints. In production, restrict origins and carefully control credentials policy.
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowLocalhost", corsBuilder =>
@@ -134,7 +139,7 @@ app.UseHttpsRedirection();
 app.MapDefaultEndpoints();
 
 // API-006: OpenAPI document and Scalar.net interactive documentation UI
-// ADR-0018: Cookie authentication (HTTPOnly, Secure, SameSite=Strict) and CSRF token support
+// ADR-0018-superseding: JWT bearer token authentication (tokens minted by Identity, held server-side by Gateway)
 app.MapOpenApi();
 app.MapScalarApiReference(options =>
 {
