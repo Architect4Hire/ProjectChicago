@@ -3194,7 +3194,7 @@ REQUIREMENTS:
   REQUIREMENT INTENT: Expose consistent REST-oriented, documented, versionable APIs using conventional HTTP verbs/status codes and bounded pagination for collections. Return safe errors that distinguish validation/auth/authz/not-found/concurrency/internal failures and provide a trace/support reference without exposing internals. Use ASP.NET Core Identity and server-side role/policy authorization with least privilege; protect APIs and never expose passwords, tokens, secrets, or sensitive internals.
   SOURCE OF TRUTH: Read the linked requirement(s) before coding. If this prompt conflicts with the canonical requirement text, STOP and report the drift.
 
-SCOPE: Configure OpenAPI generation for Crm, Identity and Audit HTTP hosts only.
+SCOPE: Configure OpenAPI generation for Crm, Identity and Audit HTTP hosts only and implement scalar.net for all the api's
 
 CONSTRAINT: Document stable operation IDs, public schemas, ProblemDetails, auth requirements and versioning conventions. Keep internal .Core/Data/EF types out of schemas.
 
