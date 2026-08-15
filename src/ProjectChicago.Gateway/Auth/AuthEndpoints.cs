@@ -99,7 +99,13 @@ public static class AuthEndpoints
         }
         catch (HttpRequestException ex)
         {
+            Console.WriteLine($"[ERROR] Identity login failed: {ex.Message} | StatusCode: {ex.StatusCode} | InnerException: {ex.InnerException?.Message}");
             return Results.Problem($"Identity service error: {ex.Message}", statusCode: StatusCodes.Status502BadGateway);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ERROR] Unexpected login error: {ex.GetType().Name} - {ex.Message} | StackTrace: {ex.StackTrace}");
+            return Results.Problem($"Unexpected error: {ex.Message}", statusCode: StatusCodes.Status500InternalServerError);
         }
     }
 

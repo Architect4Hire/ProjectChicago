@@ -59,10 +59,10 @@ public class IdentityInternalClient
     /// <summary>Call Identity's /auth/login endpoint to authenticate a user.</summary>
     public async Task<IdentityLoginResponse> LoginAsync(
         string email,
-        string password,
+        string pwd,
         CancellationToken cancellationToken = default)
     {
-        var request = new { email, password };
+        var request = new { Email = email, Password = pwd };
         var content = JsonContent.Create(request);
 
         var response = await _httpClient.PostAsync("/auth/login", content, cancellationToken);
@@ -88,7 +88,7 @@ public class IdentityInternalClient
         string refreshToken,
         CancellationToken cancellationToken = default)
     {
-        var request = new { refreshToken };
+        var request = new { RefreshToken = refreshToken };
         var content = JsonContent.Create(request);
 
         var response = await _httpClient.PostAsync("/auth/refresh", content, cancellationToken);
