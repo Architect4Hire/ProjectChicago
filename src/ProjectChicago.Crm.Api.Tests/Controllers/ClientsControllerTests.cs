@@ -1,13 +1,18 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Security.Claims;
+using System.Text;
+using System.Text.Encodings.Web;
 using System.Text.Json;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using ProjectChicago.Crm.Contracts.Clients;
 using ProjectChicago.Crm.Contracts.Common;
 using ProjectChicago.Crm.Core.Data;
@@ -1061,10 +1066,11 @@ public class ClientsControllerTests
             {
                 services.AddScoped<IClientFacade>(_ => facade);
 
-                if (authenticated)
-                {
-                    services.AddSingleton<IStartupFilter>(new AuthenticatedActorStartupFilter());
-                }
+                // Configure test authentication scheme for all tests (required for authorization middleware)
+                services.AddAuthentication("TestScheme")
+                    .AddScheme<AuthenticationSchemeOptions, TestAuthenticationHandler>("TestScheme", _ => { });
+                // Add startup filter that sets the test user with Manager role when authenticated is true
+                services.AddSingleton<IStartupFilter>(new AuthenticatedActorStartupFilter(authenticated));
             }));
     }
 
@@ -1245,18 +1251,48 @@ public class ClientsControllerTests
     // ApiExceptionHandlingHostTests uses for its test-only throwing route.
     private sealed class AuthenticatedActorStartupFilter : IStartupFilter
     {
+        private readonly bool _authenticated;
+
+        public AuthenticatedActorStartupFilter(bool authenticated) => _authenticated = authenticated;
+
         public Action<IApplicationBuilder> Configure(Action<IApplicationBuilder> next) => app =>
         {
             app.Use((context, nextMiddleware) =>
             {
-                var identity = new ClaimsIdentity(
-                    [new Claim(ClaimTypes.NameIdentifier, "actor-1")],
-                    authenticationType: "Test");
-                context.User = new ClaimsPrincipal(identity);
+                if (_authenticated)
+                {
+                    var identity = new ClaimsIdentity(
+                        [
+                            new Claim(ClaimTypes.NameIdentifier, "actor-1"),
+                            new Claim(ClaimTypes.Role, "Manager"), // Grant Manager role so all tests pass policies
+                        ],
+                        authenticationType: "TestScheme");
+                    context.User = new ClaimsPrincipal(identity);
+                }
+                // If not authenticated, leave context.User as null - authorization middleware will handle rejection
+
                 return nextMiddleware();
             });
 
             next(app);
         };
+    }
+
+    // Test authentication handler for authorization policy testing
+    private sealed class TestAuthenticationHandler : AuthenticationHandler<AuthenticationSchemeOptions>
+    {
+        public TestAuthenticationHandler(
+            IOptionsMonitor<AuthenticationSchemeOptions> options,
+            ILoggerFactory logger,
+            UrlEncoder encoder)
+            : base(options, logger, encoder)
+        {
+        }
+
+        protected override Task<AuthenticateResult> HandleAuthenticateAsync()
+        {
+            // Authentication is already set by AuthenticatedActorStartupFilter
+            return Task.FromResult(AuthenticateResult.NoResult());
+        }
     }
 }

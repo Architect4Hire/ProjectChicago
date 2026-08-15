@@ -23,6 +23,74 @@ public class UserController : ControllerBase
     }
 
     /// <summary>
+    /// List application users with pagination.
+    /// Administrator-only read endpoint. Returns support-safe user metadata (ID, email, role, created-at)
+    /// without passwords or security tokens (SEC-004, SEC-010..016).
+    /// </summary>
+    /// <param name="request">Pagination request (page, pageSize)</param>
+    /// <response code="200">Users retrieved successfully with pagination metadata</response>
+    /// <response code="400">Invalid request (page/pageSize out of valid range)</response>
+    /// <response code="401">Not authenticated</response>
+    /// <response code="403">Authenticated but not authorized (not Administrator)</response>
+    [HttpGet(Name = "ListUsers")]
+    [ProducesResponseType(typeof(PagedResponse<UserServiceModel>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<ActionResult<PagedResponse<UserServiceModel>>> ListAsync(
+        [FromQuery] ListUsersRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (User.Identity is not { IsAuthenticated: true })
+        {
+            return Unauthorized();
+        }
+
+        var response = await _userManagementFacade.ListUsersAsync(request, cancellationToken).ConfigureAwait(false);
+
+        return Ok(response);
+    }
+
+    /// <summary>
+    /// Get a user by ID with role information.
+    /// Administrator-only read endpoint. Returns support-safe user metadata (ID, email, role, created-at)
+    /// without passwords or security tokens (SEC-004, SEC-010..016).
+    /// </summary>
+    /// <param name="id">User ID</param>
+    /// <response code="200">User retrieved successfully</response>
+    /// <response code="401">Not authenticated</response>
+    /// <response code="403">Authenticated but not authorized (not Administrator)</response>
+    /// <response code="404">User not found</response>
+    [HttpGet("{id:guid}", Name = "GetUserDetail")]
+    [ProducesResponseType(typeof(UserServiceModel), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<UserServiceModel>> GetAsync(
+        [FromRoute] Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        if (User.Identity is not { IsAuthenticated: true })
+        {
+            return Unauthorized();
+        }
+
+        var response = await _userManagementFacade.GetUserDetailAsync(id, cancellationToken).ConfigureAwait(false);
+
+        if (response is null)
+        {
+            return NotFound(new ProblemDetails
+            {
+                Title = "User Not Found",
+                Detail = $"User with ID '{id}' does not exist.",
+                Status = StatusCodes.Status404NotFound,
+            });
+        }
+
+        return Ok(response);
+    }
+
+    /// <summary>
     /// Create a new application user with assigned role.
     /// Administrator-only endpoint. Records audit event on success, role validation failure,
     /// or duplicate user detection (SEC-004, SEC-010..016, AUDIT-001..008).

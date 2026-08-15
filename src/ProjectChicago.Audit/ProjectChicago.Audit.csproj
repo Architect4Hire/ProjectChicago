@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="..\ProjectChicago.Audit.Core\ProjectChicago.Audit.Core.csproj" />
+    <ProjectReference Include="..\ProjectChicago.ServiceDefaults\ProjectChicago.ServiceDefaults.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Aspire SQL Server EF Core client integration: wires AuditDbContext to the Aspire-injected
+         "AuditDb" connection with resilience, health check, and telemetry defaults. -->
+    <PackageReference Include="Aspire.Microsoft.EntityFrameworkCore.SqlServer" />
+    <!-- OpenAPI document generation for this host's MVC controllers. -->
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+</Project>

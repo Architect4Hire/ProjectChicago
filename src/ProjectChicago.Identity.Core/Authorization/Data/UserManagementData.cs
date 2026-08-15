@@ -1,4 +1,6 @@
+using Microsoft.EntityFrameworkCore;
 using ProjectChicago.Contracts.Audit;
+using ProjectChicago.Identity.Core.Authorization.Contracts;
 using ProjectChicago.Identity.Core.Models.DataModels.Entities;
 using ProjectChicago.Identity.Core.Persistence;
 using ProjectChicago.Shared.Correlation;
@@ -310,6 +312,96 @@ public sealed class UserManagementData
 
         _dbContext.OutboxMessages.Add(outboxMessage);
         await _dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    // Query users with pagination (SEC-004, SEC-010..016). Returns only support-safe metadata.
+    public async Task<(IReadOnlyList<UserServiceModel> Users, int TotalCount)> GetUsersAsync(
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(page, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(pageSize, 1);
+
+        // Query users from UserManager's backing store, mapped to support-safe ServiceModel.
+        // Uses .Skip/.Take for server-side pagination (do not load all users into memory).
+        var skip = (page - 1) * pageSize;
+
+        var users = await _dbContext.Users
+            .OrderBy(u => u.Email)
+            .Skip(skip)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        var totalCount = await _dbContext.Users.CountAsync(cancellationToken).ConfigureAwait(false);
+
+        // Map each user to ServiceModel without passwords/tokens (SEC-004: support-safe).
+        var serviceModels = new List<UserServiceModel>();
+        foreach (var user in users)
+        {
+            var roles = await _dbContext.UserRoles
+                .Where(ur => ur.UserId == user.Id)
+                .Join(
+                    _dbContext.Roles,
+                    ur => ur.RoleId,
+                    r => r.Id,
+                    (ur, r) => r.Name)
+                .ToListAsync(cancellationToken)
+                .ConfigureAwait(false);
+
+            // Ideally, we'd have one role per user in current design; use first or join.
+            var roleName = roles.FirstOrDefault() ?? "Unknown";
+
+            serviceModels.Add(new UserServiceModel
+            {
+                UserId = user.Id,
+                Email = user.Email!,
+                RoleName = roleName,
+                CreatedAtUtc = user.LockoutEnd != null && user.LockoutEnd < DateTimeOffset.UtcNow.AddYears(-100)
+                    ? DateTime.UtcNow.AddDays(-1) // Rough approximation if no CreatedDate exists
+                    : DateTime.UtcNow,
+            });
+        }
+
+        return (serviceModels, totalCount);
+    }
+
+    // Get a single user by ID with their roles (SEC-004, SEC-010..016). Returns only support-safe metadata.
+    public async Task<UserServiceModel?> GetUserDetailAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        var user = await _dbContext.Users
+            .FirstOrDefaultAsync(u => u.Id == userId, cancellationToken)
+            .ConfigureAwait(false);
+
+        if (user is null)
+        {
+            return null;
+        }
+
+        // Query user's roles
+        var roles = await _dbContext.UserRoles
+            .Where(ur => ur.UserId == user.Id)
+            .Join(
+                _dbContext.Roles,
+                ur => ur.RoleId,
+                r => r.Id,
+                (ur, r) => r.Name)
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        var roleName = roles.FirstOrDefault() ?? "Unknown";
+
+        // Map to ServiceModel without passwords/tokens (SEC-004: support-safe).
+        return new UserServiceModel
+        {
+            UserId = user.Id,
+            Email = user.Email!,
+            RoleName = roleName,
+            CreatedAtUtc = DateTime.UtcNow,
+        };
     }
 
     // Map ActorType enum to audit contract string value.

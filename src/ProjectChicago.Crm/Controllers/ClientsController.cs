@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ProjectChicago.Crm.Contracts.Clients;
 using ProjectChicago.Crm.Contracts.Common;
@@ -37,6 +38,7 @@ public sealed class ClientsController : ControllerBase
     // surfaces here only as an UnauthorizedAccessException the already-registered ApiExceptionHandler
     // classifies into 403.
     [HttpPost(Name = ClientsApiContract.CreateOperationId)]
+    [Authorize(Policy = ClientsApiContract.RequiredAuthorizationPolicy)]
     [ProducesResponseType(typeof(ClientServiceModel), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -64,6 +66,7 @@ public sealed class ClientsController : ControllerBase
     // ListClientsRequest before this action body ever runs, so an invalid query never reaches the
     // Facade (SEC-022).
     [HttpGet(Name = ClientsApiContract.ListOperationId)]
+    [Authorize(Policy = ClientsApiContract.RequiredReadAuthorizationPolicy)]
     [ProducesResponseType(typeof(PagedResponse<ClientServiceModel>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -90,6 +93,7 @@ public sealed class ClientsController : ControllerBase
     // Client with the requested Id exists, and this action is the only place that null maps to a
     // 404 ProblemDetails response (CLIENT-030..032).
     [HttpGet("{clientId:guid}", Name = ClientsApiContract.GetDetailOperationId)]
+    [Authorize(Policy = ClientsApiContract.RequiredReadAuthorizationPolicy)]
     [ProducesResponseType(typeof(ClientDetailServiceModel), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -121,6 +125,7 @@ public sealed class ClientsController : ControllerBase
     //  - ClientConcurrencyConflictException: request.ExpectedConcurrencyToken did not match the
     //    Client's currently persisted version (DATA-008). Mapped as a 409 conflict.
     [HttpPatch(ClientsApiContract.LifecycleStatusRouteSuffix, Name = ClientsApiContract.ChangeLifecycleStatusOperationId)]
+    [Authorize(Policy = ClientsApiContract.RequiredAuthorizationPolicy)]
     [ProducesResponseType(typeof(ClientServiceModel), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -175,6 +180,7 @@ public sealed class ClientsController : ControllerBase
     //  - ClientConcurrencyConflictException: request.ExpectedConcurrencyToken did not match the
     //    Client's currently persisted version (DATA-008). Mapped as a 409 conflict.
     [HttpPost(ClientsApiContract.ArchiveRouteSuffix, Name = ClientsApiContract.ArchiveOperationId)]
+    [Authorize(Policy = ClientsApiContract.RequiredAuthorizationPolicy)]
     [ProducesResponseType(typeof(ClientServiceModel), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -222,6 +228,7 @@ public sealed class ClientsController : ControllerBase
     //  - ClientConcurrencyConflictException: request.ExpectedConcurrencyToken did not match the
     //    Client's currently persisted version (DATA-008). Mapped as a 409 conflict.
     [HttpPost(ClientsApiContract.RestoreRouteSuffix, Name = ClientsApiContract.RestoreOperationId)]
+    [Authorize(Policy = ClientsApiContract.RequiredAuthorizationPolicy)]
     [ProducesResponseType(typeof(ClientServiceModel), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -273,6 +280,7 @@ public sealed class ClientsController : ControllerBase
     //  - ClientConcurrencyConflictException: request.ExpectedConcurrencyToken did not match the
     //    Client's currently persisted version (DATA-008). Mapped as a 409 conflict.
     [HttpPatch(ClientsApiContract.UpdateRouteSuffix, Name = ClientsApiContract.UpdateOperationId)]
+    [Authorize(Policy = ClientsApiContract.RequiredAuthorizationPolicy)]
     [ProducesResponseType(typeof(ClientServiceModel), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]

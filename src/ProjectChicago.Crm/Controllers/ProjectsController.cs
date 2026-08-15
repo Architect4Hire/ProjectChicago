@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ProjectChicago.Crm.Contracts.Common;
 using ProjectChicago.Crm.Contracts.Projects;
@@ -39,6 +40,7 @@ public sealed class ProjectsController : ControllerBase
     // does not exist, making the request invalid given the current state.
     [Route("api/clients/{clientId}/projects")]
     [HttpPost(Name = ProjectsApiContract.CreateOperationId)]
+    [Authorize(Policy = "Projects.Write")]
     [ProducesResponseType(typeof(ProjectServiceModel), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -88,6 +90,7 @@ public sealed class ProjectsController : ControllerBase
     // Business/Data/Repository/DbContext and never publishes directly (RESTRICTION).
     [Route("api/projects")]
     [HttpGet(Name = ProjectsApiContract.ListOperationId)]
+    [Authorize(Policy = "Projects.Read")]
     [ProducesResponseType(typeof(PagedResponse<ProjectServiceModel>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -120,6 +123,7 @@ public sealed class ProjectsController : ControllerBase
     // Business/Data/Repository/DbContext and never publishes directly (RESTRICTION).
     [Route("api/projects/{projectId}")]
     [HttpGet(Name = ProjectsApiContract.DetailOperationId)]
+    [Authorize(Policy = "Projects.Read")]
     [ProducesResponseType(typeof(ProjectDetailServiceModel), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -154,6 +158,7 @@ public sealed class ProjectsController : ControllerBase
     // no Business/Data/Repository/DbContext and never publishes directly (RESTRICTION).
     [Route("api/projects/{projectId}/status")]
     [HttpPatch(Name = ProjectsApiContract.TransitionStatusOperationId)]
+    [Authorize(Policy = "Projects.Write")]
     [ProducesResponseType(typeof(ProjectServiceModel), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -217,6 +222,7 @@ public sealed class ProjectsController : ControllerBase
     // Repository/DbContext and never publishes directly (RESTRICTION).
     [Route("api/projects/{projectId}/archive")]
     [HttpDelete(Name = ProjectsApiContract.ArchiveOperationId)]
+    [Authorize(Policy = "Projects.Write")]
     [ProducesResponseType(typeof(ProjectServiceModel), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]

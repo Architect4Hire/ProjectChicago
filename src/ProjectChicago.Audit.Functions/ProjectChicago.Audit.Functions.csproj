@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AzureFunctionsVersion>v4</AzureFunctionsVersion>
+    <OutputType>Exe</OutputType>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Azure.Functions.Worker" />
+    <PackageReference Include="Microsoft.Azure.Functions.Worker.Sdk" />
+    <!-- Functions-host/worker span correlation layered on top of ServiceDefaults' OpenTelemetry
+         pipeline (ASYNC-003). -->
+    <PackageReference Include="Microsoft.Azure.Functions.Worker.OpenTelemetry" />
+    <!-- ServiceBusTrigger attribute/binding for consuming EntityMutationAudited events (ADR-0016). -->
+    <PackageReference Include="Microsoft.Azure.Functions.Worker.Extensions.ServiceBus" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Aspire SQL Server EF Core client integration for Audit's own "AuditDb" database. -->
+    <PackageReference Include="Aspire.Microsoft.EntityFrameworkCore.SqlServer" />
+    <!-- Aspire Azure Service Bus client integration: Audit Functions consumes from Service Bus
+         subscriptions (ADR-0016, ADR-0017). -->
+    <PackageReference Include="Aspire.Azure.Messaging.ServiceBus" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ProjectChicago.Audit.Core\ProjectChicago.Audit.Core.csproj" />
+    <ProjectReference Include="..\ProjectChicago.Shared\ProjectChicago.Shared.csproj" />
+    <ProjectReference Include="..\ProjectChicago.Contracts\ProjectChicago.Contracts.csproj" />
+    <ProjectReference Include="..\ProjectChicago.ServiceDefaults\ProjectChicago.ServiceDefaults.csproj" />
+  </ItemGroup>
+
+</Project>

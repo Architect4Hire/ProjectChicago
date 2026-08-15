@@ -64,6 +64,8 @@
     <PackageVersion Include="Microsoft.Azure.Functions.Worker.OpenTelemetry" Version="1.1.0" />
     <!-- TimerTrigger attribute/binding for the outbox relay Function (OUTBOX-003..006). -->
     <PackageVersion Include="Microsoft.Azure.Functions.Worker.Extensions.Timer" Version="4.3.1" />
+    <!-- ServiceBusTrigger attribute/binding for consuming events (ADR-0016, ADR-0017). -->
+    <PackageVersion Include="Microsoft.Azure.Functions.Worker.Extensions.ServiceBus" Version="5.18.0" />
   </ItemGroup>
 
   <!-- Aspire hosting integrations (AppHost local resource model) - versioned to match Aspire.AppHost.Sdk -->
@@ -84,6 +86,7 @@
   <ItemGroup>
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />
     <PackageVersion Include="Moq" Version="4.20.70" />
+    <PackageVersion Include="FluentAssertions" Version="7.1.1" />
     <PackageVersion Include="xunit" Version="2.9.3" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
     <PackageVersion Include="Microsoft.Extensions.Configuration" Version="10.0.11" />

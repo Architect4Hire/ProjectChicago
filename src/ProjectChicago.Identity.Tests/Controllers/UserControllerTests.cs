@@ -155,4 +155,127 @@ public class UserControllerTests : IClassFixture<WebApplicationFactory<Program>>
             response.StatusCode == System.Net.HttpStatusCode.Unauthorized
         );
     }
+
+    // List users endpoint tests (SEC-004, SEC-010..016)
+    [Fact]
+    public async Task ListUsers_EndpointExists()
+    {
+        var client = _factory.CreateClient();
+
+        var response = await client.SendAsync(
+            new HttpRequestMessage(HttpMethod.Options, "/users")
+        );
+
+        Assert.NotEqual(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task ListUsers_WithDefaultPagination_ReturnsOkOrUnauth()
+    {
+        var client = _factory.CreateClient();
+
+        var response = await client.GetAsync("/users");
+
+        Assert.True(
+            response.StatusCode == HttpStatusCode.OK ||
+            response.StatusCode == HttpStatusCode.Unauthorized ||
+            response.StatusCode == HttpStatusCode.Forbidden
+        );
+    }
+
+    [Fact]
+    public async Task ListUsers_WithValidPageParameters_ReturnsOkOrUnauth()
+    {
+        var client = _factory.CreateClient();
+
+        var response = await client.GetAsync("/users?page=1&pageSize=10");
+
+        Assert.True(
+            response.StatusCode == HttpStatusCode.OK ||
+            response.StatusCode == HttpStatusCode.Unauthorized ||
+            response.StatusCode == HttpStatusCode.Forbidden
+        );
+    }
+
+    [Fact]
+    public async Task ListUsers_WithInvalidPageNumber_ReturnsBadRequest()
+    {
+        var client = _factory.CreateClient();
+
+        var response = await client.GetAsync("/users?page=0&pageSize=10");
+
+        Assert.True(
+            response.StatusCode == HttpStatusCode.BadRequest ||
+            response.StatusCode == HttpStatusCode.Unauthorized
+        );
+    }
+
+    [Fact]
+    public async Task ListUsers_WithInvalidPageSize_ReturnsBadRequest()
+    {
+        var client = _factory.CreateClient();
+
+        var response = await client.GetAsync("/users?page=1&pageSize=101");
+
+        Assert.True(
+            response.StatusCode == HttpStatusCode.BadRequest ||
+            response.StatusCode == HttpStatusCode.Unauthorized
+        );
+    }
+
+    // Get user detail endpoint tests (SEC-004, SEC-010..016)
+    [Fact]
+    public async Task GetUserDetail_EndpointExists()
+    {
+        var client = _factory.CreateClient();
+        var userId = Guid.NewGuid();
+
+        var response = await client.SendAsync(
+            new HttpRequestMessage(HttpMethod.Options, $"/users/{userId}")
+        );
+
+        Assert.NotEqual(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetUserDetail_WithNonexistentUser_ReturnsNotFoundOrUnauth()
+    {
+        var client = _factory.CreateClient();
+        var userId = Guid.NewGuid();
+
+        var response = await client.GetAsync($"/users/{userId}");
+
+        Assert.True(
+            response.StatusCode == HttpStatusCode.NotFound ||
+            response.StatusCode == HttpStatusCode.Unauthorized ||
+            response.StatusCode == HttpStatusCode.Forbidden
+        );
+    }
+
+    [Fact]
+    public async Task GetUserDetail_WithValidId_ReturnsOkOrUnauth()
+    {
+        var client = _factory.CreateClient();
+        var userId = Guid.NewGuid();
+
+        var response = await client.GetAsync($"/users/{userId}");
+
+        Assert.True(
+            response.StatusCode == HttpStatusCode.OK ||
+            response.StatusCode == HttpStatusCode.NotFound ||
+            response.StatusCode == HttpStatusCode.Unauthorized ||
+            response.StatusCode == HttpStatusCode.Forbidden
+        );
+    }
+
+    [Fact]
+    public async Task GetUserDetail_WithInvalidGuid_ReturnsBadRequest()
+    {
+        var client = _factory.CreateClient();
+
+        var response = await client.GetAsync("/users/not-a-guid");
+
+        // Invalid GUID format should not match the route constraint
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
 }

@@ -238,4 +238,45 @@ public class UserManagementFacade
 
         return serviceModel;
     }
+
+    // List users with pagination (SEC-004, SEC-010..016, identity.md).
+    // Administrator-only read operation returning support-safe user metadata.
+    // Page/PageSize are validated by [ApiController] automatic model-state validation on the transport contract.
+    public async Task<PagedResponse<UserServiceModel>> ListUsersAsync(
+        ListUsersRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentOutOfRangeException.ThrowIfLessThan(request.Page, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(request.PageSize, 1);
+
+        // Delegate to Data for query (read-only, no domain logic)
+        var (users, totalCount) = await _data.GetUsersAsync(request.Page, request.PageSize, cancellationToken)
+            .ConfigureAwait(false);
+
+        // Compose paginated response
+        var totalPages = totalCount == 0 ? 0 : (totalCount + request.PageSize - 1) / request.PageSize;
+
+        return new PagedResponse<UserServiceModel>
+        {
+            Items = users,
+            Page = request.Page,
+            PageSize = request.PageSize,
+            TotalCount = totalCount,
+            TotalPages = totalPages,
+        };
+    }
+
+    // Get a user by ID (SEC-004, SEC-010..016, identity.md).
+    // Administrator-only read operation. Returns the user with support-safe metadata,
+    // or null if the user does not exist (controller will map this to 404).
+    public async Task<UserServiceModel?> GetUserDetailAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(userId.ToString());
+
+        // Delegate to Data for query (read-only, no domain logic)
+        return await _data.GetUserDetailAsync(userId, cancellationToken).ConfigureAwait(false);
+    }
 }

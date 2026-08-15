@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Mvc;
 using ProjectChicago.Crm.Contracts.Common;
@@ -40,6 +41,7 @@ public sealed class TasksController : ControllerBase
     // does not exist, making the request invalid given the current state.
     [Route("api/projects/{projectId}/tasks")]
     [HttpPost(Name = TasksApiContract.CreateOperationId)]
+    [Authorize(Policy = "Tasks.Write")]
     [ProducesResponseType(typeof(TaskServiceModel), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -80,6 +82,7 @@ public sealed class TasksController : ControllerBase
     // DATA-008), 400 when the Task doesn't exist, 401/403 for authentication/authorization.
     [Route("api/tasks/{taskId}")]
     [HttpPatch(Name = TasksApiContract.AssignOperationId)]
+    [Authorize(Policy = "Tasks.Write")]
     [ProducesResponseType(typeof(TaskServiceModel), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
@@ -130,6 +133,7 @@ public sealed class TasksController : ControllerBase
     // 400 when the Task doesn't exist, 401/403 for authentication/authorization.
     [Route("api/tasks/{taskId}/priority")]
     [HttpPatch(Name = TasksApiContract.ChangePriorityOperationId)]
+    [Authorize(Policy = "Tasks.Write")]
     [ProducesResponseType(typeof(TaskServiceModel), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
@@ -181,6 +185,7 @@ public sealed class TasksController : ControllerBase
     // authentication/authorization.
     [Route("api/tasks/{taskId}/status")]
     [HttpPatch(Name = TasksApiContract.ChangeStatusOperationId)]
+    [Authorize(Policy = "Tasks.Write")]
     [ProducesResponseType(typeof(TaskServiceModel), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
@@ -240,6 +245,7 @@ public sealed class TasksController : ControllerBase
     // 400 when the Task doesn't exist or is not Completed, 401/403 for authentication/authorization.
     [Route("api/tasks/{taskId}/reopen")]
     [HttpPatch(Name = TasksApiContract.ReopenOperationId)]
+    [Authorize(Policy = "Tasks.Write")]
     [ProducesResponseType(typeof(TaskServiceModel), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
@@ -300,6 +306,7 @@ public sealed class TasksController : ControllerBase
     // 401/403 for authentication/authorization.
     [Route("api/tasks/{taskId}/details")]
     [HttpPatch(Name = TasksApiContract.EditOperationId)]
+    [Authorize(Policy = "Tasks.Write")]
     [ProducesResponseType(typeof(TaskServiceModel), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
@@ -355,6 +362,7 @@ public sealed class TasksController : ControllerBase
 
     [Route("api/tasks")]
     [HttpGet(Name = TasksApiContract.ListOperationId)]
+    [Authorize(Policy = "Tasks.Read")]
     [ProducesResponseType(typeof(PagedResponse<TaskServiceModel>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]

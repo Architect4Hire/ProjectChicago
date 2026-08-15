@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsTestProject>true</IsTestProject>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="FluentAssertions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ProjectChicago.Audit.Functions\ProjectChicago.Audit.Functions.csproj" />
+    <ProjectReference Include="..\ProjectChicago.Audit.Core\ProjectChicago.Audit.Core.csproj" />
+    <ProjectReference Include="..\ProjectChicago.Shared\ProjectChicago.Shared.csproj" />
+    <ProjectReference Include="..\ProjectChicago.Contracts\ProjectChicago.Contracts.csproj" />
+  </ItemGroup>
+
+</Project>
