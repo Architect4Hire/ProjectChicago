@@ -80,7 +80,7 @@ public static class AuthEndpoints
 
             // Issue CSRF token via double-submit pattern (returned in response header, not body)
             var tokens = antiforgery.GetAndStoreTokens(httpContext);
-            httpContext.Response.Headers.Add("X-CSRF-TOKEN", tokens.RequestToken ?? "");
+            httpContext.Response.Headers["X-CSRF-TOKEN"] = tokens.RequestToken ?? "";
 
             // Return user info only (no tokens to browser)
             return Results.Ok(new LoginResponse(
