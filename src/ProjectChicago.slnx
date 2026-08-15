@@ -10,6 +10,12 @@
   <Project Path="ProjectChicago.Crm.Functions/ProjectChicago.Crm.Functions.csproj" />
   <Project Path="ProjectChicago.Gateway/ProjectChicago.Gateway.csproj" />
   <Project Path="ProjectChicago.Gateway.Tests/ProjectChicago.Gateway.Tests.csproj" />
+  <Project Path="ProjectChicago.Identity/ProjectChicago.Identity.csproj" />
+  <Project Path="ProjectChicago.Identity.Api.Tests/ProjectChicago.Identity.Api.Tests.csproj" />
+  <Project Path="ProjectChicago.Identity.Core/ProjectChicago.Identity.Core.csproj" />
+  <Project Path="ProjectChicago.Identity.Core.Tests/ProjectChicago.Identity.Core.Tests.csproj" />
+  <Project Path="ProjectChicago.Identity.Functions/ProjectChicago.Identity.Functions.csproj" />
+  <Project Path="ProjectChicago.Identity.Functions.Tests/ProjectChicago.Identity.Functions.Tests.csproj" />
   <Project Path="ProjectChicago.ServiceDefaults/ProjectChicago.ServiceDefaults.csproj" />
   <Project Path="ProjectChicago.ServiceDefaults.Tests/ProjectChicago.ServiceDefaults.Tests.csproj" />
   <Project Path="ProjectChicago.Shared/ProjectChicago.Shared.csproj" />

@@ -11,6 +11,12 @@ var sql = builder.AddSqlServer("sql")
 // Server EF Core integration (DEPLOY-001).
 var crmDb = sql.AddDatabase("CrmDb");
 
+// Identity's own SQL database (ADR-0015: "IdentityDb", DATA-031..034, SEC-001). Resource name
+// doubles as the Aspire-injected connection name the Identity host/Functions composition roots
+// resolve via the SQL Server EF Core integration (DEPLOY-001). IdentityDbContext includes
+// ASP.NET Core Identity tables plus Outbox/Inbox for event-driven mutations (ASYNC-005).
+var identityDb = sql.AddDatabase("IdentityDb");
+
 // Local Azure Service Bus emulator, topology per ADR-0017 (confirmed in CLAUDE.md): a single shared
 // topic "ProjectChicago.Events" with one subscription per consuming service - "Audit" initially,
 // with Notification/Search/Workflow subscriptions added later without changing this topology.
@@ -43,11 +49,32 @@ builder.AddAzureFunctionsProject<Projects.ProjectChicago_Crm_Functions>("crm-fun
     .WithReference(messaging)
     .WaitFor(messaging);
 
-// The gateway is Project Chicago's only browser-facing HTTP edge (SEC-020, gateway.md). Registered
-// as a plain project resource for Aspire service discovery/health/telemetry defaults; no routes to
-// backend service API hosts are wired here since none exist yet, and it gets no SQL/Service Bus
-// reference - the gateway never talks to either directly.
-builder.AddProject<Projects.ProjectChicago_Gateway>("gateway");
+// Identity bounded-service HTTP host (ADR-0015). Composition-only: ServiceDefaults plus the Aspire
+// SQL Server EF Core integration for its own "IdentityDb" database (DATA-031..034, SEC-001..004).
+// WaitFor ensures the SQL container is ready before Identity starts. Does not receive Service Bus
+// reference since the HTTP host has no direct messaging wiring (aspire.md: don't give an API host
+// Service Bus credentials it doesn't use); only Identity.Functions publishes Identity events.
+var identity = builder.AddProject<Projects.ProjectChicago_Identity>("identity")
+    .WithReference(identityDb)
+    .WaitFor(identityDb);
+
+// Identity's sibling Azure Functions project (ADR-0015), the only asynchronous entry point for
+// this service (functions.md). It is the Identity publisher side of the outbox pattern (OUTBOX-003),
+// so - unlike the "identity" HTTP host above - it receives both the "IdentityDb" reference (to
+// read/mark outbox rows) and the shared Service Bus resource (to relay authentication/account
+// events). No triggers exist yet; this step only proves least-privilege composition wiring.
+builder.AddAzureFunctionsProject<Projects.ProjectChicago_Identity_Functions>("identity-functions")
+    .WithReference(identityDb)
+    .WaitFor(identityDb)
+    .WithReference(messaging)
+    .WaitFor(messaging);
+
+// The gateway is Project Chicago's only browser-facing HTTP edge (SEC-020, gateway.md). It routes
+// stable public paths to owning service API hosts via service discovery. Route configuration is
+// declared in gateway appsettings.json; AppHost wires references here (aspire.md: least-privilege).
+// Identity service is wired for /auth/* route (authentication/account endpoints, SEC-020, API-001..007).
+var gateway = builder.AddProject<Projects.ProjectChicago_Gateway>("gateway")
+    .WithReference(identity);  // Identity host needed for /auth/* routing
 
 // The React/Vite client (frontend.md). runScriptName is explicit even though "dev" is already
 // AddViteApp's default, to keep it visibly tied to package.json's "dev": "vite" script rather than

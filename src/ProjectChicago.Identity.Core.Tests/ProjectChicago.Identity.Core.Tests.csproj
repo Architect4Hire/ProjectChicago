@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="Moq" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <!-- Real SQL Server container for Identity persistence behavior and concurrency testing (TEST-004). -->
+    <PackageReference Include="Testcontainers.MsSql" />
+    <!-- ASP.NET Core testing (WebApplicationFactory, TestHost) for host DI verification -->
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <!-- In-Memory EF Core provider for mapping tests (no persistence behavior testing) -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ProjectChicago.Identity\ProjectChicago.Identity.csproj" />
+    <ProjectReference Include="..\ProjectChicago.Identity.Core\ProjectChicago.Identity.Core.csproj" />
+  </ItemGroup>
+
+</Project>

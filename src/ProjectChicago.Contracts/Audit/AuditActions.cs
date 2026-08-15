@@ -15,4 +15,20 @@ public static class AuditActions
     public const string Reopened = "Reopened";
     public const string Archived = "Archived";
     public const string Restored = "Restored";
+
+    // Authentication events (Identity service, SEC-001..025, AUDIT-001).
+    public const string LoggedIn = "LoggedIn";
+    public const string FailedLogin = "FailedLogin";
+    public const string AccountLocked = "AccountLocked";
+    public const string LoggedOut = "LoggedOut";
+
+    // User management events (Identity service, SEC-004, AUDIT-001).
+    public const string UserCreated = "UserCreated";
+    public const string UserDeactivated = "UserDeactivated";
+    public const string UserActivated = "UserActivated";
+    public const string RoleAdded = "RoleAdded";
+    public const string RoleRemoved = "RoleRemoved";
+    public const string PasswordChanged = "PasswordChanged";
+    public const string PasswordResetInitiated = "PasswordResetInitiated";
+    public const string PasswordReset = "PasswordReset";
 }

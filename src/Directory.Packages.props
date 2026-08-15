@@ -33,11 +33,22 @@
   <ItemGroup>
     <PackageVersion Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.10" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.10" />
+  </ItemGroup>
+
+  <!-- ASP.NET Core Identity (SEC-001, SEC-003, SEC-004: user/role management, password hashing, account security) -->
+  <ItemGroup>
+    <PackageVersion Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.10" />
   </ItemGroup>
 
   <!-- OpenAPI document generation for MVC controller HTTP hosts (API-006). -->
   <ItemGroup>
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.11" />
+  </ItemGroup>
+
+  <!-- YARP gateway reverse proxy (gateway.md: SEC-020, route stable public paths to service hosts via service discovery). -->
+  <ItemGroup>
+    <PackageVersion Include="Yarp.ReverseProxy" Version="2.2.1" />
   </ItemGroup>
 
   <!-- Azure Service Bus SDK (Shared publisher mechanism) -->
