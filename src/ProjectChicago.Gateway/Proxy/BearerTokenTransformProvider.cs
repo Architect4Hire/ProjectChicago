@@ -10,28 +10,22 @@ namespace ProjectChicago.Gateway.Proxy;
 public class BearerTokenMiddleware
 {
     private readonly RequestDelegate _next;
-    private readonly ISessionStore _sessionStore;
-    private readonly IdentityInternalClient _identityClient;
     private const int RefreshSkewSeconds = 60;
 
-    public BearerTokenMiddleware(RequestDelegate next, ISessionStore sessionStore, IdentityInternalClient identityClient)
+    public BearerTokenMiddleware(RequestDelegate next)
     {
         ArgumentNullException.ThrowIfNull(next);
-        ArgumentNullException.ThrowIfNull(sessionStore);
-        ArgumentNullException.ThrowIfNull(identityClient);
         _next = next;
-        _sessionStore = sessionStore;
-        _identityClient = identityClient;
     }
 
-    public async Task InvokeAsync(HttpContext httpContext)
+    public async Task InvokeAsync(HttpContext httpContext, ISessionStore sessionStore, IdentityInternalClient identityClient)
     {
         // Try to read the session ID from the cookie
         if (httpContext.Request.Cookies.TryGetValue(".ProjectChicago.SessionId", out var sessionId) &&
             !string.IsNullOrWhiteSpace(sessionId))
         {
             // Retrieve the session from Redis
-            var session = await _sessionStore.GetAsync(sessionId);
+            var session = await sessionStore.GetAsync(sessionId);
             if (session is not null)
             {
                 // Check if the access token is near expiry (within 60 seconds)
@@ -40,7 +34,7 @@ public class BearerTokenMiddleware
                     try
                     {
                         // Token is near expiry - refresh it inline
-                        var refreshedResponse = await _identityClient.RefreshAsync(session.RefreshToken);
+                        var refreshedResponse = await identityClient.RefreshAsync(session.RefreshToken);
 
                         // Update the session in Redis with the new token pair (token rotation)
                         var updatedSession = session with
@@ -50,7 +44,7 @@ public class BearerTokenMiddleware
                             RefreshToken = refreshedResponse.RefreshToken,
                             RefreshTokenExpiresAtUtc = refreshedResponse.RefreshTokenExpiresAtUtc,
                         };
-                        await _sessionStore.UpdateAsync(sessionId, updatedSession);
+                        await sessionStore.UpdateAsync(sessionId, updatedSession);
 
                         // Inject the new access token into the request
                         httpContext.Request.Headers.Authorization = $"Bearer {refreshedResponse.AccessToken}";
@@ -58,7 +52,7 @@ public class BearerTokenMiddleware
                     catch
                     {
                         // Refresh failed - clear the session and continue unauthenticated
-                        await _sessionStore.DeleteAsync(sessionId);
+                        await sessionStore.DeleteAsync(sessionId);
                         httpContext.Response.Cookies.Delete(".ProjectChicago.SessionId");
                     }
                 }
