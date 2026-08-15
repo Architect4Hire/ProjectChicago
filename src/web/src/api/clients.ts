@@ -213,6 +213,32 @@ export interface ChangeClientLifecycleStatusRequest {
 }
 
 /**
+ * Request to archive a Client
+ * POST /api/clients/{clientId}/archive
+ * Mirrors the backend's ArchiveClientViewModel exactly (CLIENT-013..015).
+ * ExpectedConcurrencyToken is required (DATA-008): the caller's last-known
+ * ClientDetailRecord.concurrencyToken, so a stale write is rejected with 409 rather than silently
+ * overwriting a change made by someone else.
+ */
+export interface ArchiveClientRequest {
+  expectedConcurrencyToken: string;
+}
+
+/**
+ * Request to restore an archived Client back to an active lifecycle status
+ * POST /api/clients/{clientId}/restore
+ * Mirrors the backend's RestoreClientViewModel exactly (CLIENT-013..014).
+ * RestoredStatus is required - the caller must explicitly choose which lifecycle status to
+ * restore to (e.g. Active, Lead, Prospect) rather than defaulting; Archived is rejected by the
+ * server as a restore target.
+ * ExpectedConcurrencyToken is required (DATA-008), same reasoning as ArchiveClientRequest.
+ */
+export interface RestoreClientRequest {
+  restoredStatus: ClientLifecycleStatus;
+  expectedConcurrencyToken: string;
+}
+
+/**
  * Sort order options for Client list
  * CLIENT-023: Sort by name, created date, modified date, lifecycle status
  */
@@ -366,14 +392,33 @@ export const clientsApi = {
 
   /**
    * Archive a Client
-   * DELETE /api/clients/{clientId}
-   * API-003: DELETE for archive operations
+   * POST /api/clients/{clientId}/archive
    * CLIENT-013: Archived clients not in normal lists
    * CLIENT-014: Archiving doesn't delete historical information
-   * CLIENT-015: Clients with active projects cannot be permanently removed
+   * CLIENT-015: Clients with active projects cannot be permanently removed - the server rejects
+   * with ConflictError (409) when the Client has active Projects, and also when
+   * expectedConcurrencyToken no longer matches the persisted Client (DATA-008).
+   * Response shape mirrors the backend's ClientServiceModel for the fields ClientDetailRecord also
+   * carries; PossibleDuplicates (irrelevant to archiving) is simply ignored.
    */
-  async archiveClient(clientId: string): Promise<void> {
+  async archiveClient(clientId: string, request: ArchiveClientRequest): Promise<ClientDetailRecord> {
     const client = getGatewayClient();
-    await client.delete(`/api/clients/${clientId}`);
+    return client.post<ClientDetailRecord, ArchiveClientRequest>(`/api/clients/${clientId}/archive`, request);
+  },
+
+  /**
+   * Restore an archived Client to a chosen non-Archived lifecycle status
+   * POST /api/clients/{clientId}/restore
+   * CLIENT-013: Restoring makes the Client eligible for normal active lists again
+   * CLIENT-014: Restore is the counterpart to non-destructive archiving
+   * Rejects with ValidationError (400) when the Client is not currently Archived or
+   * restoredStatus is itself Archived, and with ConflictError (409) when
+   * expectedConcurrencyToken no longer matches the persisted Client (DATA-008).
+   * Response shape mirrors the backend's ClientServiceModel for the fields ClientDetailRecord also
+   * carries; PossibleDuplicates (irrelevant to restoring) is simply ignored.
+   */
+  async restoreClient(clientId: string, request: RestoreClientRequest): Promise<ClientDetailRecord> {
+    const client = getGatewayClient();
+    return client.post<ClientDetailRecord, RestoreClientRequest>(`/api/clients/${clientId}/restore`, request);
   },
 };

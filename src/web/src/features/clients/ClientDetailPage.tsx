@@ -5,6 +5,7 @@ import { useClientDetail } from './hooks/useClientDetail';
 import { useClientActivity } from './hooks/useClientActivity';
 import { ClientOverviewCard } from './components/ClientOverviewCard';
 import { ClientLifecycleStatusControl } from './components/ClientLifecycleStatusControl';
+import { ClientArchiveRestoreControl } from './components/ClientArchiveRestoreControl';
 import { ClientProjectsSection } from './components/ClientProjectsSection';
 import { ClientTasksSection } from './components/ClientTasksSection';
 import { ClientActivityPanel } from './components/ClientActivityPanel';
@@ -12,7 +13,7 @@ import { ClientActivityPanel } from './components/ClientActivityPanel';
 /**
  * Client detail page (CLIENT-030..032, CLIENT-010..015, ACTIVITY-001..003). Supplies Outlet
  * content only; AppLayout (header, sidebar, page shell) is provided by AuthenticatedShell/
- * AppLayout via the route tree. Archive/restore remain a separate, later feature.
+ * AppLayout via the route tree.
  */
 export const ClientDetailPage: FC = () => {
   const { clientId } = useParams<{ clientId: string }>();
@@ -85,6 +86,13 @@ export const ClientDetailPage: FC = () => {
       <ClientOverviewCard
         client={client}
         lifecycleControl={<ClientLifecycleStatusControl client={client} onStatusChanged={detailState.retry} />}
+        archiveControl={
+          <ClientArchiveRestoreControl
+            client={client}
+            hasActiveProjects={activeProjects.length > 0}
+            onChanged={detailState.retry}
+          />
+        }
       />
 
       <Grid className="lg:grid-cols-2">

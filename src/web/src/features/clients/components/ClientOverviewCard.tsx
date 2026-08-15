@@ -6,6 +6,7 @@ import { LIFECYCLE_STATUSES, LIFECYCLE_STATUS_TONES } from '../types';
 interface ClientOverviewCardProps {
   client: ClientDetailRecord;
   lifecycleControl?: ReactNode;
+  archiveControl?: ReactNode;
 }
 
 function formatDate(value: string): string {
@@ -15,7 +16,7 @@ function formatDate(value: string): string {
 /**
  * CLIENT-030: Client information, lifecycle status, and assigned owner in one consolidated card.
  */
-export const ClientOverviewCard: FC<ClientOverviewCardProps> = ({ client, lifecycleControl }) => {
+export const ClientOverviewCard: FC<ClientOverviewCardProps> = ({ client, lifecycleControl, archiveControl }) => {
   const address = [client.addressLine, client.city, client.stateOrProvince, client.postalCode, client.country]
     .filter(Boolean)
     .join(', ');
@@ -32,6 +33,10 @@ export const ClientOverviewCard: FC<ClientOverviewCardProps> = ({ client, lifecy
           </div>
           {lifecycleControl}
         </div>
+
+        {archiveControl && (
+          <div className="border-t border-gray-100 pt-4 dark:border-gray-800">{archiveControl}</div>
+        )}
 
         {client.description && <p className="text-sm text-gray-600 dark:text-gray-400">{client.description}</p>}
 

@@ -410,20 +410,58 @@ describe('clientsApi', () => {
   });
 
   describe('archiveClient', () => {
-    it('should archive a client by ID', async () => {
-      mockClient.delete.mockResolvedValueOnce(undefined);
+    it('should archive a client by ID with its expected concurrency token', async () => {
+      const archivedClient = { ...mockClients[0], lifecycleStatus: 'Archived' as const };
+      mockClient.post.mockResolvedValueOnce(archivedClient);
 
-      await clientsApi.archiveClient('client-1');
+      const result = await clientsApi.archiveClient('client-1', { expectedConcurrencyToken: 'AAAAAAAAB9E=' });
 
-      expect(mockClient.delete).toHaveBeenCalledWith('/api/clients/client-1');
+      expect(mockClient.post).toHaveBeenCalledWith('/api/clients/client-1/archive', {
+        expectedConcurrencyToken: 'AAAAAAAAB9E=',
+      });
+      expect(result.lifecycleStatus).toBe('Archived');
     });
 
     it('should archive different clients', async () => {
-      mockClient.delete.mockResolvedValueOnce(undefined);
+      mockClient.post.mockResolvedValueOnce(mockClients[1]);
 
-      await clientsApi.archiveClient('client-2');
+      await clientsApi.archiveClient('client-2', { expectedConcurrencyToken: 'BBBBBBBBB9E=' });
 
-      expect(mockClient.delete).toHaveBeenCalledWith('/api/clients/client-2');
+      expect(mockClient.post).toHaveBeenCalledWith('/api/clients/client-2/archive', {
+        expectedConcurrencyToken: 'BBBBBBBBB9E=',
+      });
+    });
+  });
+
+  describe('restoreClient', () => {
+    it('should restore an archived client to a chosen lifecycle status with its expected concurrency token', async () => {
+      const restoredClient = { ...mockClients[0], lifecycleStatus: 'Active' as const };
+      mockClient.post.mockResolvedValueOnce(restoredClient);
+
+      const result = await clientsApi.restoreClient('client-1', {
+        restoredStatus: 'Active',
+        expectedConcurrencyToken: 'AAAAAAAAB9E=',
+      });
+
+      expect(mockClient.post).toHaveBeenCalledWith('/api/clients/client-1/restore', {
+        restoredStatus: 'Active',
+        expectedConcurrencyToken: 'AAAAAAAAB9E=',
+      });
+      expect(result.lifecycleStatus).toBe('Active');
+    });
+
+    it('should restore different clients to different statuses', async () => {
+      mockClient.post.mockResolvedValueOnce({ ...mockClients[1], lifecycleStatus: 'Lead' as const });
+
+      await clientsApi.restoreClient('client-2', {
+        restoredStatus: 'Lead',
+        expectedConcurrencyToken: 'BBBBBBBBB9E=',
+      });
+
+      expect(mockClient.post).toHaveBeenCalledWith('/api/clients/client-2/restore', {
+        restoredStatus: 'Lead',
+        expectedConcurrencyToken: 'BBBBBBBBB9E=',
+      });
     });
   });
 
@@ -440,7 +478,6 @@ describe('clientsApi', () => {
       mockClient.get.mockResolvedValueOnce(mockResponse);
       mockClient.post.mockResolvedValueOnce(mockClients[0]);
       mockClient.put.mockResolvedValueOnce(mockClients[0]);
-      mockClient.delete.mockResolvedValueOnce(undefined);
 
       await clientsApi.listClients();
       expect(mockClient.get).toHaveBeenCalled();
@@ -457,15 +494,15 @@ describe('clientsApi', () => {
       await clientsApi.updateClient('client-1', { name: 'Updated' });
       expect(mockClient.put).toHaveBeenCalled();
 
-      await clientsApi.archiveClient('client-1');
-      expect(mockClient.delete).toHaveBeenCalled();
+      mockClient.post.mockResolvedValueOnce(mockClients[0]);
+      await clientsApi.archiveClient('client-1', { expectedConcurrencyToken: 'AAAAAAAAB9E=' });
+      expect(mockClient.post).toHaveBeenCalledWith('/api/clients/client-1/archive', expect.any(Object));
     });
 
     it('should use consistent API routes', async () => {
       mockClient.get.mockResolvedValueOnce({ pageNumber: 1, pageSize: 20, totalCount: 0, totalPages: 0, items: [] });
       mockClient.post.mockResolvedValueOnce(mockClients[0]);
       mockClient.put.mockResolvedValueOnce(mockClients[0]);
-      mockClient.delete.mockResolvedValueOnce(undefined);
 
       await clientsApi.listClients();
       expect(mockClient.get).toHaveBeenCalledWith(expect.stringContaining('/api/clients'));
@@ -485,8 +522,22 @@ describe('clientsApi', () => {
       await clientsApi.updateClient('client-1', { name: 'Updated' });
       expect(mockClient.put).toHaveBeenCalledWith(expect.stringContaining('/api/clients/client-1'), expect.any(Object));
 
-      await clientsApi.archiveClient('client-1');
-      expect(mockClient.delete).toHaveBeenCalledWith(expect.stringContaining('/api/clients/client-1'));
+      mockClient.post.mockResolvedValueOnce(mockClients[0]);
+      await clientsApi.archiveClient('client-1', { expectedConcurrencyToken: 'AAAAAAAAB9E=' });
+      expect(mockClient.post).toHaveBeenCalledWith(
+        expect.stringContaining('/api/clients/client-1/archive'),
+        expect.any(Object),
+      );
+
+      mockClient.post.mockResolvedValueOnce({ ...mockClients[0], lifecycleStatus: 'Active' });
+      await clientsApi.restoreClient('client-1', {
+        restoredStatus: 'Active',
+        expectedConcurrencyToken: 'AAAAAAAAB9E=',
+      });
+      expect(mockClient.post).toHaveBeenCalledWith(
+        expect.stringContaining('/api/clients/client-1/restore'),
+        expect.any(Object),
+      );
     });
   });
 });
