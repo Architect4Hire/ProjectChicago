@@ -15,7 +15,6 @@ namespace ProjectChicago.Crm.Controllers;
 /// Transport-only: binds requests, delegates to IProjectFacade, maps results to HTTP/ProblemDetails.
 /// </summary>
 [ApiController]
-[Route("")]
 [RequireAuthentication]
 public sealed class ProjectsController : ControllerBase
 {
