@@ -95,6 +95,22 @@ builder.Services.AddOpenApi();
 
 var app = builder.Build();
 
+// Apply pending EF Core migrations (DATA-034: migrations through controlled deployment).
+// Runs synchronously on startup to ensure schema is ready before the service serves requests.
+// If migration fails, service startup fails (correct behavior for schema corruption/errors).
+try
+{
+    using var scope = app.Services.CreateScope();
+    var dbContext = scope.ServiceProvider.GetRequiredService<AuditDbContext>();
+    await dbContext.Database.MigrateAsync();
+    Console.WriteLine("[Audit] ✓ Database migrations applied successfully");
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"[Audit] ✗ Database migration failed: {ex.Message}");
+    throw;
+}
+
 // ERROR-001..005, TRACE-001..007, LOG-001..006: Exception handler middleware (ProblemDetails/ApiExceptionHandler)
 // processes all unhandled exceptions and structured errors, returning safe responses with trace ID references
 // for support correlation. StatusCodePages converts bare status codes (404, etc.) into the same consistent

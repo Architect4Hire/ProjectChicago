@@ -181,6 +181,22 @@ builder.Services.AddOpenApi();
 
 var app = builder.Build();
 
+// Apply pending EF Core migrations (DATA-034: migrations through controlled deployment).
+// Runs synchronously on startup to ensure schema is ready before the service serves requests.
+// If migration fails, service startup fails (correct behavior for schema corruption/errors).
+try
+{
+    using var scope = app.Services.CreateScope();
+    var dbContext = scope.ServiceProvider.GetRequiredService<CrmDbContext>();
+    await dbContext.Database.MigrateAsync();
+    Console.WriteLine("[CRM] ✓ Database migrations applied successfully");
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"[CRM] ✗ Database migration failed: {ex.Message}");
+    throw;
+}
+
 app.UseExceptionHandler();
 
 // Keeps status-code-only failures (no exception - e.g. an unmatched route today, or a future
