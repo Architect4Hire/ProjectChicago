@@ -27,7 +27,7 @@ builder.AddRedisClient("redis");
 // Session store and identity client (BFF components: login/logout endpoints and bearer-token transform).
 builder.Services.AddScoped<ISessionStore, RedisSessionStore>();
 builder.Services.AddHttpClient<IdentityInternalClient>()
-    .ConfigureHttpClient(client => client.BaseAddress = new Uri("https://identity"));
+    .ConfigureHttpClient(client => client.BaseAddress = new Uri(identityUrl));
 
 // CSRF protection via ASP.NET Core IAntiforgery (ADR-0018-superseding: double-submit token pattern).
 builder.Services.AddAntiforgery();
