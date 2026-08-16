@@ -134,6 +134,7 @@ var gateway = builder.AddProject<Projects.ProjectChicago_Gateway>("gateway")
 // which src/web/src/api/http.ts reads via import.meta.env to build the single typed gateway client
 // base URL (frontend.md: "Browser talks to exactly one backend origin/base URL: YARP gateway").
 builder.AddViteApp("web", "../web", "dev")
+    .WithHttpsEndpoint(port: 5173)
     .WithReference(gateway)
     .WaitFor(gateway)
     .WithEnvironment("VITE_API_BASE_URL", gateway.GetEndpoint("https"));

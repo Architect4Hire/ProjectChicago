@@ -5,6 +5,7 @@ import AuthenticatedShell from './app/AuthenticatedShell';
 import { ClientsListPage } from './features/clients/ClientsListPage';
 import { ClientCreatePage } from './features/clients/ClientCreatePage';
 import { ClientDetailPage } from './features/clients/ClientDetailPage';
+import { ProjectsListPage, ProjectCreatePage, ProjectDetailPage } from './features/projects';
 
 function App() {
   return (
@@ -27,7 +28,9 @@ function App() {
               <Route path="/clients" element={<ClientsListPage />} />
               <Route path="/clients/new" element={<ClientCreatePage />} />
               <Route path="/clients/:clientId" element={<ClientDetailPage />} />
-              <Route path="/projects" element={<PagePlaceholder title="Projects" />} />
+              <Route path="/projects" element={<ProjectsListPage />} />
+              <Route path="/projects/new" element={<ProjectCreatePage />} />
+              <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
               <Route path="/tasks" element={<PagePlaceholder title="Tasks" />} />
               <Route path="/search" element={<PagePlaceholder title="Search" />} />
               <Route path="/admin" element={<ProtectedRoute requiredRoles={['Admin']}><PagePlaceholder title="Administration" /></ProtectedRoute>} />

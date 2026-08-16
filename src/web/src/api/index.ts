@@ -52,3 +52,19 @@ export {
   type AuditEntry,
   type AuditListResult,
 } from './audit';
+
+export {
+  projectsApi,
+  type Project,
+  type ProjectDetail,
+  type ProjectDetailRecord,
+  type ProjectDetailTaskSummary,
+  type ProjectSortBy,
+  type ProjectListFilter,
+  type ProjectListOptions,
+  type CreateProjectRequest,
+  type UpdateProjectRequest,
+  type ChangeProjectStatusRequest,
+  type ArchiveProjectRequest,
+  type RestoreProjectRequest,
+} from './projects';

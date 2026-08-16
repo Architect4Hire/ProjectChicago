@@ -244,7 +244,7 @@ export interface RestoreClientRequest {
  */
 export type ClientSortBy = 'name' | 'createdDate' | 'lastModifiedDate' | 'lifecycleStatus';
 
-export type SortDirection = 'asc' | 'desc';
+export type SortDirection = 'Ascending' | 'Descending';
 
 /**
  * Filter criteria for Client list

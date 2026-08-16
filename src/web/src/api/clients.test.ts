@@ -216,12 +216,12 @@ describe('clientsApi', () => {
 
       await clientsApi.listClients({
         sortBy: 'name',
-        sortDirection: 'asc',
+        sortDirection: 'Ascending',
       });
 
       const callArg = (mockClient.get as any).mock.calls[0][0] as string;
       expect(callArg).toContain('sortBy=name');
-      expect(callArg).toContain('sortDirection=asc');
+      expect(callArg).toContain('sortDirection=Ascending');
     });
 
     it('should fetch clients list with combined options', async () => {
@@ -243,7 +243,7 @@ describe('clientsApi', () => {
         assignedOwner: 'user-1',
         excludeArchived: true,
         sortBy: 'name',
-        sortDirection: 'desc',
+        sortDirection: 'Descending',
       });
 
       const callArg = (mockClient.get as any).mock.calls[0][0] as string;
@@ -254,7 +254,7 @@ describe('clientsApi', () => {
       expect(callArg).toContain('assignedOwner=user-1');
       expect(callArg).toContain('excludeArchived=true');
       expect(callArg).toContain('sortBy=name');
-      expect(callArg).toContain('sortDirection=desc');
+      expect(callArg).toContain('sortDirection=Descending');
     });
   });
 
