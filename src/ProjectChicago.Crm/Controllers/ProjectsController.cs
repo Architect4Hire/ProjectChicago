@@ -37,7 +37,7 @@ public sealed class ProjectsController : ControllerBase
     /// <response code="400">Validation error or client not found</response>
     /// <response code="401">Not authenticated</response>
     /// <response code="403">Not authorized (requires Projects.Write)</response>
-    [Route("api/clients/{clientId}/projects")]
+    [Route("/api/clients/{clientId:guid}/projects")]
     [HttpPost(Name = ProjectsApiContract.CreateOperationId)]
     [Authorize(Policy = "Projects.Write")]
     [ProducesResponseType(typeof(ProjectServiceModel), StatusCodes.Status201Created)]
@@ -84,7 +84,6 @@ public sealed class ProjectsController : ControllerBase
     /// <response code="400">Validation error</response>
     /// <response code="401">Not authenticated</response>
     /// <response code="403">Not authorized (requires Projects.Read)</response>
-    [Route("api/projects")]
     [HttpGet(Name = ProjectsApiContract.ListOperationId)]
     [Authorize(Policy = "Projects.Read")]
     [ProducesResponseType(typeof(PagedResponse<ProjectServiceModel>), StatusCodes.Status200OK)]
@@ -110,7 +109,7 @@ public sealed class ProjectsController : ControllerBase
     /// <response code="401">Not authenticated</response>
     /// <response code="403">Not authorized (requires Projects.Read)</response>
     /// <response code="404">Project not found</response>
-    [Route("api/projects/{projectId}")]
+    [Route("{projectId:guid}")]
     [HttpGet(Name = ProjectsApiContract.DetailOperationId)]
     [Authorize(Policy = "Projects.Read")]
     [ProducesResponseType(typeof(ProjectDetailServiceModel), StatusCodes.Status200OK)]
@@ -139,7 +138,7 @@ public sealed class ProjectsController : ControllerBase
     /// <response code="403">Not authorized (requires Projects.Write)</response>
     /// <response code="404">Project not found</response>
     /// <response code="409">Concurrency conflict (expected version mismatch)</response>
-    [Route("api/projects/{projectId}/status")]
+    [Route("{projectId:guid}/status")]
     [HttpPatch(Name = ProjectsApiContract.TransitionStatusOperationId)]
     [Authorize(Policy = "Projects.Write")]
     [ProducesResponseType(typeof(ProjectServiceModel), StatusCodes.Status200OK)]
@@ -202,7 +201,7 @@ public sealed class ProjectsController : ControllerBase
     /// <response code="403">Not authorized (requires Projects.Write)</response>
     /// <response code="404">Project not found</response>
     /// <response code="409">Concurrency conflict (expected version mismatch)</response>
-    [Route("api/projects/{projectId}/archive")]
+    [Route("{projectId:guid}/archive")]
     [HttpDelete(Name = ProjectsApiContract.ArchiveOperationId)]
     [Authorize(Policy = "Projects.Write")]
     [ProducesResponseType(typeof(ProjectServiceModel), StatusCodes.Status200OK)]

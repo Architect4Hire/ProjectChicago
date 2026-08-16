@@ -39,7 +39,7 @@ public sealed class TasksController : ControllerBase
     /// <response code="400">Validation error or project not found</response>
     /// <response code="401">Not authenticated</response>
     /// <response code="403">Not authorized (requires Tasks.Write)</response>
-    [Route("api/projects/{projectId}/tasks")]
+    [Route("api/projects/{projectId:guid}/tasks")]
     [HttpPost(Name = TasksApiContract.CreateOperationId)]
     [Authorize(Policy = "Tasks.Write")]
     [ProducesResponseType(typeof(TaskServiceModel), StatusCodes.Status201Created)]
@@ -84,7 +84,7 @@ public sealed class TasksController : ControllerBase
     /// <response code="401">Not authenticated</response>
     /// <response code="403">Not authorized (requires Tasks.Write)</response>
     /// <response code="409">Concurrency conflict (expected version mismatch)</response>
-    [Route("api/tasks/{taskId}")]
+    [Route("api/tasks/{taskId:guid}")]
     [HttpPatch(Name = TasksApiContract.AssignOperationId)]
     [Authorize(Policy = "Tasks.Write")]
     [ProducesResponseType(typeof(TaskServiceModel), StatusCodes.Status200OK)]
@@ -139,7 +139,7 @@ public sealed class TasksController : ControllerBase
     /// <response code="401">Not authenticated</response>
     /// <response code="403">Not authorized (requires Tasks.Write)</response>
     /// <response code="409">Concurrency conflict (expected version mismatch)</response>
-    [Route("api/tasks/{taskId}/priority")]
+    [Route("api/tasks/{taskId:guid}/priority")]
     [HttpPatch(Name = TasksApiContract.ChangePriorityOperationId)]
     [Authorize(Policy = "Tasks.Write")]
     [ProducesResponseType(typeof(TaskServiceModel), StatusCodes.Status200OK)]
@@ -194,7 +194,7 @@ public sealed class TasksController : ControllerBase
     /// <response code="401">Not authenticated</response>
     /// <response code="403">Not authorized (requires Tasks.Write)</response>
     /// <response code="409">Concurrency conflict (expected version mismatch)</response>
-    [Route("api/tasks/{taskId}/status")]
+    [Route("api/tasks/{taskId:guid}/status")]
     [HttpPatch(Name = TasksApiContract.ChangeStatusOperationId)]
     [Authorize(Policy = "Tasks.Write")]
     [ProducesResponseType(typeof(TaskServiceModel), StatusCodes.Status200OK)]
@@ -258,7 +258,7 @@ public sealed class TasksController : ControllerBase
     /// <response code="401">Not authenticated</response>
     /// <response code="403">Not authorized (requires Tasks.Write)</response>
     /// <response code="409">Concurrency conflict (expected version mismatch)</response>
-    [Route("api/tasks/{taskId}/reopen")]
+    [Route("api/tasks/{taskId:guid}/reopen")]
     [HttpPatch(Name = TasksApiContract.ReopenOperationId)]
     [Authorize(Policy = "Tasks.Write")]
     [ProducesResponseType(typeof(TaskServiceModel), StatusCodes.Status200OK)]
@@ -322,7 +322,7 @@ public sealed class TasksController : ControllerBase
     /// <response code="401">Not authenticated</response>
     /// <response code="403">Not authorized (requires Tasks.Write)</response>
     /// <response code="409">Concurrency conflict (expected version mismatch)</response>
-    [Route("api/tasks/{taskId}/details")]
+    [Route("api/tasks/{taskId:guid}/details")]
     [HttpPatch(Name = TasksApiContract.EditOperationId)]
     [Authorize(Policy = "Tasks.Write")]
     [ProducesResponseType(typeof(TaskServiceModel), StatusCodes.Status200OK)]
