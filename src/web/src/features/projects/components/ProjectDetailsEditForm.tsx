@@ -100,15 +100,18 @@ export const ProjectDetailsEditForm: FC<ProjectDetailsEditFormProps> = ({
       if (priority !== project.priority) payload.priority = priority;
       if (ownerUserId !== project.ownerUserId) payload.ownerUserId = ownerUserId;
 
-      const startDate = startDateUtc
-        ? new Date(startDateUtc + 'T00:00:00Z').toISOString()
-        : undefined;
-      if (startDate !== project.startDateUtc) payload.startDateUtc = startDate;
+      const formatDate = (date: string | null | undefined): string | undefined => {
+        if (!date) return undefined;
+        return new Date(date + (date.includes('T') ? '' : 'T00:00:00Z')).toISOString().replace(/\.\d{3}Z$/, 'Z');
+      };
 
-      const targetDate = targetCompletionDateUtc
-        ? new Date(targetCompletionDateUtc + 'T00:00:00Z').toISOString()
-        : undefined;
-      if (targetDate !== project.targetCompletionDateUtc) payload.targetCompletionDateUtc = targetDate;
+      const startDate = formatDate(startDateUtc);
+      const projectStartDate = formatDate(project.startDateUtc);
+      if (startDate !== projectStartDate) payload.startDateUtc = startDate;
+
+      const targetDate = formatDate(targetCompletionDateUtc);
+      const projectTargetDate = formatDate(project.targetCompletionDateUtc);
+      if (targetDate !== projectTargetDate) payload.targetCompletionDateUtc = targetDate;
 
       if (notes !== (project.notes || '')) payload.notes = notes || undefined;
 

@@ -1,5 +1,6 @@
 import { type FC, useState } from 'react';
-import { Stack, PageHeader, Spinner, EmptyState, ErrorState } from '@/design-system';
+import { useNavigate } from 'react-router-dom';
+import { Stack, PageHeader, Spinner, EmptyState, ErrorState, Button, Cluster } from '@/design-system';
 import { useProjectsList } from './hooks/useProjectsList';
 import { ProjectsFilter } from './components/ProjectsFilter';
 import { ProjectsTable } from './components/ProjectsTable';
@@ -11,6 +12,7 @@ import { ProjectsPagination } from './components/ProjectsPagination';
  * AuthenticatedShell/AppLayout via the route tree.
  */
 export const ProjectsListPage: FC = () => {
+  const navigate = useNavigate();
   const [showFilters, setShowFilters] = useState(false);
   const listState = useProjectsList();
 
@@ -20,13 +22,18 @@ export const ProjectsListPage: FC = () => {
         title="Projects"
         description="Manage and organize your projects"
         actions={
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-900"
-            aria-label={showFilters ? 'Hide filters' : 'Show filters'}
-          >
-            {showFilters ? 'Hide' : 'Show'} Filters
-          </button>
+          <Cluster>
+            <Button onClick={() => navigate('/projects/new')}>
+              Create Project
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setShowFilters(!showFilters)}
+              aria-label={showFilters ? 'Hide filters' : 'Show filters'}
+            >
+              {showFilters ? 'Hide' : 'Show'} Filters
+            </Button>
+          </Cluster>
         }
       />
 

@@ -68,14 +68,15 @@ public static class AuthEndpoints
 
             // Set HttpOnly session cookie with the opaque session ID (never the tokens)
             // SameSite=None required for cross-origin requests (React app on different port than gateway).
-            // Secure flag must be true when SameSite=None, so enforce HTTPS for BFF cookie transport (ADR-0018-superseding).
+            // Secure flag is conditional: true in production, false in development (so local dev works without HTTPS).
+            // In production, HTTPS is enforced and SameSite=None ensures cross-origin cookies work (ADR-0018-superseding).
             httpContext.Response.Cookies.Append(
                 ".ProjectChicago.SessionId",
                 sessionId,
                 new CookieOptions
                 {
                     HttpOnly = true,
-                    Secure = true,
+                    Secure = httpContext.Request.IsHttps,
                     SameSite = SameSiteMode.None,
                     MaxAge = session.RefreshTokenExpiresAtUtc - DateTime.UtcNow,
                 });

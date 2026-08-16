@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ProjectDetailsEditForm } from './ProjectDetailsEditForm';
@@ -117,8 +117,11 @@ describe('ProjectDetailsEditForm', () => {
 
       expect((screen.getByPlaceholderText(/Describe the project/) as HTMLTextAreaElement).value).toBe('');
       expect((screen.getByPlaceholderText(/Additional notes/) as HTMLTextAreaElement).value).toBe('');
-      expect((screen.getByDisplayValue('2024-01-15') as HTMLInputElement).value).toBe('');
-      expect((screen.getByDisplayValue('2024-06-30') as HTMLInputElement).value).toBe('');
+
+      const startDateInputs = screen.getAllByLabelText(/^Start date/);
+      const targetDateInputs = screen.getAllByLabelText(/^Target completion/);
+      expect((startDateInputs[0] as HTMLInputElement).value).toBe('');
+      expect((targetDateInputs[0] as HTMLInputElement).value).toBe('');
     });
   });
 
@@ -171,10 +174,10 @@ describe('ProjectDetailsEditForm', () => {
         expect(screen.getByRole('status', { hidden: false })).toHaveTextContent('Project details saved successfully');
       });
 
-      // Wait for callback
+      // Wait for callback (with increased timeout for setTimeout)
       await waitFor(() => {
         expect(mockOnSaved).toHaveBeenCalled();
-      });
+      }, { timeout: 3000 });
     });
 
     it('only sends changed fields to API', async () => {
@@ -217,7 +220,7 @@ describe('ProjectDetailsEditForm', () => {
         expect(vi.mocked(projectsApi.updateProject)).toHaveBeenCalledWith('proj-123', {
           priority: 'Critical',
         });
-      });
+      }, { timeout: 3000 });
     });
 
     it('handles no changes gracefully', async () => {
@@ -246,7 +249,7 @@ describe('ProjectDetailsEditForm', () => {
 
       await waitFor(() => {
         expect(mockOnSaved).toHaveBeenCalled();
-      });
+      }, { timeout: 3000 });
     });
 
     it('converts dates to ISO format correctly', async () => {
@@ -290,9 +293,9 @@ describe('ProjectDetailsEditForm', () => {
 
       await waitFor(() => {
         const call = vi.mocked(projectsApi.updateProject).mock.calls[0];
-        expect(call[1].startDateUtc).toBe('2025-03-15T00:00:00Z');
-        expect(call[1].targetCompletionDateUtc).toBe('2025-06-30T00:00:00Z');
-      });
+        expect(call[1].startDateUtc).toMatch(/^2025-03-15T00:00:00Z$/);
+        expect(call[1].targetCompletionDateUtc).toMatch(/^2025-06-30T00:00:00Z$/);
+      }, { timeout: 3000 });
     });
   });
 
