@@ -84,6 +84,7 @@ public sealed class ProjectsController : ControllerBase
     /// <response code="400">Validation error</response>
     /// <response code="401">Not authenticated</response>
     /// <response code="403">Not authorized (requires Projects.Read)</response>
+    [Route("")]
     [HttpGet(Name = ProjectsApiContract.ListOperationId)]
     [Authorize(Policy = "Projects.Read")]
     [ProducesResponseType(typeof(PagedResponse<ProjectServiceModel>), StatusCodes.Status200OK)]
